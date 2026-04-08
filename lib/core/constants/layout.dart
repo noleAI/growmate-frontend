@@ -1,0 +1,19 @@
+import 'package:flutter/material.dart';
+
+class GrowMateLayout {
+  GrowMateLayout._();
+
+  static const double maxContentWidth = 600;
+  static const double horizontalPadding = 24;
+  static const double sectionGap = 24;
+  static const double itemGap = 16;
+
+  static const double cardRadius = 16;
+  static const double buttonRadius = 32;
+  static const double specialRadius = 48;
+
+  static const EdgeInsets pagePadding = EdgeInsets.symmetric(
+    horizontal: horizontalPadding,
+    vertical: 16,
+  );
+}
