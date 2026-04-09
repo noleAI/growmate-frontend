@@ -123,6 +123,37 @@ class ProfileRepository {
     }
   }
 
+  Future<void> clearCachedProfile(String uid) async {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      return;
+    }
+
+    await _secureStorage.delete(key: '$_cachePrefix$normalizedUid');
+  }
+
+  Future<void> deleteProfile(String uid) async {
+    final normalizedUid = uid.trim();
+    if (normalizedUid.isEmpty) {
+      throw const ProfileRepositoryException('Thiếu định danh người dùng.');
+    }
+
+    final client = _supabaseClient;
+    if (client != null) {
+      try {
+        await client.from('profiles').delete().eq('id', normalizedUid);
+      } on PostgrestException catch (error) {
+        throw ProfileRepositoryException(_mapPostgrestError(error));
+      } catch (_) {
+        throw const ProfileRepositoryException(
+          'Mình chưa xóa được dữ liệu tài khoản lúc này, bạn thử lại nhé.',
+        );
+      }
+    }
+
+    await clearCachedProfile(normalizedUid);
+  }
+
   Stream<UserProfile> profileStream(String uid) async* {
     final normalizedUid = uid.trim();
     if (normalizedUid.isEmpty) {

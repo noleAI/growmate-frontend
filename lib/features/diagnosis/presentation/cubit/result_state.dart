@@ -119,17 +119,23 @@ final class ResultReady extends ResultState {
   final String? infoMessage;
   final bool navigateToNextQuiz;
 
+  bool get navigateToIntervention => navigateToNextQuiz;
+
   ResultReady copyWith({
     ResultModel? result,
     bool? isAnalyzingFeedback,
     String? infoMessage,
     bool? navigateToNextQuiz,
+    bool? navigateToIntervention,
   }) {
+    final nextNavigation =
+        navigateToIntervention ?? navigateToNextQuiz ?? this.navigateToNextQuiz;
+
     return ResultReady(
       result: result ?? this.result,
       isAnalyzingFeedback: isAnalyzingFeedback ?? this.isAnalyzingFeedback,
       infoMessage: infoMessage,
-      navigateToNextQuiz: navigateToNextQuiz ?? this.navigateToNextQuiz,
+      navigateToNextQuiz: nextNavigation,
     );
   }
 

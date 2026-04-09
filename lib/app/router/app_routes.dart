@@ -11,7 +11,13 @@ class AppRoutes {
   static const String today = '/today';
   static const String progress = '/progress';
   static const String profile = '/profile';
+  static const String settings = '/settings';
   static const String notifications = '/notifications';
+  static const String dataExport = '/privacy/export';
+  static const String termsOfService = '/legal/terms';
+  static const String privacyPolicy = '/legal/privacy';
+  static const String schedule = '/schedule';
+  static const String mindfulBreak = '/mindful-break';
 
   static const String quiz = '/quiz';
   static const String recovery = '/recovery';

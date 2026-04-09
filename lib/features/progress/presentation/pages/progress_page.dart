@@ -1,8 +1,17 @@
+import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../data/models/user_profile.dart';
+import '../../../../features/achievement/data/models/achievement_badge.dart';
+import '../../../../features/achievement/data/repositories/achievement_repository.dart';
+import '../../../../features/review/data/models/spaced_review_item.dart';
+import '../../../../features/review/data/repositories/spaced_repetition_repository.dart';
+import '../../../../features/schedule/data/models/study_schedule_item.dart';
+import '../../../../features/schedule/data/repositories/study_schedule_repository.dart';
+import '../../../../features/session/data/models/session_history_entry.dart';
+import '../../../../features/session/data/repositories/session_history_repository.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
@@ -11,58 +20,97 @@ import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/mock_user_progress_generator.dart';
 
 class ProgressPage extends StatelessWidget {
-  const ProgressPage({super.key}) : _profile = null, _forceEmptyState = false;
+  const ProgressPage({
+    super.key,
+    SessionHistoryRepository? sessionHistoryRepository,
+  }) : _profile = null,
+       _forceEmptyState = false,
+       _sessionHistoryRepository = sessionHistoryRepository;
 
   final UserProfile? _profile;
   final bool _forceEmptyState;
+  final SessionHistoryRepository? _sessionHistoryRepository;
 
   @override
   Widget build(BuildContext context) {
-    return ProgressScreen(profile: _profile, forceEmptyState: _forceEmptyState);
+    return ProgressScreen(
+      profile: _profile,
+      forceEmptyState: _forceEmptyState,
+      sessionHistoryRepository:
+          _sessionHistoryRepository ?? SessionHistoryRepository.instance,
+    );
   }
 }
 
 class ProgressScreen extends StatelessWidget {
-  const ProgressScreen({super.key, this.profile, this.forceEmptyState = false});
+  const ProgressScreen({
+    super.key,
+    this.profile,
+    this.forceEmptyState = false,
+    required this.sessionHistoryRepository,
+  });
 
   final UserProfile? profile;
   final bool forceEmptyState;
+  final SessionHistoryRepository sessionHistoryRepository;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     final progress = MockUserProgressGenerator.fromUserProfile(
       profile,
       forceEmptyState: forceEmptyState,
     );
 
     return Scaffold(
-      backgroundColor: GrowMateColors.background,
+      backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
-        child: ListView(
-          children: [
-            const GrowMateTopAppBar(),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            Text(
-              'Tiến trình tuần này',
-              style: Theme.of(context).textTheme.headlineLarge,
-            ),
-            const SizedBox(height: GrowMateLayout.space8),
-            Text(
-              'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: GrowMateColors.textSecondary,
-              ),
-            ),
-            const SizedBox(height: GrowMateLayout.sectionGapLg),
-            if (progress.isEmpty)
-              const _ProgressEmptyState()
-            else ...[
-              _SummarySection(progress: progress),
-              const SizedBox(height: GrowMateLayout.sectionGapLg),
-              _WeaknessSection(progress: progress),
-            ],
-            const SizedBox(height: GrowMateLayout.sectionGap),
-          ],
+        child: StreamBuilder<List<SessionHistoryEntry>>(
+          stream: sessionHistoryRepository.watchHistory(),
+          builder: (context, snapshot) {
+            final history = snapshot.data ?? const <SessionHistoryEntry>[];
+
+            return ListView(
+              children: [
+                const GrowMateTopAppBar(),
+                const SizedBox(height: GrowMateLayout.sectionGap),
+                Text(
+                  'Tiến trình tuần này',
+                  style: theme.textTheme.headlineLarge,
+                ),
+                const SizedBox(height: GrowMateLayout.space8),
+                Text(
+                  'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                if (progress.isEmpty)
+                  const _ProgressEmptyState()
+                else ...[
+                  _SummarySection(progress: progress),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  _StrengthSection(progress: progress),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  _WeaknessSection(progress: progress),
+                ],
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                const _SpacedReviewSection(),
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                const _AchievementSection(),
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                const _SmartScheduleInsightSection(),
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                _SessionTimelineSection(history: history),
+                const SizedBox(height: GrowMateLayout.sectionGapLg),
+                _WeeklyMomentumSection(history: history, progress: progress),
+                const SizedBox(height: GrowMateLayout.sectionGap),
+              ],
+            );
+          },
         ),
       ),
       bottomNavigationBar: GrowMateBottomNavBar(
@@ -80,6 +128,8 @@ class _SummarySection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     final ratio = _parseWeeklyRatio(progress.weeklyConsistency);
     final percentage = (ratio * 100).round();
 
@@ -93,7 +143,7 @@ class _SummarySection extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(GrowMateLayout.contentGap),
             decoration: BoxDecoration(
-              color: GrowMateColors.backgroundSoft,
+              color: colors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Column(
@@ -102,7 +152,7 @@ class _SummarySection extends StatelessWidget {
                 Text(
                   _weeklySummaryLabel(progress.weeklyConsistency),
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: colors.onSurface,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -112,7 +162,7 @@ class _SummarySection extends StatelessWidget {
                     Text(
                       'Tóm tắt',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: GrowMateColors.textPrimary,
+                        color: colors.onSurface,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -120,7 +170,7 @@ class _SummarySection extends StatelessWidget {
                     Text(
                       '$percentage%',
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: GrowMateColors.textSecondary,
+                        color: colors.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
                       ),
                     ),
@@ -132,7 +182,7 @@ class _SummarySection extends StatelessWidget {
                   child: LinearProgressIndicator(
                     minHeight: 6,
                     value: ratio,
-                    backgroundColor: GrowMateColors.surfaceContainerHigh,
+                    backgroundColor: colors.surfaceContainerLow,
                     valueColor: const AlwaysStoppedAnimation<Color>(
                       Color(0xFF2DA5A8),
                     ),
@@ -144,12 +194,60 @@ class _SummarySection extends StatelessWidget {
           const SizedBox(height: GrowMateLayout.contentGap),
           Text(
             progress.learningRhythm,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: GrowMateColors.textSecondary,
-            ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _StrengthSection extends StatelessWidget {
+  const _StrengthSection({required this.progress});
+
+  final UserProgressSnapshot progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    final strengths =
+        progress.masteryMap
+            .where((item) => item.score >= 3.0)
+            .toList(growable: false)
+          ..sort((a, b) => b.score.compareTo(a.score));
+
+    return Section(
+      title: 'Điểm mạnh',
+      subtitle: 'Những chủ đề bạn đang nắm khá chắc',
+      child: strengths.isEmpty
+          ? Text(
+              'Bạn đang trong giai đoạn xây nền. Hoàn thành thêm vài phiên để hệ thống nhận diện điểm mạnh rõ hơn.',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
+            )
+          : Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: strengths
+                  .take(3)
+                  .toList(growable: false)
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => ProgressBar(
+                      label: entry.value.topic,
+                      value: entry.value.score / 4,
+                      trailing: '${((entry.value.score / 4) * 100).round()}%',
+                      caption: entry.value.statusLabel,
+                      color: GrowMateColors.success,
+                      delayMs: 70 + entry.key * 45,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
     );
   }
 }
@@ -161,11 +259,7 @@ class _WeaknessSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final strengths =
-        progress.masteryMap
-            .where((item) => item.score >= 3.0)
-            .toList(growable: false)
-          ..sort((a, b) => b.score.compareTo(a.score));
+    final colors = Theme.of(context).colorScheme;
 
     final gaps =
         progress.masteryMap
@@ -179,51 +273,17 @@ class _WeaknessSection extends StatelessWidget {
         : 'Khuyến nghị AI: luyện trọng tâm ${weakest.topic} trong 15 phút, sau đó kiểm tra lại bằng 3 câu tính giờ.';
 
     return Section(
-      title: 'Điểm mạnh và điểm yếu',
+      title: 'Điểm yếu cần ưu tiên',
       subtitle: 'Tập trung vào 1 chủ đề yếu để tăng độ tự tin nhanh hơn',
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          if (strengths.isNotEmpty) ...[
-            Text(
-              'Điểm mạnh',
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: GrowMateColors.textPrimary,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            ...strengths
-                .take(2)
-                .toList(growable: false)
-                .asMap()
-                .entries
-                .map(
-                  (entry) => ProgressBar(
-                    label: entry.value.topic,
-                    value: entry.value.score / 4,
-                    trailing: '${((entry.value.score / 4) * 100).round()}%',
-                    caption: entry.value.statusLabel,
-                    color: GrowMateColors.success,
-                    delayMs: 70 + entry.key * 45,
-                  ),
-                ),
-            const SizedBox(height: GrowMateLayout.space8),
-          ],
-          Text(
-            'Điểm yếu',
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: GrowMateColors.textPrimary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-          const SizedBox(height: GrowMateLayout.space12),
           if (gaps.isEmpty)
             Text(
               'Tuyệt vời, hiện chưa có lỗ hổng cần ưu tiên.',
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.textSecondary,
-              ),
+              style: Theme.of(
+                context,
+              ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
             )
           else
             ...gaps
@@ -246,13 +306,13 @@ class _WeaknessSection extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(GrowMateLayout.contentGap),
             decoration: BoxDecoration(
-              color: GrowMateColors.backgroundSoft,
+              color: colors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               recommendation,
               style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: GrowMateColors.textPrimary,
+                color: colors.onSurface,
                 fontWeight: FontWeight.w500,
               ),
             ),
@@ -263,22 +323,477 @@ class _WeaknessSection extends StatelessWidget {
   }
 }
 
+class _SessionTimelineSection extends StatelessWidget {
+  const _SessionTimelineSection({required this.history});
+
+  final List<SessionHistoryEntry> history;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Section(
+      title: 'Timeline phiên học',
+      subtitle: 'Lịch sử phiên gần đây để bạn theo dõi nhịp học',
+      child: history.isEmpty
+          ? Text(
+              'Chưa có phiên học nào được lưu. Sau khi hoàn thành một phiên, timeline sẽ tự động xuất hiện.',
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          : Column(
+              children: history
+                  .take(5)
+                  .map(
+                    (entry) => Padding(
+                      padding: const EdgeInsets.only(bottom: 10),
+                      child: Container(
+                        width: double.infinity,
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerHigh,
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 34,
+                              height: 34,
+                              decoration: BoxDecoration(
+                                color: colors.primaryContainer,
+                                borderRadius: BorderRadius.circular(10),
+                              ),
+                              child: Icon(
+                                entry.mode == 'recovery'
+                                    ? Icons.spa_rounded
+                                    : Icons.menu_book_rounded,
+                                color: colors.primary,
+                                size: 18,
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.topic,
+                                    style: theme.textTheme.bodyLarge?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 4),
+                                  Text(
+                                    '${_dayLabel(entry.completedAt)} • ${entry.durationMinutes} phút • Focus ${entry.focusScore.toStringAsFixed(1)}/4',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(height: 6),
+                                  Text(
+                                    'Action kế tiếp: ${entry.nextAction}',
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colors.onSurface,
+                                      fontWeight: FontWeight.w500,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _SpacedReviewSection extends StatelessWidget {
+  const _SpacedReviewSection();
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now().toUtc();
+
+    return StreamBuilder<List<SpacedReviewItem>>(
+      stream: SpacedRepetitionRepository.instance.watchItems(),
+      builder: (context, snapshot) {
+        final items = snapshot.data ?? const <SpacedReviewItem>[];
+        final dueItems =
+            items
+                .where((item) => !item.dueAt.isAfter(now))
+                .toList(growable: false)
+              ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+
+        return Section(
+          title: 'Spaced Repetition',
+          subtitle: 'Ôn tập đúng nhịp theo đường cong quên lãng',
+          child: dueItems.isEmpty
+              ? Text(
+                  'Hôm nay chưa có chủ đề đến lịch ôn. Bạn đang giữ nhịp khá tốt.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : Column(
+                  children: dueItems
+                      .take(3)
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: Container(
+                            width: double.infinity,
+                            padding: const EdgeInsets.all(12),
+                            decoration: BoxDecoration(
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHigh,
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            child: Row(
+                              children: [
+                                const Icon(
+                                  Icons.refresh_rounded,
+                                  color: GrowMateColors.primary,
+                                  size: 18,
+                                ),
+                                const SizedBox(width: 8),
+                                Expanded(
+                                  child: Text(
+                                    '${item.topic} • chu kỳ ${item.intervalDays} ngày',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .bodyMedium
+                                        ?.copyWith(fontWeight: FontWeight.w600),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+        );
+      },
+    );
+  }
+}
+
+class _AchievementSection extends StatelessWidget {
+  const _AchievementSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<AchievementBadge>>(
+      stream: AchievementRepository.instance.watchUnlocked(),
+      builder: (context, snapshot) {
+        final badges = snapshot.data ?? const <AchievementBadge>[];
+
+        return Section(
+          title: 'Achievement Badges',
+          subtitle: 'Ghi nhận nỗ lực tích cực, không tạo áp lực điểm số',
+          child: badges.isEmpty
+              ? Text(
+                  'Hãy hoàn thành vài phiên để mở khóa huy hiệu đầu tiên.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: badges
+                      .take(6)
+                      .map(
+                        (badge) => Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          decoration: BoxDecoration(
+                            color: Theme.of(
+                              context,
+                            ).colorScheme.surfaceContainerHigh,
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                _iconForBadge(badge.iconKey),
+                                size: 16,
+                                color: GrowMateColors.primary,
+                              ),
+                              const SizedBox(width: 6),
+                              Text(
+                                badge.title,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(fontWeight: FontWeight.w700),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+        );
+      },
+    );
+  }
+
+  static IconData _iconForBadge(String key) {
+    switch (key) {
+      case 'rocket':
+        return Icons.rocket_launch_rounded;
+      case 'local_fire_department':
+        return Icons.local_fire_department_rounded;
+      case 'spa':
+        return Icons.spa_rounded;
+      case 'psychology_alt':
+        return Icons.psychology_alt_rounded;
+      case 'calendar_month':
+        return Icons.calendar_month_rounded;
+      default:
+        return Icons.workspace_premium_rounded;
+    }
+  }
+}
+
+class _SmartScheduleInsightSection extends StatelessWidget {
+  const _SmartScheduleInsightSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return StreamBuilder<List<StudyScheduleItem>>(
+      stream: StudyScheduleRepository.instance.watchItems(),
+      builder: (context, snapshot) {
+        final now = DateTime.now().toUtc();
+        final items = snapshot.data ?? const <StudyScheduleItem>[];
+        final pending =
+            items.where((item) => !item.completed).toList(growable: false)
+              ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
+
+        final nearest = pending.isEmpty ? null : pending.first;
+
+        return Section(
+          title: 'Smart Schedule',
+          subtitle: 'Ưu tiên lộ trình theo lịch thi và deadline',
+          child: nearest == null
+              ? Text(
+                  'Chưa có mốc lịch học. Bạn có thể thêm trong mục Settings > Smart Schedule.',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                  ),
+                )
+              : Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Text(
+                    _scheduleHint(nearest, now),
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ),
+        );
+      },
+    );
+  }
+
+  static String _scheduleHint(StudyScheduleItem item, DateTime now) {
+    final daysLeft = item.dueAt.toLocal().difference(now.toLocal()).inDays;
+    final typeLabel = item.type == 'exam' ? 'bài thi' : 'deadline';
+
+    if (daysLeft <= 0) {
+      return 'Hôm nay có $typeLabel: ${item.title} (${item.subject}). Nên dành 15-20 phút ôn trọng tâm.';
+    }
+
+    return 'Còn $daysLeft ngày tới $typeLabel: ${item.title} (${item.subject}). AI sẽ ưu tiên chủ đề liên quan trong kế hoạch tuần.';
+  }
+}
+
+class _WeeklyMomentumSection extends StatelessWidget {
+  const _WeeklyMomentumSection({required this.history, required this.progress});
+
+  final List<SessionHistoryEntry> history;
+  final UserProgressSnapshot progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final now = DateTime.now();
+    final days = List<DateTime>.generate(
+      7,
+      (index) => DateTime(
+        now.year,
+        now.month,
+        now.day,
+      ).subtract(Duration(days: 6 - index)),
+    );
+
+    final sessionsByDay = <String, int>{};
+    var focusSum = 0.0;
+    var focusCount = 0;
+
+    for (final entry in history) {
+      final dayKey = _dateKey(entry.completedAt.toLocal());
+      sessionsByDay[dayKey] = (sessionsByDay[dayKey] ?? 0) + 1;
+
+      if (entry.completedAt.isAfter(now.subtract(const Duration(days: 7)))) {
+        focusSum += entry.focusScore;
+        focusCount += 1;
+      }
+    }
+
+    final avgFocus = focusCount == 0 ? 0.0 : focusSum / focusCount;
+    final weakestTopic = _resolveWeakestTopic(progress);
+    final tomorrowAction = history.isEmpty
+        ? 'Bắt đầu 1 phiên 10 phút để mở lại nhịp học.'
+        : 'Dành 12 phút cho $weakestTopic, sau đó làm 2 câu tự kiểm tra trong 5 phút.';
+
+    return Section(
+      title: 'Kế hoạch tuần & ngày mai',
+      subtitle: 'Biểu đồ tiến bộ và gợi ý action cho phiên kế tiếp',
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            height: 190,
+            child: BarChart(
+              BarChartData(
+                maxY: 4,
+                gridData: const FlGridData(show: false),
+                borderData: FlBorderData(show: false),
+                titlesData: FlTitlesData(
+                  topTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  rightTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  leftTitles: const AxisTitles(
+                    sideTitles: SideTitles(showTitles: false),
+                  ),
+                  bottomTitles: AxisTitles(
+                    sideTitles: SideTitles(
+                      showTitles: true,
+                      reservedSize: 22,
+                      getTitlesWidget: (value, meta) {
+                        final index = value.toInt();
+                        if (index < 0 || index >= days.length) {
+                          return const SizedBox.shrink();
+                        }
+                        return Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            _weekdayShort(days[index]),
+                            style: Theme.of(context).textTheme.bodySmall,
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ),
+                barGroups: days
+                    .asMap()
+                    .entries
+                    .map((entry) {
+                      final dayKey = _dateKey(entry.value);
+                      final count = (sessionsByDay[dayKey] ?? 0).clamp(0, 4);
+
+                      return BarChartGroupData(
+                        x: entry.key,
+                        barRods: [
+                          BarChartRodData(
+                            toY: count.toDouble(),
+                            width: 16,
+                            borderRadius: BorderRadius.circular(8),
+                            color: const Color(0xFF5A94FF),
+                            backDrawRodData: BackgroundBarChartRodData(
+                              show: true,
+                              toY: 4,
+                              color: Theme.of(
+                                context,
+                              ).colorScheme.surfaceContainerHigh,
+                            ),
+                          ),
+                        ],
+                      );
+                    })
+                    .toList(growable: false),
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'Trung bình focus 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Theme.of(context).colorScheme.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Text(
+              'Action ngày mai: $tomorrowAction',
+              style: Theme.of(
+                context,
+              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  static String _resolveWeakestTopic(UserProgressSnapshot progress) {
+    final gaps =
+        progress.masteryMap
+            .where((topic) => topic.score < 3.0)
+            .toList(growable: false)
+          ..sort((a, b) => a.score.compareTo(b.score));
+
+    if (gaps.isEmpty) {
+      return 'một chủ đề nâng cao';
+    }
+
+    return gaps.first.topic;
+  }
+}
+
 class _ProgressEmptyState extends StatelessWidget {
   const _ProgressEmptyState();
 
   @override
   Widget build(BuildContext context) {
-    return const Section(
+    final colors = Theme.of(context).colorScheme;
+
+    return Section(
       title: 'Chưa có dữ liệu tiến trình',
       subtitle: 'Hoàn tất một phiên để AI bắt đầu bản đồ hóa năng lực',
       child: Row(
         children: [
-          Icon(Icons.timeline_rounded, color: GrowMateColors.primary),
-          SizedBox(width: GrowMateLayout.space12),
+          const Icon(Icons.timeline_rounded, color: GrowMateColors.primary),
+          const SizedBox(width: GrowMateLayout.space12),
           Expanded(
             child: Text(
               'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
-              style: TextStyle(color: GrowMateColors.textSecondary),
+              style: TextStyle(color: colors.onSurfaceVariant),
             ),
           ),
         ],
@@ -311,4 +826,34 @@ String _weeklySummaryLabel(String value) {
   final done = match.group(1) ?? '0';
   final total = match.group(2) ?? '0';
   return '$done/$total buổi đã hoàn thành tuần này';
+}
+
+String _dateKey(DateTime value) {
+  return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
+}
+
+String _weekdayShort(DateTime value) {
+  switch (value.weekday) {
+    case DateTime.monday:
+      return 'T2';
+    case DateTime.tuesday:
+      return 'T3';
+    case DateTime.wednesday:
+      return 'T4';
+    case DateTime.thursday:
+      return 'T5';
+    case DateTime.friday:
+      return 'T6';
+    case DateTime.saturday:
+      return 'T7';
+    default:
+      return 'CN';
+  }
+}
+
+String _dayLabel(DateTime value) {
+  final local = value.toLocal();
+  final hour = local.hour.toString().padLeft(2, '0');
+  final minute = local.minute.toString().padLeft(2, '0');
+  return '${local.day}/${local.month} • $hour:$minute';
 }

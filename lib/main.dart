@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
@@ -5,6 +7,7 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/router/app_router.dart';
 import 'app/theme/app_theme.dart';
+import 'app/theme/theme_mode_cubit.dart';
 import 'core/network/api_service.dart';
 import 'core/network/mock_api_service.dart';
 import 'core/services/real_api_service.dart';
@@ -16,7 +19,11 @@ import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/diagnosis/data/repositories/diagnosis_repository.dart';
 import 'features/inspection/presentation/cubit/inspection_cubit.dart';
 import 'features/intervention/data/repositories/intervention_repository.dart';
+import 'features/notification/data/repositories/notification_repository.dart';
+import 'features/offline/data/repositories/offline_mode_repository.dart';
+import 'features/privacy/data/repositories/privacy_repository.dart';
 import 'features/quiz/data/repositories/quiz_repository.dart';
+import 'features/session/data/repositories/session_history_repository.dart';
 
 const bool useMockApi = true;
 const bool useSupabaseRpcDataPlane = true;
@@ -62,16 +69,39 @@ class _GrowMateAppState extends State<GrowMateApp> {
   late final ApiService _apiService;
   late final AuthRepository _authRepository;
   late final ProfileRepository _profileRepository;
+  late final NotificationRepository _notificationRepository;
+  late final OfflineModeRepository _offlineModeRepository;
+  late final SessionHistoryRepository _sessionHistoryRepository;
+  late final PrivacyRepository _privacyRepository;
   InspectionCubit? _inspectionCubit;
   late final AuthBloc _authBloc;
+  ThemeModeCubit? _themeModeCubit;
 
   late final QuizRepository _quizRepository;
   late final DiagnosisRepository _diagnosisRepository;
   late final InterventionRepository _interventionRepository;
-  late final AppRouter _appRouter;
+  late AppRouter _appRouter;
+  bool _didInitializeDependencies = false;
+
+  AppRouter _buildAppRouter() {
+    return AppRouter(
+      authBloc: _authBloc,
+      authRepository: _authRepository,
+      profileRepository: _profileRepository,
+      quizRepository: _quizRepository,
+      diagnosisRepository: _diagnosisRepository,
+      interventionRepository: _interventionRepository,
+      notificationRepository: _notificationRepository,
+      sessionHistoryRepository: _sessionHistoryRepository,
+      privacyRepository: _privacyRepository,
+    );
+  }
 
   InspectionCubit get _resolvedInspectionCubit =>
       _inspectionCubit ??= InspectionCubit();
+
+  ThemeModeCubit get _resolvedThemeModeCubit =>
+      _themeModeCubit ??= ThemeModeCubit()..loadThemeMode();
 
   @override
   void initState() {
@@ -89,9 +119,19 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
     _authRepository = AuthRepository();
     _profileRepository = ProfileRepository();
+    _notificationRepository = NotificationRepository.instance;
+    _offlineModeRepository = OfflineModeRepository.instance;
+    _sessionHistoryRepository = SessionHistoryRepository.instance;
+    _privacyRepository = PrivacyRepository(
+      profileRepository: _profileRepository,
+      notificationRepository: _notificationRepository,
+      sessionHistoryRepository: _sessionHistoryRepository,
+    );
     _inspectionCubit = InspectionCubit();
     _authBloc = AuthBloc(authRepository: _authRepository)
       ..add(const AppStarted());
+
+    unawaited(_notificationRepository.bootstrap());
 
     _quizRepository = QuizRepository(
       apiService: _apiService,
@@ -108,20 +148,38 @@ class _GrowMateAppState extends State<GrowMateApp> {
       sessionId: 'session_demo_001',
     );
 
-    _appRouter = AppRouter(
-      authBloc: _authBloc,
-      authRepository: _authRepository,
-      profileRepository: _profileRepository,
-      quizRepository: _quizRepository,
-      diagnosisRepository: _diagnosisRepository,
-      interventionRepository: _interventionRepository,
+    unawaited(
+      _offlineModeRepository.flushQueuedSignals(
+        submitter: (queuedSignals) {
+          return _apiService.submitSignals(
+            sessionId: 'session_demo_001',
+            signals: queuedSignals,
+          );
+        },
+      ),
     );
+
+    _appRouter = _buildAppRouter();
+    _didInitializeDependencies = true;
+  }
+
+  @override
+  void reassemble() {
+    super.reassemble();
+
+    if (!_didInitializeDependencies) {
+      return;
+    }
+
+    // Hot reload keeps State instances, so refresh GoRouter to pick up route changes.
+    _appRouter = _buildAppRouter();
   }
 
   @override
   void dispose() {
     _inspectionCubit?.close();
     _authBloc.close();
+    _themeModeCubit?.close();
     super.dispose();
   }
 
@@ -131,12 +189,19 @@ class _GrowMateAppState extends State<GrowMateApp> {
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<InspectionCubit>.value(value: _resolvedInspectionCubit),
+        BlocProvider<ThemeModeCubit>.value(value: _resolvedThemeModeCubit),
       ],
-      child: MaterialApp.router(
-        debugShowCheckedModeBanner: false,
-        title: 'GrowMate',
-        theme: AppTheme.lightTheme,
-        routerConfig: _appRouter.router,
+      child: BlocBuilder<ThemeModeCubit, ThemeMode>(
+        builder: (context, themeMode) {
+          return MaterialApp.router(
+            debugShowCheckedModeBanner: false,
+            title: 'GrowMate',
+            theme: AppTheme.lightTheme,
+            darkTheme: AppTheme.darkTheme,
+            themeMode: themeMode,
+            routerConfig: _appRouter.router,
+          );
+        },
       ),
     );
   }

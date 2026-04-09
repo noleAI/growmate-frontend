@@ -28,6 +28,10 @@ class ResultCubit extends Cubit<ResultState> {
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final resolvedDiagnosisId = _resolveDiagnosisId(
+        rawId: data['diagnosisId']?.toString(),
+        submissionId: submissionId,
+      );
 
       final strengths = _extractStringList(
         data['strengths'],
@@ -53,6 +57,7 @@ class ResultCubit extends Cubit<ResultState> {
       final requiresHitl = data['requiresHITL'] == true;
       final nextSuggestedTopic =
           data['nextSuggestedTopic']?.toString() ?? 'Review Đạo hàm';
+      final interventionPlan = _extractPlanList(data['interventionPlan']);
 
       _inspectionRuntimeStore.syncFromDiagnosis(
         gapAnalysis: gapAnalysis,
@@ -69,7 +74,7 @@ class ResultCubit extends Cubit<ResultState> {
         ResultReady(
           result: ResultModel(
             submissionId: submissionId,
-            diagnosisId: data['diagnosisId']?.toString() ?? '',
+            diagnosisId: resolvedDiagnosisId,
             headline:
                 data['title']?.toString() ??
                 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
@@ -78,7 +83,12 @@ class ResultCubit extends Cubit<ResultState> {
             strengths: strengths,
             needsReview: needsReview,
             nextSuggestedTopic: nextSuggestedTopic,
-            interventionPlan: _extractPlanList(data['interventionPlan']),
+            interventionPlan: interventionPlan.isEmpty
+                ? _fallbackInterventionPlan(
+                    finalMode: finalMode,
+                    nextSuggestedTopic: nextSuggestedTopic,
+                  )
+                : interventionPlan,
             finalMode: finalMode,
             confidenceScore: confidence,
             uncertaintyScore: uncertainty,
@@ -105,7 +115,7 @@ class ResultCubit extends Cubit<ResultState> {
     emit(
       current.copyWith(
         isAnalyzingFeedback: true,
-        navigateToNextQuiz: false,
+        navigateToIntervention: false,
         infoMessage: null,
       ),
     );
@@ -133,7 +143,7 @@ class ResultCubit extends Cubit<ResultState> {
       emit(
         current.copyWith(
           isAnalyzingFeedback: false,
-          navigateToNextQuiz: true,
+          navigateToIntervention: true,
           infoMessage: null,
         ),
       );
@@ -157,7 +167,7 @@ class ResultCubit extends Cubit<ResultState> {
     emit(
       current.copyWith(
         isAnalyzingFeedback: true,
-        navigateToNextQuiz: false,
+        navigateToIntervention: false,
         infoMessage: null,
       ),
     );
@@ -206,6 +216,7 @@ class ResultCubit extends Cubit<ResultState> {
           isAnalyzingFeedback: false,
           result: current.result.copyWith(nextSuggestedTopic: repairedTopic),
           infoMessage: 'Lộ trình học của bạn đã được cập nhật',
+          navigateToIntervention: true,
         ),
       );
     } catch (_) {
@@ -227,6 +238,7 @@ class ResultCubit extends Cubit<ResultState> {
           isAnalyzingFeedback: false,
           result: current.result.copyWith(nextSuggestedTopic: repairedTopic),
           infoMessage: 'Lộ trình học của bạn đã được cập nhật',
+          navigateToIntervention: true,
         ),
       );
 
@@ -250,11 +262,44 @@ class ResultCubit extends Cubit<ResultState> {
 
   void clearNavigationFlag() {
     final current = state;
-    if (current is! ResultReady || !current.navigateToNextQuiz) {
+    if (current is! ResultReady || !current.navigateToIntervention) {
       return;
     }
 
-    emit(current.copyWith(navigateToNextQuiz: false));
+    emit(current.copyWith(navigateToIntervention: false));
+  }
+
+  static List<Map<String, dynamic>> _fallbackInterventionPlan({
+    required String finalMode,
+    required String nextSuggestedTopic,
+  }) {
+    if (finalMode == 'recovery') {
+      return const <Map<String, dynamic>>[
+        <String, dynamic>{
+          'id': 'recovery_breathing',
+          'title': 'Hít thở ngắn 3 phút rồi quay lại nhẹ nhàng',
+          'type': 'recovery',
+        },
+        <String, dynamic>{
+          'id': 'recovery_grounding',
+          'title': 'Grounding 5-4-3-2-1',
+          'type': 'recovery',
+        },
+      ];
+    }
+
+    return <Map<String, dynamic>>[
+      <String, dynamic>{
+        'id': 'review_theory',
+        'title': 'Ôn nhanh: $nextSuggestedTopic',
+        'type': 'academic',
+      },
+      const <String, dynamic>{
+        'id': 'easier_practice',
+        'title': 'Làm 2 câu dễ để lấy lại nhịp',
+        'type': 'academic',
+      },
+    ];
   }
 
   static List<String> _extractStringList(Object? value) {
@@ -331,6 +376,18 @@ class ResultCubit extends Cubit<ResultState> {
     }
 
     return candidate;
+  }
+
+  static String _resolveDiagnosisId({
+    required String? rawId,
+    required String submissionId,
+  }) {
+    final candidate = (rawId ?? '').trim();
+    if (candidate.isNotEmpty) {
+      return candidate;
+    }
+
+    return 'dx_local_$submissionId';
   }
 }
 

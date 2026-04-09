@@ -15,7 +15,7 @@ class WelcomePage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: GrowMateColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ZenPageContainer(
         child: ListView(
           children: [

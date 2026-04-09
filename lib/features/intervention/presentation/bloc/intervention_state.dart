@@ -29,6 +29,8 @@ class InterventionState extends Equatable {
     required this.feedbackRecorded,
     this.toastMessage,
     this.updatedQValues = const <String, dynamic>{},
+    this.selectedOptionLabel,
+    this.selectedOptionId,
   });
 
   final InterventionMode mode;
@@ -39,6 +41,8 @@ class InterventionState extends Equatable {
   final bool feedbackRecorded;
   final String? toastMessage;
   final Map<String, dynamic> updatedQValues;
+  final String? selectedOptionLabel;
+  final String? selectedOptionId;
 
   InterventionState copyWith({
     InterventionMode? mode,
@@ -49,28 +53,35 @@ class InterventionState extends Equatable {
     bool? feedbackRecorded,
     String? toastMessage,
     Map<String, dynamic>? updatedQValues,
+    String? selectedOptionLabel,
+    String? selectedOptionId,
   }) {
     return InterventionState(
       mode: mode ?? this.mode,
       options: options ?? this.options,
       remainingRestSeconds: remainingRestSeconds ?? this.remainingRestSeconds,
       isSubmitting: isSubmitting ?? this.isSubmitting,
-      showUncertaintyPrompt: showUncertaintyPrompt ?? this.showUncertaintyPrompt,
+      showUncertaintyPrompt:
+          showUncertaintyPrompt ?? this.showUncertaintyPrompt,
       feedbackRecorded: feedbackRecorded ?? this.feedbackRecorded,
       toastMessage: toastMessage,
       updatedQValues: updatedQValues ?? this.updatedQValues,
+      selectedOptionLabel: selectedOptionLabel ?? this.selectedOptionLabel,
+      selectedOptionId: selectedOptionId ?? this.selectedOptionId,
     );
   }
 
   @override
   List<Object?> get props => <Object?>[
-        mode,
-        options,
-        remainingRestSeconds,
-        isSubmitting,
-        showUncertaintyPrompt,
-        feedbackRecorded,
-        toastMessage,
-        updatedQValues,
-      ];
+    mode,
+    options,
+    remainingRestSeconds,
+    isSubmitting,
+    showUncertaintyPrompt,
+    feedbackRecorded,
+    toastMessage,
+    updatedQValues,
+    selectedOptionLabel,
+    selectedOptionId,
+  ];
 }

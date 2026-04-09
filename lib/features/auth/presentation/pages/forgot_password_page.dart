@@ -98,7 +98,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: GrowMateColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: ZenPageContainer(
         child: ListView(
           children: [

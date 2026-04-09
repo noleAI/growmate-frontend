@@ -1,8 +1,6 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/colors.dart';
-
-enum GrowMateTab { today, progress, profile }
+enum GrowMateTab { today, progress, profile, settings }
 
 class GrowMateBottomNavBar extends StatelessWidget {
   const GrowMateBottomNavBar({
@@ -16,14 +14,16 @@ class GrowMateBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow.withValues(alpha: 0.96),
+        color: colors.surfaceContainerLow.withValues(alpha: 0.96),
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0A0F172A),
+            color: colors.shadow.withValues(alpha: 0.1),
             blurRadius: 26,
             offset: Offset(0, -8),
           ),
@@ -32,7 +32,7 @@ class GrowMateBottomNavBar extends StatelessWidget {
       child: Row(
         children: [
           _NavItem(
-            label: 'Hôm nay',
+            label: 'Trang chủ',
             icon: Icons.home_rounded,
             selected: currentTab == GrowMateTab.today,
             onTap: () => onTabSelected(GrowMateTab.today),
@@ -48,6 +48,12 @@ class GrowMateBottomNavBar extends StatelessWidget {
             icon: Icons.person_rounded,
             selected: currentTab == GrowMateTab.profile,
             onTap: () => onTabSelected(GrowMateTab.profile),
+          ),
+          _NavItem(
+            label: 'Cài đặt',
+            icon: Icons.settings_rounded,
+            selected: currentTab == GrowMateTab.settings,
+            onTap: () => onTabSelected(GrowMateTab.settings),
           ),
         ],
       ),
@@ -70,8 +76,9 @@ class _NavItem extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final selectedColor = GrowMateColors.primary;
-    final baseColor = GrowMateColors.textSecondary;
+    final colors = Theme.of(context).colorScheme;
+    final selectedColor = colors.primary;
+    final baseColor = colors.onSurfaceVariant;
 
     return Expanded(
       child: InkWell(
@@ -89,7 +96,7 @@ class _NavItem extends StatelessWidget {
                 height: 24,
                 decoration: BoxDecoration(
                   color: selected
-                      ? GrowMateColors.primary.withValues(alpha: 0.18)
+                      ? colors.primary.withValues(alpha: 0.2)
                       : Colors.transparent,
                   borderRadius: BorderRadius.circular(10),
                 ),

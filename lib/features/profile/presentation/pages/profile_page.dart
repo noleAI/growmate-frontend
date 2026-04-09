@@ -35,7 +35,7 @@ class ProfilePage extends StatelessWidget {
           );
       },
       child: Scaffold(
-        backgroundColor: GrowMateColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: ZenPageContainer(
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {

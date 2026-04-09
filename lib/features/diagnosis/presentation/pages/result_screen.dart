@@ -54,7 +54,7 @@ class _ResultScreenState extends State<ResultScreen> {
     return BlocProvider<ResultCubit>.value(
       value: _resultCubit,
       child: Scaffold(
-        backgroundColor: GrowMateColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: BlocConsumer<ResultCubit, ResultState>(
             listener: (context, state) {
@@ -69,7 +69,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 _resultCubit.clearInfoMessage();
               }
 
-              if (state.navigateToNextQuiz) {
+              if (state.navigateToIntervention) {
                 if (_navigationTriggered) {
                   return;
                 }
@@ -82,7 +82,7 @@ class _ResultScreenState extends State<ResultScreen> {
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
                     const SnackBar(
-                      content: Text('Lộ trình học của bạn đã được cập nhật'),
+                      content: Text('Mình chuyển bạn sang bước can thiệp nhé.'),
                     ),
                   );
 
@@ -90,7 +90,16 @@ class _ResultScreenState extends State<ResultScreen> {
                   if (!mounted) {
                     return;
                   }
-                  router.go(AppRoutes.quiz);
+                  router.go(
+                    AppRoutes.intervention,
+                    extra: <String, dynamic>{
+                      'submissionId': state.result.submissionId,
+                      'diagnosisId': state.result.diagnosisId,
+                      'finalMode': state.result.finalMode,
+                      'interventionPlan': state.result.interventionPlan,
+                      'uncertaintyHigh': _isUncertaintyHigh(state.result),
+                    },
+                  );
                 });
                 return;
               }
@@ -262,6 +271,22 @@ class _ResultScreenState extends State<ResultScreen> {
       default:
         return riskLevel.toUpperCase();
     }
+  }
+
+  bool _isUncertaintyHigh(ResultModel result) {
+    if (result.requiresHitl) {
+      return true;
+    }
+
+    if (result.finalMode == 'recovery') {
+      return true;
+    }
+
+    if (result.uncertaintyScore >= 0.45) {
+      return true;
+    }
+
+    return result.riskLevel.toLowerCase() == 'high';
   }
 }
 

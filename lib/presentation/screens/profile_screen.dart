@@ -4,6 +4,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../app/router/app_routes.dart';
+import '../../app/theme/theme_mode_cubit.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import '../../data/models/user_profile.dart';
@@ -11,31 +12,35 @@ import '../../data/repositories/profile_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/inspection/presentation/cubit/inspection_cubit.dart';
+import '../../features/notification/data/repositories/notification_repository.dart';
+import '../../features/offline/data/models/offline_state.dart';
+import '../../features/offline/data/repositories/offline_mode_repository.dart';
+import '../../features/privacy/data/repositories/privacy_repository.dart';
+import '../../features/session/data/repositories/session_history_repository.dart';
 import '../../shared/widgets/bottom_nav_bar.dart';
 import '../../shared/widgets/nav_tab_routing.dart';
 import '../../shared/widgets/zen_page_container.dart';
 import '../cubit/profile_cubit.dart';
+
+enum ProfileScreenSection { profile, settings }
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.profileRepository,
     required this.appVersion,
+    this.section = ProfileScreenSection.profile,
   });
 
   final ProfileRepository profileRepository;
   final String appVersion;
+  final ProfileScreenSection section;
 
   @override
   State<ProfileScreen> createState() => _ProfileScreenState();
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  static const Color _screenBackground = Color(0xFFF5F7FB);
-  static const Color _softInputBackground = Color(0xFFF0F4FA);
-  static const Color _tagSelected = Color(0xFFEAF2FF);
-  static const Color _tagUnselected = Color(0xFFEFF3F8);
-
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
 
@@ -72,6 +77,59 @@ class _ProfileScreenState extends State<ProfileScreen> {
   bool _consentAnalytics = false;
   String _subscriptionTier = 'free';
   String? _pendingSuccessMessage;
+
+  bool get _isSettingsSection =>
+      widget.section == ProfileScreenSection.settings;
+
+  bool _isDark(BuildContext context) {
+    return Theme.of(context).brightness == Brightness.dark;
+  }
+
+  Color _softInputBackground(BuildContext context) {
+    return _isDark(context) ? const Color(0xFF1E2940) : const Color(0xFFF0F4FA);
+  }
+
+  Color _tagSelected(BuildContext context) {
+    return _isDark(context) ? const Color(0xFF2A3F66) : const Color(0xFFEAF2FF);
+  }
+
+  Color _tagUnselected(BuildContext context) {
+    return _isDark(context) ? const Color(0xFF1D273C) : const Color(0xFFEFF3F8);
+  }
+
+  Color _successSnackBackground(BuildContext context) {
+    return const Color(0xFF14532D);
+  }
+
+  Color _errorSnackBackground(BuildContext context) {
+    return const Color(0xFF7F1D1D);
+  }
+
+  TextStyle? _snackTextStyle(BuildContext context) {
+    return Theme.of(context).textTheme.bodyMedium?.copyWith(
+      color: Colors.white,
+      fontWeight: FontWeight.w600,
+    );
+  }
+
+  void _showAvatarComingSoon() {
+    if (!mounted) {
+      return;
+    }
+
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
+            style: _snackTextStyle(context),
+          ),
+          backgroundColor: _successSnackBackground(context),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
 
   @override
   void dispose() {
@@ -143,8 +201,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ..hideCurrentSnackBar()
                 ..showSnackBar(
                   SnackBar(
-                    content: Text(_pendingSuccessMessage!),
-                    backgroundColor: const Color(0xFFDDF3E5),
+                    content: Text(
+                      _pendingSuccessMessage!,
+                      style: _snackTextStyle(context),
+                    ),
+                    backgroundColor: _successSnackBackground(context),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
@@ -157,8 +218,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ..hideCurrentSnackBar()
               ..showSnackBar(
                 SnackBar(
-                  content: Text(state.message),
-                  backgroundColor: const Color(0xFFFDE8D7),
+                  content: Text(state.message, style: _snackTextStyle(context)),
+                  backgroundColor: _errorSnackBackground(context),
                   behavior: SnackBarBehavior.floating,
                 ),
               );
@@ -179,19 +240,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
           final isProcessing = state is ProfileLoading;
 
           return Scaffold(
-            backgroundColor: _screenBackground,
+            backgroundColor: theme.scaffoldBackgroundColor,
             body: ZenPageContainer(
               child: ListView(
                 children: [
                   _buildHeader(profile),
                   const SizedBox(height: GrowMateLayout.sectionGap),
-                  Text('Hồ sơ', style: theme.textTheme.headlineLarge),
-                  const SizedBox(height: GrowMateLayout.space8),
-                  Text(
-                    'Thiết lập cá nhân hóa để AI ra quyết định chính xác hơn cho từng phiên học.',
-                    style: theme.textTheme.bodyLarge?.copyWith(
-                      color: GrowMateColors.textSecondary,
-                    ),
+                  _buildSectionHeader(
+                    title: _isSettingsSection ? 'Cài đặt' : 'Hồ sơ',
+                    subtitle: _isSettingsSection
+                        ? 'Quản lý quyền riêng tư, thông báo và cấu hình ứng dụng.'
+                        : 'Thiết lập cá nhân hóa để AI ra quyết định chính xác hơn cho từng phiên học.',
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGap),
                   if (profile == null && state is! ProfileLoading)
@@ -224,49 +283,53 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       key: _formKey,
                       child: Column(
                         children: [
-                          _buildPersonalInfoCard(
-                            context: context,
-                            profile: profile,
-                            isProcessing: isProcessing,
-                          ),
-                          const SizedBox(height: GrowMateLayout.sectionGapLg),
-                          _buildSubjectTagsCard(
-                            context: context,
-                            isProcessing: isProcessing,
-                          ),
-                          const SizedBox(height: GrowMateLayout.sectionGapLg),
-                          _buildAiRhythmCard(isProcessing: isProcessing),
-                          const SizedBox(height: GrowMateLayout.sectionGapLg),
-                          _buildPrivacyPlanCard(
-                            context: context,
-                            profile: profile,
-                            isProcessing: isProcessing,
-                          ),
-                          const SizedBox(height: GrowMateLayout.sectionGapLg),
-                          _buildSystemCard(
-                            context: context,
-                            authBloc: authBloc,
-                            isProcessing: isProcessing,
-                          ),
-                          const SizedBox(height: GrowMateLayout.sectionGapLg),
-                          _PrimaryGradientButton(
-                            label: isProcessing
-                                ? 'Đang lưu...'
-                                : 'Lưu thay đổi',
-                            onPressed: isProcessing
-                                ? null
-                                : () async {
-                                    if (!_formKey.currentState!.validate()) {
-                                      return;
-                                    }
-                                    _pendingSuccessMessage =
-                                        'Hồ sơ đã được cập nhật nhẹ nhàng rồi nè.';
-                                    await cubit.updateProfile(
-                                      _composeProfile(profile),
-                                    );
-                                  },
-                          ),
-                          const SizedBox(height: GrowMateLayout.space12),
+                          if (!_isSettingsSection) ...[
+                            _buildPersonalInfoCard(
+                              context: context,
+                              profile: profile,
+                              isProcessing: isProcessing,
+                            ),
+                            const SizedBox(height: GrowMateLayout.sectionGapLg),
+                            _buildSubjectTagsCard(
+                              context: context,
+                              isProcessing: isProcessing,
+                            ),
+                            const SizedBox(height: GrowMateLayout.sectionGapLg),
+                            _buildAiRhythmCard(isProcessing: isProcessing),
+                            const SizedBox(height: GrowMateLayout.sectionGapLg),
+                            _PrimaryGradientButton(
+                              label: isProcessing
+                                  ? 'Đang lưu...'
+                                  : 'Lưu thay đổi',
+                              onPressed: isProcessing
+                                  ? null
+                                  : () async {
+                                      if (!_formKey.currentState!.validate()) {
+                                        return;
+                                      }
+                                      _pendingSuccessMessage =
+                                          'Hồ sơ đã được cập nhật nhẹ nhàng rồi nè.';
+                                      await cubit.updateProfile(
+                                        _composeProfile(profile),
+                                      );
+                                    },
+                            ),
+                            const SizedBox(height: GrowMateLayout.space12),
+                          ] else ...[
+                            _buildPrivacyPlanCard(
+                              context: context,
+                              profile: profile,
+                              isProcessing: isProcessing,
+                            ),
+                            const SizedBox(height: GrowMateLayout.sectionGapLg),
+                            _buildSystemCard(
+                              context: context,
+                              authBloc: authBloc,
+                              profile: profile,
+                              isProcessing: isProcessing,
+                            ),
+                            const SizedBox(height: GrowMateLayout.space12),
+                          ],
                         ],
                       ),
                     )
@@ -279,7 +342,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ),
             ),
             bottomNavigationBar: GrowMateBottomNavBar(
-              currentTab: GrowMateTab.profile,
+              currentTab: _isSettingsSection
+                  ? GrowMateTab.settings
+                  : GrowMateTab.profile,
               onTabSelected: (tab) => handleTabNavigation(context, tab),
             ),
           );
@@ -290,27 +355,43 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
   Widget _buildHeader(UserProfile? profile) {
     final name = _displayName(profile?.fullName);
+    final avatarUrl = profile?.avatarUrl?.trim();
+    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
+    final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'B';
+    final colors = Theme.of(context).colorScheme;
 
     return Row(
       children: [
-        Container(
-          width: 52,
-          height: 52,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: const Color(0xFFEAF2FF),
-            boxShadow: const [
-              BoxShadow(
-                color: Color(0x140F172A),
-                blurRadius: 16,
-                offset: Offset(0, 6),
+        InkWell(
+          borderRadius: BorderRadius.circular(999),
+          onTap: _showAvatarComingSoon,
+          child: Container(
+            width: 52,
+            height: 52,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: colors.primaryContainer.withValues(
+                alpha: _isDark(context) ? 0.7 : 1,
               ),
-            ],
-          ),
-          child: const Icon(
-            Icons.person_rounded,
-            color: GrowMateColors.primary,
-            size: 28,
+              boxShadow: const [
+                BoxShadow(
+                  color: Color(0x140F172A),
+                  blurRadius: 16,
+                  offset: Offset(0, 6),
+                ),
+              ],
+            ),
+            child: ClipOval(
+              child: hasAvatar
+                  ? Image.network(
+                      avatarUrl,
+                      fit: BoxFit.cover,
+                      errorBuilder: (context, error, stackTrace) {
+                        return _AvatarFallback(initial: initial);
+                      },
+                    )
+                  : _AvatarFallback(initial: initial),
+            ),
           ),
         ),
         const SizedBox(width: 12),
@@ -328,6 +409,28 @@ class _ProfileScreenState extends State<ProfileScreen> {
           onTap: () {
             context.push(AppRoutes.notifications);
           },
+        ),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required String title,
+    required String subtitle,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(title, style: theme.textTheme.headlineLarge),
+        const SizedBox(height: GrowMateLayout.space8),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodyLarge?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
         ),
       ],
     );
@@ -427,8 +530,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     selected: selected,
                     showCheckmark: false,
                     side: BorderSide.none,
-                    backgroundColor: _tagUnselected,
-                    selectedColor: _tagSelected,
+                    backgroundColor: _tagUnselected(context),
+                    selectedColor: _tagSelected(context),
                     label: Text(
                       subject,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -642,9 +745,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
   Widget _buildSystemCard({
     required BuildContext context,
     required AuthBloc authBloc,
+    required UserProfile profile,
     required bool isProcessing,
   }) {
     final inspectionCubit = _tryGetInspectionCubit(context);
+    final themeModeCubit = context.read<ThemeModeCubit>();
+    final offlineRepository = OfflineModeRepository.instance;
 
     return _CalmCard(
       child: Column(
@@ -661,12 +767,119 @@ class _ProfileScreenState extends State<ProfileScreen> {
             subtitle: widget.appVersion,
           ),
           const Divider(height: 1, color: Color(0x1464748B)),
+          BlocBuilder<ThemeModeCubit, ThemeMode>(
+            builder: (context, themeMode) {
+              final isDarkMode = themeMode == ThemeMode.dark;
+
+              return _ToggleLine(
+                icon: Icons.dark_mode_rounded,
+                title: 'Dark Mode',
+                subtitle: isDarkMode
+                    ? 'Giao diện tối đang được bật để dịu mắt hơn vào ban đêm.'
+                    : 'Bật giao diện tối để giảm chói mắt khi học buổi tối.',
+                value: isDarkMode,
+                onChanged: isProcessing
+                    ? null
+                    : (value) async {
+                        await themeModeCubit.setDarkMode(value);
+
+                        if (!context.mounted) {
+                          return;
+                        }
+
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                value
+                                    ? 'Đã bật Dark Mode.'
+                                    : 'Đã chuyển về Light Mode.',
+                                style: _snackTextStyle(context),
+                              ),
+                              backgroundColor: _successSnackBackground(context),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                      },
+              );
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          StreamBuilder<OfflineState>(
+            stream: offlineRepository.watchState(),
+            builder: (context, snapshot) {
+              final offlineState =
+                  snapshot.data ??
+                  const OfflineState(
+                    enabled: false,
+                    queuedSignals: 0,
+                    lastSyncedAt: null,
+                  );
+
+              final subtitle = offlineState.enabled
+                  ? 'Đang lưu tín hiệu cục bộ. Hàng đợi: ${offlineState.queuedSignals}.'
+                  : offlineState.queuedSignals > 0
+                  ? 'Sẵn sàng đồng bộ ${offlineState.queuedSignals} tín hiệu khi mạng ổn định.'
+                  : 'Tự động queue tín hiệu khi mất mạng.';
+
+              return _ToggleLine(
+                icon: Icons.cloud_off_rounded,
+                title: 'Offline Mode',
+                subtitle: subtitle,
+                value: offlineState.enabled,
+                onChanged: isProcessing
+                    ? null
+                    : (value) async {
+                        await offlineRepository.setOfflineModeEnabled(value);
+
+                        if (!context.mounted) {
+                          return;
+                        }
+
+                        ScaffoldMessenger.of(context)
+                          ..hideCurrentSnackBar()
+                          ..showSnackBar(
+                            SnackBar(
+                              content: Text(
+                                value
+                                    ? 'Đã bật Offline Mode. Tín hiệu sẽ được queue cục bộ.'
+                                    : 'Đã tắt Offline Mode. App sẽ đồng bộ lại khi có thể.',
+                                style: _snackTextStyle(context),
+                              ),
+                              backgroundColor: _successSnackBackground(context),
+                              behavior: SnackBarBehavior.floating,
+                            ),
+                          );
+                      },
+              );
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.notifications_none_rounded,
             title: 'Thông báo',
             subtitle: 'Xem nhắc nhở và cập nhật gần đây.',
             onTap: () {
               context.push(AppRoutes.notifications);
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          _MenuTile(
+            icon: Icons.calendar_month_rounded,
+            title: 'Smart Schedule',
+            subtitle: 'Quản lý lịch thi và deadline để AI ưu tiên ôn tập.',
+            onTap: () {
+              context.push(AppRoutes.schedule);
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          _MenuTile(
+            icon: Icons.spa_rounded,
+            title: 'Mindful Break 90 giây',
+            subtitle: 'Reset nhẹ nhịp thở trước khi học tiếp.',
+            onTap: () {
+              context.push(AppRoutes.mindfulBreak);
             },
           ),
           const Divider(height: 1, color: Color(0x1464748B)),
@@ -678,14 +891,49 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ScaffoldMessenger.of(context)
                 ..hideCurrentSnackBar()
                 ..showSnackBar(
-                  const SnackBar(
+                  SnackBar(
                     content: Text(
                       'Cảm ơn bạn. Kênh góp ý sẽ mở trong bản kế tiếp.',
+                      style: _snackTextStyle(context),
                     ),
-                    backgroundColor: Color(0xFFDDF3E5),
+                    backgroundColor: _successSnackBackground(context),
                     behavior: SnackBarBehavior.floating,
                   ),
                 );
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          _MenuTile(
+            icon: Icons.download_rounded,
+            title: 'Tải dữ liệu cá nhân',
+            subtitle: 'Xuất JSON hồ sơ, timeline phiên và notification.',
+            onTap: () {
+              final location = Uri(
+                path: AppRoutes.dataExport,
+                queryParameters: <String, String>{
+                  'uid': profile.id,
+                  'email': profile.email,
+                },
+              ).toString();
+              context.push(location);
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          _MenuTile(
+            icon: Icons.policy_outlined,
+            title: 'Điều khoản sử dụng',
+            subtitle: 'Xem quy định sử dụng dịch vụ GrowMate.',
+            onTap: () {
+              context.push(AppRoutes.termsOfService);
+            },
+          ),
+          const Divider(height: 1, color: Color(0x1464748B)),
+          _MenuTile(
+            icon: Icons.privacy_tip_outlined,
+            title: 'Chính sách quyền riêng tư',
+            subtitle: 'Tìm hiểu cách GrowMate xử lý dữ liệu của bạn.',
+            onTap: () {
+              context.push(AppRoutes.privacyPolicy);
             },
           ),
           if (inspectionCubit != null) ...[
@@ -697,6 +945,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 final inspectionState = snapshot.data ?? inspectionCubit.state;
 
                 return _ToggleLine(
+                  icon: Icons.developer_mode_rounded,
                   title: 'Chế độ Dev (Auditor)',
                   subtitle: 'Hiển thị Mini Inspection ở bản release.',
                   value: inspectionState.devModeEnabled,
@@ -717,8 +966,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   value
                                       ? 'Đã bật Chế độ Dev cho Mini Inspection Dashboard.'
                                       : 'Đã tắt Chế độ Dev. Dashboard chỉ hiện khi debug.',
+                                  style: _snackTextStyle(context),
                                 ),
-                                backgroundColor: const Color(0xFFDDF3E5),
+                                backgroundColor: _successSnackBackground(
+                                  context,
+                                ),
                                 behavior: SnackBarBehavior.floating,
                               ),
                             );
@@ -727,6 +979,18 @@ class _ProfileScreenState extends State<ProfileScreen> {
               },
             ),
           ],
+          const SizedBox(height: GrowMateLayout.space8),
+          _GhostButton(
+            label: isProcessing ? 'Đang xử lý...' : 'Xóa tài khoản',
+            onPressed: isProcessing
+                ? null
+                : () {
+                    _showDeleteAccountDialog(
+                      profile: profile,
+                      authBloc: authBloc,
+                    );
+                  },
+          ),
           const SizedBox(height: GrowMateLayout.contentGap),
           _GhostButton(
             label: isProcessing ? 'Đang xử lý...' : 'Đăng xuất',
@@ -741,12 +1005,102 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Future<void> _showDeleteAccountDialog({
+    required UserProfile profile,
+    required AuthBloc authBloc,
+  }) async {
+    final shouldDelete = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) {
+        return AlertDialog(
+          title: const Text('Xóa tài khoản'),
+          content: const Text(
+            'Bạn có chắc muốn xóa toàn bộ dữ liệu cá nhân trên thiết bị và hồ sơ học tập hiện tại không?',
+          ),
+          actions: [
+            TextButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(false);
+              },
+              child: const Text('Hủy'),
+            ),
+            FilledButton(
+              onPressed: () {
+                Navigator.of(dialogContext).pop(true);
+              },
+              child: const Text('Xóa ngay'),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldDelete != true) {
+      return;
+    }
+
+    await _deleteAccountData(profile: profile, authBloc: authBloc);
+  }
+
+  Future<void> _deleteAccountData({
+    required UserProfile profile,
+    required AuthBloc authBloc,
+  }) async {
+    final privacyRepository = PrivacyRepository(
+      profileRepository: widget.profileRepository,
+      notificationRepository: NotificationRepository.instance,
+      sessionHistoryRepository: SessionHistoryRepository.instance,
+    );
+
+    try {
+      await privacyRepository.deleteAccountData(userId: profile.id);
+
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Đã xóa dữ liệu tài khoản. Bạn có thể đăng ký lại bất cứ lúc nào.',
+              style: _snackTextStyle(context),
+            ),
+            backgroundColor: _successSnackBackground(context),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+
+      authBloc.add(const LogoutRequested());
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      ScaffoldMessenger.of(context)
+        ..hideCurrentSnackBar()
+        ..showSnackBar(
+          SnackBar(
+            content: Text(
+              'Mình chưa xóa được tài khoản lúc này, bạn thử lại giúp mình nhé.',
+              style: _snackTextStyle(context),
+            ),
+            backgroundColor: _errorSnackBackground(context),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+    }
+  }
+
   InputDecoration _softFieldDecoration({String? hint}) {
+    final colors = Theme.of(context).colorScheme;
+
     return InputDecoration(
       hintText: hint,
       floatingLabelBehavior: FloatingLabelBehavior.never,
       filled: true,
-      fillColor: _softInputBackground,
+      fillColor: _softInputBackground(context),
       contentPadding: const EdgeInsets.symmetric(
         horizontal: GrowMateLayout.contentGap,
         vertical: GrowMateLayout.space12,
@@ -761,11 +1115,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
       focusedBorder: OutlineInputBorder(
         borderRadius: BorderRadius.circular(14),
-        borderSide: const BorderSide(color: Color(0x554F8CFF), width: 1),
+        borderSide: BorderSide(
+          color: colors.primary.withValues(alpha: 0.55),
+          width: 1,
+        ),
       ),
       hintStyle: Theme.of(
         context,
-      ).textTheme.bodyMedium?.copyWith(color: GrowMateColors.textSecondary),
+      ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
     );
   }
 
@@ -835,6 +1192,8 @@ class _MenuTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(14),
       onTap: onTap,
@@ -846,10 +1205,10 @@ class _MenuTile extends StatelessWidget {
               width: 34,
               height: 34,
               decoration: BoxDecoration(
-                color: const Color(0xFFEAF2FF),
+                color: colors.primaryContainer.withValues(alpha: 0.8),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: GrowMateColors.primary, size: 18),
+              child: Icon(icon, color: colors.primary, size: 18),
             ),
             const SizedBox(width: GrowMateLayout.space12),
             Expanded(
@@ -859,6 +1218,7 @@ class _MenuTile extends StatelessWidget {
                   Text(
                     title,
                     style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                      color: colors.onSurface,
                       fontWeight: FontWeight.w600,
                     ),
                   ),
@@ -866,16 +1226,16 @@ class _MenuTile extends StatelessWidget {
                   Text(
                     subtitle,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: colors.onSurfaceVariant,
                     ),
                   ),
                 ],
               ),
             ),
             if (onTap != null)
-              const Icon(
+              Icon(
                 Icons.chevron_right_rounded,
-                color: GrowMateColors.textSecondary,
+                color: colors.onSurfaceVariant,
                 size: 20,
               ),
           ],
@@ -892,15 +1252,17 @@ class _CalmCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(GrowMateLayout.contentGap),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0A0F172A),
+            color: colors.shadow.withValues(alpha: 0.1),
             blurRadius: 28,
             offset: Offset(0, 10),
           ),
@@ -925,7 +1287,7 @@ class _CardHeading extends StatelessWidget {
         Text(
           title,
           style: Theme.of(context).textTheme.titleLarge?.copyWith(
-            color: GrowMateColors.textPrimary,
+            color: Theme.of(context).colorScheme.onSurface,
             fontWeight: FontWeight.w700,
           ),
         ),
@@ -933,7 +1295,7 @@ class _CardHeading extends StatelessWidget {
         Text(
           subtitle,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-            color: GrowMateColors.textSecondary,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
             fontWeight: FontWeight.w400,
           ),
         ),
@@ -952,7 +1314,7 @@ class _FieldCaption extends StatelessWidget {
     return Text(
       text,
       style: Theme.of(context).textTheme.bodySmall?.copyWith(
-        color: GrowMateColors.textSecondary,
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
         fontWeight: FontWeight.w400,
       ),
     );
@@ -961,12 +1323,14 @@ class _FieldCaption extends StatelessWidget {
 
 class _ToggleLine extends StatelessWidget {
   const _ToggleLine({
+    this.icon,
     required this.title,
     required this.subtitle,
     required this.value,
     required this.onChanged,
   });
 
+  final IconData? icon;
   final String title;
   final String subtitle;
   final bool value;
@@ -974,39 +1338,69 @@ class _ToggleLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final colors = Theme.of(context).colorScheme;
+    final textColumn = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w500),
-              ),
-              const SizedBox(height: GrowMateLayout.space8),
-              Text(
-                subtitle,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: GrowMateColors.textSecondary,
-                  height: 1.5,
-                ),
-              ),
-            ],
+        Text(
+          title,
+          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+            color: colors.onSurface,
+            fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(width: 8),
-        CupertinoSwitch(
-          value: value,
-          onChanged: onChanged,
-          activeTrackColor: const Color(0xFF7FAAFF),
-          inactiveTrackColor: const Color(0xFFDCE4F1),
-          thumbColor: Colors.white,
+        const SizedBox(height: GrowMateLayout.space8),
+        Text(
+          subtitle,
+          style: Theme.of(context).textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.5,
+          ),
         ),
       ],
+    );
+    final switchControl = CupertinoSwitch(
+      value: value,
+      onChanged: onChanged,
+      activeTrackColor: const Color(0xFF7FAAFF),
+      inactiveTrackColor: isDark
+          ? const Color(0xFF3A4661)
+          : const Color(0xFFDCE4F1),
+      thumbColor: Colors.white,
+    );
+
+    if (icon == null) {
+      return Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(child: textColumn),
+          const SizedBox(width: 8),
+          switchControl,
+        ],
+      );
+    }
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, color: colors.primary, size: 18),
+          ),
+          const SizedBox(width: GrowMateLayout.space12),
+          Expanded(child: textColumn),
+          const SizedBox(width: 8),
+          switchControl,
+        ],
+      ),
     );
   }
 }
@@ -1019,24 +1413,49 @@ class _IconCircleButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return InkWell(
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: Ink(
         width: 42,
         height: 42,
-        decoration: const BoxDecoration(
-          color: Colors.white,
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: Color(0x090F172A),
+              color: colors.shadow.withValues(alpha: 0.08),
               blurRadius: 18,
               offset: Offset(0, 7),
             ),
           ],
         ),
-        child: Icon(icon, color: GrowMateColors.textPrimary, size: 21),
+        child: Icon(icon, color: colors.onSurface, size: 21),
+      ),
+    );
+  }
+}
+
+class _AvatarFallback extends StatelessWidget {
+  const _AvatarFallback({required this.initial});
+
+  final String initial;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      color: colors.primaryContainer,
+      alignment: Alignment.center,
+      child: Text(
+        initial,
+        style: Theme.of(context).textTheme.titleLarge?.copyWith(
+          color: colors.primary,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -1104,6 +1523,7 @@ class _GhostButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
+    final colors = Theme.of(context).colorScheme;
 
     return Opacity(
       opacity: disabled ? 0.55 : 1,
@@ -1118,14 +1538,14 @@ class _GhostButton extends StatelessWidget {
               vertical: GrowMateLayout.space12,
             ),
             decoration: BoxDecoration(
-              color: const Color(0xFFF1F5FA),
+              color: colors.surfaceContainerHigh,
               borderRadius: BorderRadius.circular(14),
             ),
             child: Center(
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: GrowMateColors.textPrimary,
+                  color: colors.onSurface,
                   fontWeight: FontWeight.w500,
                 ),
               ),

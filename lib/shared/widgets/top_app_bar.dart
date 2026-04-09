@@ -6,6 +6,8 @@ import '../../app/router/app_routes.dart';
 import '../../core/constants/colors.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/notification/data/models/app_notification.dart';
+import '../../features/notification/data/repositories/notification_repository.dart';
 
 class GrowMateTopAppBar extends StatelessWidget {
   const GrowMateTopAppBar({
@@ -87,17 +89,41 @@ class _TopAppBarBody extends StatelessWidget {
   final String userName;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onInspectionTap;
+  static final NotificationRepository _notificationRepository =
+      NotificationRepository.instance;
+
+  void _showAvatarComingSoon(BuildContext context) {
+    final theme = Theme.of(context);
+    ScaffoldMessenger.of(context)
+      ..hideCurrentSnackBar()
+      ..showSnackBar(
+        SnackBar(
+          content: Text(
+            'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+  }
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0A0F172A),
+            color: colors.shadow.withValues(alpha: 0.08),
             blurRadius: 24,
             offset: Offset(0, 8),
           ),
@@ -105,17 +131,24 @@ class _TopAppBarBody extends StatelessWidget {
       ),
       child: Row(
         children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: GrowMateColors.primary.withValues(alpha: 0.12),
-            ),
-            child: const Icon(
-              Icons.psychology_alt_rounded,
-              color: GrowMateColors.primary,
-              size: 19,
+          InkWell(
+            borderRadius: BorderRadius.circular(999),
+            onTap: () => _showAvatarComingSoon(context),
+            child: Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: colors.primaryContainer,
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                userName.isEmpty ? 'B' : userName.substring(0, 1).toUpperCase(),
+                style: theme.textTheme.titleSmall?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
             ),
           ),
           const SizedBox(width: 10),
@@ -123,10 +156,10 @@ class _TopAppBarBody extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text(
+                Text(
                   'GrowMate AI Tutor',
                   style: TextStyle(
-                    color: GrowMateColors.textSecondary,
+                    color: colors.onSurfaceVariant,
                     fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
@@ -136,8 +169,8 @@ class _TopAppBarBody extends StatelessWidget {
                   'Chào $userName',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: const TextStyle(
-                    color: GrowMateColors.textPrimary,
+                  style: TextStyle(
+                    color: colors.onSurface,
                     fontSize: 21,
                     fontWeight: FontWeight.w600,
                     height: 1,
@@ -151,14 +184,22 @@ class _TopAppBarBody extends StatelessWidget {
               onPressed: onInspectionTap,
               icon: Icons.insights_rounded,
             ),
-          _AppBarIconButton(
-            onPressed:
-                onNotificationTap ??
-                () {
-                  context.push(AppRoutes.notifications);
-                },
-            icon: Icons.notifications_none_rounded,
-            showBadge: true,
+          StreamBuilder<List<AppNotification>>(
+            stream: _notificationRepository.watchNotifications(),
+            builder: (context, snapshot) {
+              final notifications = snapshot.data ?? const <AppNotification>[];
+              final hasUnread = notifications.any((item) => !item.isRead);
+
+              return _AppBarIconButton(
+                onPressed:
+                    onNotificationTap ??
+                    () {
+                      context.push(AppRoutes.notifications);
+                    },
+                icon: Icons.notifications_none_rounded,
+                showBadge: hasUnread,
+              );
+            },
           ),
         ],
       ),
@@ -179,6 +220,8 @@ class _AppBarIconButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Material(
       color: Colors.transparent,
       child: InkWell(
@@ -195,11 +238,11 @@ class _AppBarIconButton extends StatelessWidget {
                 width: 30,
                 height: 30,
                 decoration: BoxDecoration(
-                  color: GrowMateColors.backgroundSoft,
+                  color: colors.surfaceContainerHigh,
                   borderRadius: BorderRadius.circular(10),
                 ),
                 alignment: Alignment.center,
-                child: Icon(icon, color: GrowMateColors.primary, size: 19),
+                child: Icon(icon, color: colors.primary, size: 19),
               ),
               if (showBadge)
                 Positioned(
@@ -212,7 +255,7 @@ class _AppBarIconButton extends StatelessWidget {
                       color: GrowMateColors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
-                        color: GrowMateColors.surfaceContainerLow,
+                        color: colors.surfaceContainerLow,
                         width: 1,
                       ),
                     ),

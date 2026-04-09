@@ -51,7 +51,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
     return BlocProvider<DiagnosisBloc>.value(
       value: _diagnosisBloc,
       child: Scaffold(
-        backgroundColor: GrowMateColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: SafeArea(
           child: BlocConsumer<DiagnosisBloc, DiagnosisState>(
             listener: (context, state) {

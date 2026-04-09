@@ -1,0 +1,464 @@
+﻿===== Proposal_Final.docx =====
+H�' SƠ DỰ ÁN
+GDGoC HACKATHON VIETNAM 2026
+Tên �'�Ti: noleAI
+Thành viên
+STT
+Họ và tên
+Vai trò
+1
+Phùng Bảo Khang
+Team Leader / AI Architect
+2
+Nguy�.n Minh Đức
+Backend & Agent Developer
+3
+Hy Huê Hưng
+Data/API Integration & Prompt Designer
+4
+Thái Quang Huy
+Product Owner / UX-UI / Flutter Dev
+GROWMATE
+Your smart and friendly study partner�?<
+Mục lục
+1. T�"M TẮT ĐI�?U H�?NH8
+1.1. TH�"NG ĐI�?P CỐT L�.I8
+1.2. VẤN Đ�? CỐT L�.I & CƠ H�~I9
+1.3. KIẾN TR�sC AGENTIC CỐT L�.I9
+1.4. L�~ TR�ONH PHÁT TRI�,N TRONG HACKATHON11
+1.5. TÁC Đ�~NG DỰ KIẾN V�? CH�^ SỐ ĐO LƯ�oNG13
+1.5.1. CÁC CH�^ SỐ TR�ONG YẾU (KEY HIGHLIGHTS)13
+1.5.2. CHIẾN LƯỢC ĐO LƯ�oNG V�? BÁO CÁO14
+1.5.3. TÁC Đ�~NG X�f H�~I KỲ V�ONG14
+2. PH�,N TÍCH VẤN Đ�?15
+2.1. VẤN Đ�? THỰC TRẠNG15
+2.2. CÁC B�SN LI�SN QUAN (STAKEHOLDERS)16
+2.3. PAIN POINTS V�? GIẢI PHÁP TƯƠNG ỨNG17
+2.4. PH�,N TÍCH ĐỐI THỦ CẠNH TRANH19
+2.5. PERSONAS V�? EMPATHY MAPPING20
+2.6. USER JOURNEY MAPPING21
+2.7. Y�SU CẦU DỮ LI�?U V�? CHIẾN LƯỢC KH�zI TẠO22
+2.7.1. CHIẾN LƯỢC PH�,N TẦNG DỮ LI�?U22
+2.7.2. Y�SU CẦU DỮ LI�?U CHO MVP (06/04 �?" 17/04)23
+2.7.3. Y�SU CẦU DỮ LI�?U CHO GIAI ĐOẠN 2 V�? POST-HACKATHON25
+2.7.4. LỢI ÍCH CỦA CHIẾN LƯỢC PH�,N TẦNG26
+3. GIẢI PHÁP: KIẾN TR�sC AGENTIC MULTI-AGENT26
+3.1. T�"NG QUAN KIẾN TR�sC MULTI-AGENT26
+3.2. ACADEMIC AGENT: BAYESIAN HYPOTHESIS TRACKING V�? HTN PLANNING29
+3.2.1. KH�"NG GIAN GIẢ THUYẾT V�? ABSTRACTION LAYER29
+3.2.2. CƠ CHẾ CẬP NHẬT BAYES30
+3.2.3. LỰA CH�ON QUIZ TỐI ĐA H�"A TH�"NG TIN31
+3.2.4. HTN PLANNING V�sI PLAN REPAIR31
+3.3. EMPATHY AGENT: PARTICLE FILTER STATE ESTIMATION34
+3.3.1. M�" H�ONH TRẠNG THÁI V�? ABSTRACTION LAYER34
+3.3.2. THUẬT TOÁN B�~ L�OC HẠT36
+3.3.3. RA QUYẾT Đ�SNH DỰA TR�SN EXPECTED UTILITY38
+3.4. MEMORY SYSTEM V�? RL STRATEGY POLICY39
+3.4.1. B�~ NH�s ĐA TH�?NH PHẦN40
+3.4.2. CHÍNH SÁCH Q-LEARNING41
+3.4.3. L�~ TR�ONH M�z R�~NG41
+3.5. ORCHESTRATOR V�? CƠ CHẾ TỰ GIÁM SÁT42
+3.5.1. POLICY NETWORK ĐI�?U PHỐI42
+3.5.2. HI�?U CHUẨN Đ�~ TIN CẬY V�? HITL44
+3.6. BẢNG ÁNH XẠ GIẢI PHÁP �?" PAIN POINT44
+3.7. ĐI�,M KHÁC BI�?T V�? LỢI THẾ CẠNH TRANH45
+3.8. BẢNG ĐẶC ĐI�,M AGENTIC KI�,M CHỨNG46
+4. THIẾT KẾ KỸ THUẬT & KIẾN TR�sC H�? THỐNG47
+4.1. T�"NG QUAN KIẾN TR�sC47
+4.1.1. M�" H�ONH NGỮ CẢNH H�? THỐNG (C1)47
+4.1.2. M�" H�ONH CONTAINER (C2)50
+4.1.3. M�" H�ONH TH�?NH PHẦN (C3)53
+4.2. THIẾT KẾ CHI TIẾT TH�?NH PHẦN57
+4.2.1. ACADEMIC ENGINE57
+4.2.2. EMPATHY ENGINE58
+4.2.3. MEMORY ENGINE58
+4.2.4. ORCHESTRATOR ENGINE59
+4.3. LU�'NG DỮ LI�?U V�? TRẠNG THÁI60
+4.3.1. LU�'NG XỬ LÝ TƯƠNG TÁC H�OC TẬP60
+4.3.2. LU�'NG CẬP NHẬT M�" H�ONH V�? CHÍNH SÁCH60
+4.4. TECH STACK & C�"NG NGH�?60
+4.4.1. BẢNG C�"NG NGH�? PH�,N TẦNG61
+4.4.2. TỐI ƯU CHO FLUTTER MOBILE62
+4.4.3. TỐI ƯU CHI PHÍ & HI�?U N�,NG BACKEND63
+4.4.4. L�~ TR�ONH C�"NG NGH�?63
+4.5. HI�?U N�,NG V�? KHẢ N�,NG M�z R�~NG63
+4.5.1. MỤC TI�SU HI�?U N�,NG63
+4.5.2. TỐI ƯU H�"A64
+4.5.3. KHẢ N�,NG M�z R�~NG64
+4.6. BẢO MẬT V�? RI�SNG TƯ64
+4.6.1. BẢO V�? DỮ LI�?U NGƯ�oI D�TNG64
+4.6.2. TU�,N THỦ PHÁP LÝ65
+4.6.3. AN TO�?N M�" H�ONH65
+4.7. INSPECTION DASHBOARD65
+4.7.1. MỤC ĐÍCH V�? ĐỐI TƯỢNG65
+4.7.2. CHỨC N�,NG CHÍNH66
+4.7.3. TRI�,N KHAI KỸ THUẬT66
+4.8. MA TRẬN KI�,M CHỨNG KỸ THUẬT66
+5. Y�SU CẦU CHỨC N�,NG & PHẠM VI TRI�,N KHAI67
+5.1. Y�SU CẦU CHỨC N�,NG67
+5.1.1. ACADEMIC AGENT REQUIREMENTS68
+5.1.2. EMPATHY AGENT REQUIREMENTS69
+5.1.3. MEMORY SYSTEM REQUIREMENTS71
+5.1.4. ORCHESTRATOR REQUIREMENTS72
+5.1.5. GIAO DI�?N V�? TRẢI NGHI�?M73
+5.1.6. MA TRẬN ƯU TI�SN MOSCOW CHO MVP74
+5.2. Y�SU CẦU PHI CHỨC N�,NG75
+5.2.1. Y�SU CẦU HI�?U N�,NG V�? Đ�~ �"N Đ�SNH75
+5.2.2. Y�SU CẦU KI�,M CHỨNG CƠ CHẾ AGENTIC (MVP)76
+5.2.3. Y�SU CẦU CHẤT LƯỢNG M�" H�ONH V�? CALIBRATION (GIAI ĐOẠN 2 & POST-HACKATHON)77
+5.2.4. Y�SU CẦU BẢO MẬT V�? RI�SNG TƯ78
+5.2.5. Y�SU CẦU KHẢ N�,NG M�z R�~NG V�? BẢO TR�O79
+5.3. PHẠM VI TRI�,N KHAI THEO GIAI ĐOẠN79
+5.3.1. GIAI ĐOẠN 1: MVP CORE AGENTIC (06/04 �?" 17/04)79
+5.3.2. GIAI ĐOẠN 2: HO�?N THI�?N & TỐI ƯU DEMO (18/04 �?" 09/05)81
+5.4. PH�,N C�"NG NHI�?M VỤ & L�~ TR�ONH THỰC HI�?N82
+5.4.1. PH�,N C�"NG NHI�?M VỤ THEO GIAI ĐOẠN83
+5.4.2. CƠ CHẾ PHỐI HỢP84
+5.4.3. L�~ TR�ONH CHI TIẾT THEO NG�?Y84
+5.5. TI�SU CHÍ HO�?N TH�?NH (DEFINITION OF DONE)86
+5.5.1. DEFINITION OF DONE CHO GIAI ĐOẠN 1 (MVP N�~P V�'NG 1 �?" 17/04/2026)86
+5.5.2. DEFINITION OF DONE CHO GIAI ĐOẠN 2 (DEMO CHUNG KẾT �?" 09/05/2026)88
+5.5.3. THAM CHIẾU TI�SU CHÍ NGHI�?M THU CHI TIẾT88
+6. TRẢI NGHI�?M NGƯ�oI D�TNG & ĐẠO ĐỨC AI89
+6.1. TRIẾT LÝ THIẾT KẾ: "C�"NG NGH�? V�" H�ONH, MINH BẠCH HỮU H�ONH"89
+6.1.1. C�"NG NGH�? V�" H�ONH89
+6.1.2. MINH BẠCH HỮU H�ONH89
+6.2. DE-STRESS UI V�? TƯƠNG TÁC THÍCH NGHI90
+6.2.1. NGUY�SN TẮC DE-STRESS UI90
+6.2.2. TƯƠNG TÁC THÍCH NGHI THEO TRẠNG THÁI90
+6.3. CƠ CHẾ HUMAN-IN-THE-LOOP (HITL)91
+6.3.1. KÍCH HOẠT HITL DỰA TR�SN Đ�~ BẤT Đ�SNH91
+6.3.2. HITL CHO THAY Đ�"I QUAN TR�ONG91
+6.4. ĐẠO ĐỨC AI, CHÍNH SÁCH DỮ LI�?U & AN TO�?N NGƯ�oI D�TNG91
+6.4.1. TU�,N THỦ NGH�S Đ�SNH 13/2023/NĐ-CP92
+6.4.2. AN TO�?N M�" H�ONH V�? FALLBACK92
+6.5. AN TO�?N CHO NGƯ�oI D�TNG V�S TH�?NH NI�SN92
+6.5.1. BẢO V�? T�,M LÝ92
+6.5.2. PH�,N QUY�?N PHỤ HUYNH93
+6.6. MINH BẠCH V�? GIẢI TR�ONH93
+6.6.1. INSPECTION DASHBOARD93
+6.6.2. BÁO CÁO ĐÁNH GIÁ KỸ THUẬT93
+6.7. T�"M TẮT CAM KẾT UX V�? ĐẠO ĐỨC94
+7. TÁC Đ�~NG, M�" H�ONH KINH DOANH & ĐO LƯ�oNG TH�?NH C�"NG95
+7.1. TÁC Đ�~NG DỰ KIẾN V�? CH�^ SỐ ĐO LƯ�oNG95
+7.1.1. TÁC Đ�~NG GIÁO DỤC95
+7.1.2. TÁC Đ�~NG SỨC KH�ZE TINH THẦN95
+7.1.3. TÁC Đ�~NG X�f H�~I & KỸ THUẬT96
+7.1.4. CH�^ SỐ ĐO LƯ�oNG PH�,N TẦNG96
+7.1.5. CHIẾN LƯỢC ĐÁNH GIÁ98
+7.2. M�" H�ONH KINH DOANH & CHIẾN LƯỢC GO-TO-MARKET98
+7.2.1. G�"I D�SCH VỤ98
+7.2.2. CHIẾN LƯỢC GO-TO-MARKET99
+7.2.3. LỢI THẾ CẠNH TRANH D�?I HẠN (TECHNICAL MOAT)100
+7.2.4. PH�,N TÍCH ĐƠN V�S KINH TẾ (UNIT ECONOMICS)101
+7.3. PH�,N TÍCH CHI PHÍ �?" LỢI ÍCH102
+7.3.1. CHI PHÍ PHÁT TRI�,N V�? VẬN H�?NH102
+7.3.2. DOANH THU DỰ KIẾN103
+7.3.3. ROI V�? CH�^ SỐ T�?I CHÍNH103
+7.4. ĐO LƯ�oNG TH�?NH C�"NG V�? EVALUATION SUITE103
+7.4.1. AGENTIC METRICS DASHBOARD103
+7.4.2. USER METRICS104
+7.4.3. QUY TR�ONH ĐÁNH GIÁ Đ�SNH KỲ104
+7.5. L�~ TR�ONH PHÁT TRI�,N SAU HACKATHON104
+7.5.1. GIAI ĐOẠN BETA: THU THẬP DỮ LI�?U & HUẤN LUY�?N M�" H�ONH V1 (THÁNG 6/2026 �?" THÁNG 7/2026)104
+7.5.2. GIAI ĐOẠN RA MẮT: M�z R�~NG NGƯ�oI D�TNG & TỐI ƯU CHUY�,N Đ�"I (THÁNG 8/2026 �?" THÁNG 9/2026)105
+7.5.3. GIAI ĐOẠN M�z R�~NG: ĐA M�"N H�OC & HỢP TÁC B2B (THÁNG 10/2026 �?" THÁNG 12/2026)106
+7.5.4. GIAI ĐOẠN TRƯ�zNG TH�?NH: N�?N TẢNG GIA SƯ AI QUỐC GIA (2027+)107
+7.5.5. C�~T MỐC QUAN TR�ONG108
+8. TÍNH KHẢ THI, KẾ HOẠCH THỰC HI�?N & RỦI RO108
+8.1. TÍNH KHẢ THI T�"NG TH�,109
+8.1.1. TÍNH KHẢ THI KỸ THUẬT109
+8.1.2. TÍNH KHẢ THI NGU�'N LỰC109
+8.1.3. TÍNH KHẢ THI TH�S TRƯ�oNG110
+8.2. MA TRẬN QUẢN TR�S RỦI RO110
+8.2.1. MA TRẬN RỦI RO HACKATHON110
+8.2.2. CHIẾN LƯỢC ỨNG PH�" T�"NG TH�,114
+8.3. TI�SU CHÍ NGHI�?M THU115
+8.3.1. TI�SU CHÍ NGHI�?M THU MVP (N�~P V�'NG 1 �?" 17/04/2026)115
+8.3.2. TI�SU CHÍ NGHI�?M THU GIAI ĐOẠN 2 (DEMO CHUNG KẾT �?" 09/05/2026)115
+8.3.3. TI�SU CHÍ NGHI�?M THU POST-HACKATHON116
+8.4. NGU�'N LỰC V�? C�"NG CỤ H�- TRỢ116
+9. KẾT LUẬN & L�oI K�SU G�OI H�?NH Đ�~NG116
+9.1. GIÁ TR�S CỐT L�.I & T�"M TẮT DỰ ÁN116
+9.2. CAM KẾT TỪ Đ�~I NGŨ119
+9.2.1. CAM KẾT SẢN PHẨM HACKATHON119
+9.2.2. CAM KẾT TÍNH TO�?N VẸN KỸ THUẬT119
+9.2.3. CAM KẾT M�f NGU�'N M�z V�? C�~NG Đ�'NG120
+9.2.4. CAM KẾT PHÁT TRI�,N D�?I HẠN120
+9.2.5. CAM KẾT ĐẠO ĐỨC V�? BẢO MẬT121
+9.2.6. TH�"NG TIN LI�SN H�? V�? TRÁCH NHI�?M GIẢI TR�ONH121
+9.3. L�oI K�SU G�OI H�?NH Đ�~NG121
+9.4. TH�"NG TIN LI�SN H�?122
+9.5. T�?I LI�?U THAM KHẢO122
+1. T�"M TẮT ĐI�?U H�?NH
+1.1. TH�"NG ĐI�?P CỐT L�.I
+GrowMate là h�? th�'ng Gia sư AI Đa tác tử (Multi-Agent AI Tutor) v�>i kiến trúc Agentic thực thụ, �'ược xây dựng dựa trên b�'n cơ chế kỹ thuật ki�fm chứng �'ược, loại bỏ hoàn toàn sự phụ thu�Tc vào suy luận không �.n �'�<nh của LLM cho các quyết �'�<nh quan trọng:
+Bayesian Hypothesis Tracking (Theo dõi giả thuyết bằng xác suất Bayes): H�? th�'ng chẩn �'oán l�- h�.ng kiến thức bằng cách duy trì và cập nhật liên tục phân ph�'i niềm tin (belief distribution) trên không gian giả thuyết. M�-i tương tác của học sinh là m�Tt bằng chứng (evidence) �'ược sử dụng �'�f cập nhật xác suất hậu nghi�?m theo �'�<nh luật Bayes, v�>i hàm hợp lý (likelihood) �'ược học từ dữ li�?u l�-i thực tế, �'ảm bảo �'�T tin cậy và khả n�fng hi�?u chuẩn (calibration).
+HTN Planning v�>i Plan Repair (Lập kế hoạch phân cấp và tự sửa chữa): L�T trình học tập �'ược bi�fu di�.n dư�>i dạng cây nhi�?m vụ phân cấp (Hierarchical Task Network) v�>i các �'iều ki�?n tiên quyết và hi�?u ứng rõ ràng. Khi gặp phản h�"i bất ngờ hoặc thất bại, Agent thực hi�?n chẩn �'oán nguyên nhân và áp dụng chiến lược sửa chữa cục b�T (local repair) �'�f �'iều ch�?nh kế hoạch, thay vì xóa bỏ và sinh lại kế hoạch từ �'ầu.
+Particle Filter State Estimation (Ư�>c lượng trạng thái bằng b�T lọc hạt): Trạng thái tinh thần của học sinh (tập trung, b�'i r�'i, ki�?t sức, thất vọng) �'ược mô hình hóa như m�Tt biến ẩn (hidden state) và �'ược ư�>c lượng trực tuyến thông qua b�T lọc hạt (Particle Filter). Cơ chế này cung cấp khả n�fng lượng hóa �'�T bất �'�<nh (uncertainty quantification), cho phép h�? th�'ng tự nhận biết khi nào niềm tin chưa �'ủ vững �'�f ra quyết �'�<nh tự chủ và cần kích hoạt cơ chế con người trong vòng lặp (HITL).
+RL Strategy Policy v�>i Memory Consolidation (Chính sách chiến lược học t�fng cường và hợp nhất b�T nh�>): H�? th�'ng duy trì b�T nh�> �'a thành phần g�"m b�T nh�> tình tiết (episodic), b�T nh�> ngữ nghĩa (semantic) và bảng giá tr�< chiến lược (Q-table). Chính sách lựa chọn hành �'�Tng �'ược t�'i ưu hóa liên tục thông qua học t�fng cường (Q-Learning) dựa trên phản h�"i thực tế, giúp h�? th�'ng thích nghi v�>i s�Y thích và phản ứng của từng học sinh, cải thi�?n chất lượng quyết �'�<nh theo thời gian.
+Khác bi�?t then ch�'t: Mọi quyết �'�<nh của GrowMate �'ều xuất phát từ các mô hình xác suất �'ã �'ược hi�?u chuẩn và chính sách học �'ược từ dữ li�?u, không phải từ các luật cứng hay suy luận v�fn bản của LLM. H�? th�'ng có cơ chế tự giám sát (self-monitoring), tự �'o lường �'�T bất �'�<nh và minh bạch hóa quá trình ra quyết �'�<nh thông qua nhật ký ki�fm toán (audit log) và bảng �'iều khi�fn trạng thái n�Ti b�T.
+1.2. VẤN Đ�? CỐT L�.I & CƠ H�~I
+Theo báo cáo của UNICEF Vi�?t Nam và B�T GD&ĐT (2024), hơn 50% học sinh THPT ch�<u áp lực thành tích nặng nề và khoảng 20% thanh thiếu niên gặp vấn �'ề sức khỏe tâm thần liên quan �'ến học tập. Qua khảo sát n�Ti b�T v�>i n=120 học sinh và phỏng vấn sâu n=15 học sinh l�>p 12, �'�Ti ngũ xác �'�<nh hai vấn �'ề cấp bách mà các giải pháp hi�?n tại chưa giải quyết tri�?t �'�f:
+Học mù quáng do thiếu chẩn �'oán g�'c r�.: Đa s�' học sinh khi làm sai bài tập phức tạp không xác �'�<nh �'ược nguyên nhân thực sự, thường nhầm lẫn giữa h�.ng kiến thức nền tảng và l�-i kỹ thuật. H�? quả là học sinh lãng phí thời gian làm lại các dạng bài tương tự mà không lấp �'ược l�- h�.ng c�'t lõi. Các nền tảng hi�?n tại chủ yếu cung cấp lời giải tĩnh hoặc chẩn �'oán dựa trên suy luận ngôn ngữ thiếu �'�T tin cậy, không có cơ chế truy vết xác suất dựa trên �'�" th�< tri thức và mô hình l�-i �'ược hi�?u chuẩn.
+Ki�?t sức vô hình do thiếu phát hi�?n trạng thái tinh thần: Học sinh thường học liên tục trong thời gian dài mà không nhận ra dấu hi�?u suy giảm hi�?u suất hoặc b�'i r�'i tích tụ. Các công cụ hi�?n có ch�? dựa trên ngưỡng thời gian cứng nhắc, không có khả n�fng ư�>c lượng trạng thái tinh thần từ tín hi�?u hành vi �'a chiều v�>i lượng hóa �'�T bất �'�<nh, dẫn �'ến can thi�?p không phù hợp hoặc bỏ sót các dấu hi�?u cảnh báo s�>m.
+Cơ h�Ti th�< trường: Học sinh và phụ huynh cần m�Tt h�? th�'ng gia sư thông minh có khả n�fng chẩn �'oán chính xác dựa trên bằng chứng xác suất, lập kế hoạch linh hoạt v�>i khả n�fng tự sửa chữa, và �'�"ng hành thấu cảm dựa trên ư�>c lượng trạng thái tinh thần tin cậy. GrowMate lấp �'ầy khoảng tr�'ng này bằng kiến trúc Agentic thực thụ, mang lại trải nghi�?m học tập cá nhân hóa, hi�?u quả và bền vững.
+1.3. KIẾN TR�sC AGENTIC CỐT L�.I
+GrowMate tri�fn khai b�'n cơ chế Agentic ki�fm chứng �'ược, thay thế suy luận không �.n �'�<nh của LLM bằng các mô hình xác suất hi�?u chuẩn và chính sách học từ dữ li�?u:
+Cơ chế
+Mô tả tóm tắt
+Giá tr�< mang lại
+Ki�fm chứng
+Bayesian Hypothesis Tracking
+Duy trì và cập nhật phân ph�'i niềm tin trên không gian giả thuyết nguyên nhân theo �'�<nh luật Bayes khi nhận bằng chứng m�>i.
+Chẩn �'oán g�'c r�. chính xác, lượng hóa �'�T tin cậy, tránh suy �'oán sai.
+Dashboard hi�fn th�< belief evolution, entropy giảm, likelihood từ error model.
+HTN Planning v�>i Plan Repair
+Bi�fu di�.n l�T trình học tập dư�>i dạng cây nhi�?m vụ phân cấp có ngữ nghĩa hình thức. Tự �'�Tng sửa chữa cục b�T khi gặp thất bại mà không xóa kế hoạch.
+L�T trình linh hoạt, thích nghi v�>i phản h�"i thực tế, bảo toàn tiến �'�T �'ã �'ạt.
+Dashboard hi�fn th�< plan tree, repair event, failure diagnosis.
+Particle Filter State Estimation
+Ư�>c lượng trạng thái tinh thần ẩn từ tín hi�?u hành vi �'a chiều qua b�T lọc hạt, cung cấp lượng hóa �'�T bất �'�<nh và ra quyết �'�<nh dựa trên expected utility.
+Phát hi�?n s�>m b�'i r�'i/ki�?t sức, can thi�?p phù hợp, kích hoạt HITL khi uncertainty cao.
+Dashboard hi�fn th�< particle distribution, uncertainty score, utility values.
+RL Strategy Policy
+Học chính sách lựa chọn chiến lược t�'i ưu qua Q-Learning dựa trên phản h�"i thực tế, duy trì b�T nh�> �'a thành phần �'�f cải thi�?n quyết �'�<nh theo thời gian.
+Cá nhân hóa sâu, thích nghi v�>i s�Y thích và phản ứng của từng học sinh.
+Dashboard hi�fn th�< Q-value updates, strategy shift, learning curve.
+Minh bạch & Tự giám sát: Mọi quyết �'�<nh �'ều �'ược ghi nhật ký ki�fm toán (audit log) và hi�fn th�< trạng thái n�Ti b�T qua Inspection Dashboard. H�? th�'ng tự �'o lường �'�T bất �'�<nh và kích hoạt cơ chế Human-in-the-Loop khi �'�T tin cậy thấp, �'ảm bảo an toàn và tôn trọng quyền tự quyết của học sinh.
+Chi tiết tri�fn khai kỹ thuật, công thức toán học và quy trình vận hành của từng cơ chế �'ược mô tả �'ầy �'ủ tại Mục 3.2, 3.3 và 3.4.
+1.4. L�~ TR�ONH PHÁT TRI�,N TRONG HACKATHON
+GrowMate �'ược tri�fn khai theo hai giai �'oạn tập trung trong khuôn kh�. Hackathon, �'ảm bảo xây dựng thành công MVP chứng minh tính Agentic thực thụ, �'�"ng thời chuẩn b�< kỹ lưỡng cho vòng chung kết và �'�<nh hư�>ng phát tri�fn dài hạn. Chiến lược tri�fn khai ưu tiên chứng minh cơ chế kỹ thuật ki�fm chứng �'ược qua inspection dashboard và log minh bạch, sử dụng tham s�' kh�Yi tạo từ expert knowledge cho MVP �'�f giảm rủi ro phụ thu�Tc dữ li�?u và tập trung ngu�"n lực vào core logic.
+Giai �'oạn 1: MVP Core Agentic (06/04 �?" 17/04)
+Mục tiêu: Xây dựng prototype end-to-end cho use-case c�'t lõi (chẩn �'oán l�- h�.ng chuyên �'ề Đạo hàm và phát hi�?n trạng thái b�'i r�'i/ki�?t sức), chứng minh 4 cơ chế Agentic hoạt �'�Tng �'úng thiết kế qua demo trực tiếp và inspection dashboard.
+Phạm vi trọng tâm:
+Academic Agent: Bayesian Hypothesis Tracking v�>i belief update, entropy, information gain; HTN Planning v�>i plan repair cục b�T (insert, skip, alternative). Tham s�' prior và likelihood kh�Yi tạo từ expert knowledge, giữ nguyên công thức Bayes và cấu trúc code h�- trợ tải mô hình huấn luy�?n sau.
+Empathy Agent: Particle Filter State Estimation v�>i 100 hạt, uncertainty quantification; decision dựa trên expected utility; HITL trigger khi uncertainty vượt ngưỡng. Observation model tham s�' kh�Yi tạo từ expert rules.
+Memory System: Episodic store lưu experience tuple; Q-Learning strategy update từ reward người dùng; recommend strategy ε-greedy.
+Orchestrator: Điều ph�'i action dựa trên utility comparison và confidence thresholds; tính uncertainty t�.ng hợp, kích hoạt HITL khi cần.
+Giao di�?n: Flutter app t�'i giản (3 màn hình chính: làm bài, kết quả chẩn �'oán, �'ề xuất can thi�?p); thu thập tín hi�?u hành vi chính xác; De-stress UI cơ bản.
+Inspection Dashboard: Hi�fn th�< realtime belief distribution, plan tree v�>i repair history, particle distribution, Q-values, và decision log. Công cụ ki�fm chứng Agentic cho BGK và debug n�Ti b�T.
+Hạ tầng: FastAPI backend, Supabase database, Cloud Run deployment, serverless scale-to-zero.
+Deliverable:
+APK Android chạy �.n �'�<nh, demo end-to-end không l�-i.
+Inspection dashboard hoạt �'�Tng realtime, log minh bạch kh�>p hành �'�Tng.
+Video demo dự phòng cho 4 k�<ch bản Agentic.
+Báo cáo kỹ thuật MVP mô tả cơ chế và kết quả ki�fm chứng.
+Mã ngu�"n cơ bản �'ược t�. chức rõ ràng, sẵn sàng m�Y r�Tng.
+Giai �'oạn 2: Hoàn thi�?n & T�'i ưu Demo (18/04 �?" 09/05)
+Mục tiêu: M�Y r�Tng �'�T phủ k�<ch bản, t�fng �'�T �.n �'�<nh h�? th�'ng, tinh ch�?nh tham s�' mô hình dựa trên testing n�Ti b�T, hoàn thi�?n UX và chuẩn b�< demo chung kết xuất sắc.
+Phạm vi m�Y r�Tng:
+M�Y r�Tng n�Ti dung: B�. sung quiz variations, giải thích chi tiết, và task library coverage cho các edge cases của use-case Đạo hàm.
+Tinh ch�?nh mô hình: Điều ch�?nh prior, likelihood, utility values dựa trên log thực tế từ testing; t�'i ưu s�' hạt và tần suất cập nhật particle filter; calibrate thresholds cho HITL và convergence.
+T�'i ưu sản phẩm: Hoàn thi�?n De-stress UI, micro-interactions, animations; giảm latency p95 < 3s; xử lý edge cases, l�-i mạng; thêm fallback mechanisms an toàn.
+Chuẩn b�< demo: K�<ch bản demo �'a dạng, dry-run nhiều lần, slide và tài li�?u trình bày chuyên nghi�?p, video fallback cập nhật.
+Deliverable:
+Bản build chung kết �.n �'�<nh, hi�?u n�fng t�'i ưu.
+Demo mượt mà, inspection dashboard rõ ràng, log �'ầy �'ủ.
+Tài li�?u kỹ thuật và báo cáo �'ánh giá hoàn thi�?n.
+Sẵn sàng m�Y r�Tng post-hackathon.
+Chiến lược dữ li�?u và Mô hình:
+MVP: Sử dụng expert priors và synthetic data �'�f kh�Yi tạo tham s�'. Kiến trúc code sử dụng abstraction layer cho models, cho phép chứng minh cơ chế Bayesian updating, particle filter estimation, và Q-learning mà không phụ thu�Tc vào pipeline huấn luy�?n. Inspection dashboard chứng minh cơ chế hoạt �'�Tng �'úng bất k�f ngu�"n tham s�'.
+Giai �'oạn 2: Tinh ch�?nh tham s�' dựa trên kết quả testing và log thực tế. Điều ch�?nh thủ công hoặc grid search nhỏ �'�f t�'i ưu �'�T chính xác cho use-case demo.
+Post-Hackathon: Thu thập dữ li�?u thực từ người dùng beta, huấn luy�?n error model và observation model bằng phương pháp ML chuẩn, tích hợp qua cơ chế tải mô hình �'ã có sẵn. Thực hi�?n calibration nghiêm ngặt và �'ánh giá metrics �'ầy �'ủ.
+L�T trình dài hạn (Post-Hackathon):
+Sau khi hoàn thành Hackathon, GrowMate tiếp tục phát tri�fn theo hư�>ng data-driven và m�Y r�Tng th�< trường:
+Tháng 6-7/2026: Tri�fn khai beta v�>i 200 học sinh, thu thập dữ li�?u gán nhãn, huấn luy�?n mô hình v1, �'ánh giá calibration và accuracy.
+Tháng 8-9/2026: M�Y r�Tng �'a môn (Lý, Hóa, Anh), tích hợp long-term memory, t�'i ưu policy qua RLHF.
+Tháng 10-12/2026: Hợp tác B2B v�>i trường học, tri�fn khai dashboard phụ huynh �'ầy �'ủ, chuẩn b�< gọi v�'n.
+2027+: Tr�Y thành nền tảng gia sư AI chuẩn mực, tích hợp sâu v�>i h�? th�'ng giáo dục, h�- trợ hàng tr�fm nghìn học sinh.
+1.5. TÁC Đ�~NG DỰ KIẾN V�? CH�^ SỐ ĐO LƯ�oNG
+GrowMate thiết lập h�? th�'ng �'o lường thành công theo hai tầng, phản ánh chiến lược phát tri�fn phân tầng từ chứng minh cơ chế Agentic trong Hackathon �'ến t�'i ưu hóa chất lượng mô hình và tác �'�Tng thực tế sau tri�fn khai. Cách tiếp cận này �'ảm bảo tiêu chí �'ánh giá MVP khả thi trong timeline ngắn, �'�"ng thời cam kết các chuẩn mực cao về �'�T chính xác, hi�?u chuẩn và giá tr�< người dùng cho sản phẩm thương mại.
+1.5.1. CÁC CH�^ SỐ TR�ONG YẾU (KEY HIGHLIGHTS)
+Thay vì li�?t kê chi tiết, phần tóm tắt �'iều hành nêu bật các mục tiêu c�'t lõi mà GrowMate cam kết �'ạt �'ược:
+Ki�fm chứng cơ chế Agentic (MVP): Chứng minh thành công 4 cơ chế kỹ thuật (Bayesian Tracking, HTN Planning v�>i Repair, Particle Filter Estimation, RL Strategy Policy) hoạt �'�Tng �'úng thiết kế thông qua Inspection Dashboard và audit log minh bạch.
+Hi�?u n�fng h�? th�'ng: Đ�T tr�. chẩn �'oán p95 < 4.5 giây trong MVP; t�'i ưu xu�'ng < 3 giây cho bản demo chung kết và giai �'oạn sau.
+Chất lượng mô hình: Đạt Calibration Error (ECE) < 0.1 sau khi huấn luy�?n mô hình v1 trên dữ li�?u thực; tỷ l�? h�Ti tụ niềm tin > 80% trong t�'i �'a 3 bằng chứng.
+Tác �'�Tng giáo dục: Giảm 30-40% thời gian học vô ích thông qua chẩn �'oán �'úng g�'c r�.; cải thi�?n �'i�fm s�' dự kiến 1.0-1.5 �'i�fm sau 4 tuần sử dụng.
+Sức khỏe tinh thần: Giảm 20-30% nguy cơ ki�?t sức học �'ường nhờ phát hi�?n s�>m và can thi�?p k�<p thời; tỷ l�? false positive cho phát hi�?n m�?t mỏi < 10%.
+T�fng trư�Yng người dùng: Tỷ l�? duy trì (Retention) > 60% sau 7 ngày; tỷ l�? chuy�fn �'�.i free-to-paid �'ạt 3-5% trong giai �'oạn ra mắt.
+Chi tiết �'ầy �'ủ về h�? th�'ng ch�? s�' �'o lường phân tầng, ngưỡng mục tiêu theo từng giai �'oạn và phương pháp �'ánh giá �'ược trình bày tại Mục 7.1.4.
+1.5.2. CHIẾN LƯỢC ĐO LƯ�oNG V�? BÁO CÁO
+===== K? Ho?ch Hackathon MVP Chi Ti?t.docx =====
+Chào bạn, dư�>i vai trò là Senior Project Manager, tôi �'ã phân tích kỹ lưỡng file Proposal_Final.pdf của �'�Ti noleAI. Chiến lược phân tầng (sử dụng Expert Priors & Abstraction Layer thay vì train ML model ngay lập tức) là m�Tt nư�>c �'i cực kỳ xuất sắc và khả thi cho Hackathon.
+Dư�>i �'ây là Roadmap MVP 12 ngày (06/04 - 17/04/2026) �'ược thiết kế cực kỳ chi tiết, thực chiến, có th�f chuy�fn thẳng thành Jira/Trello tickets.
+1. T�"NG QUAN ROADMAP MVP (12 NG�?Y)
+Nguyên tắc vận hành (Agile):
+Daily Sync: 9:00 AM - 9:15 AM hàng ngày (Tiến �'�T - Blocker - Kế hoạch).
+Scope Freeze: Cu�'i ngày 08/04. Mọi tính n�fng ngoài MoSCoW "MUST HAVE" b�< khóa.
+MoSCoW Focus: Ch�? làm 4 cơ chế Core Agentic + 1 Use-case Đạo hàm. Các yêu cầu như Dashboard Phụ huynh, Train Model v1, Semantic Store �'ưa vào backlog (Out of scope MVP).
+Milestone
+Thời gian
+Mục tiêu trọng tâm
+Definition of Done (DoD)
+M1: Foundation & Core Logic
+06/04 - 08/04
+Xây dựng lõi toán học (Bayesian, HTN, PF) và hạ tầng cơ s�Y.
+Unit tests pass các công thức; Hạ tầng DB, Repo sẵn sàng; Scope Freeze.
+M2: Memory, Orchestrator & UI
+09/04 - 11/04
+Xử lý Q-Learning, Orchestrator (HITL) và giao di�?n Flutter cơ bản.
+Các API agents gọi �'ược; App thu thập �'ược behavioral signals; Dashboard lên hình.
+M3: E2E Integration
+12/04 - 14/04
+N�'i thông su�'t Flutter �?" Backend �?" Agents �?" Dashboard.
+Lu�"ng chẩn �'oán và Empathy chạy E2E. Latency p95 < 4.5s. Tín hi�?u gửi batch 5s.
+M4: Polish, QA & Submission
+15/04 - 17/04
+Quay video k�<ch bản, viết báo cáo kỹ thuật, ch�'t APK.
+APK không crash; 4 video agentic sẵn sàng; Dashboard realtime kh�>p log; Submit!
+2. BẢNG PH�,N C�"NG CHI TIẾT THEO NG�?Y (ACTIONABLE PLAN)
+Milestone 1: Foundation & Core Logic (06/04 - 08/04)
+Ngày
+Khang (AI Architect)
+Minh Đức (Backend)
+Hưng (Data/API/Prompt)
+Huy (Flutter/PO)
+Dependencies / Ghi chú
+06/04
+(Setup)
+- Define ErrorModelInterface, ObservationModelInterface.
+- Draft công thức Bayesian math.
+- Setup FastAPI skeleton.
+- Setup Supabase, schema (JSONB cho config, tables cho Episodic/Logs).
+- Setup Streamlit Repo.
+- Thiết kế cấu trúc JSON cho �'�" th�< tri thức (KG) Đạo hàm (15 node).
+- Kh�Yi tạo Flutter repo, routing cơ bản.
+- Setup theme De-stress (màu pastel, font).
+Kh�Yi �'ầu. Đức cần schema từ Khang/Hưng �'�f tạo bảng DB.
+07/04
+(Academic)
+- Code BayesianTracker (update belief, entropy, info gain).
+- Viết Unit test công thức Bayes.
+- Setup Cloud Run CI/CD.
+- Code ConfigLoader load params từ Supabase.
+- Bắt �'ầu base class PlanNode (HTN).
+- Soạn file JSON: Expert Priors & Likelihood rules.
+- Viết code Streamlit: connect Supabase.
+- UI: Màn hình Làm bài (Quiz screen) cho chuyên �'ề Đạo hàm.
+- Xử lý state management (Bloc).
+Khang cần file JSON config từ Hưng �'�f chạy Unit test Tracker.
+08/04
+(HTN & PF)
+- Code ParticleFilterEstimator (predict, update, resample, 100 hạt).
+- Vector hóa bằng NumPy.
+- Hoàn thi�?n HTN Planner & PlanRepairEngine (insert, skip, alternative logic).
+- Soạn file JSON: Task Library (HTN) & Quan h�? Prerequisite.
+- Prompt design cho Gemini API.
+- Logic: GestureDetector thu thập typing speed, correction rate, idle time.
+[SCOPE FREEZE] Các Agent Core phải xong logic �'�Tc lập.
+Milestone 2: Memory, Orchestrator & UI (09/04 - 11/04)
+Ngày
+Khang (AI Architect)
+Minh Đức (Backend)
+Hưng (Data/API/Prompt)
+Huy (Flutter/PO)
+Dependencies / Ghi chú
+09/04
+(Memory)
+- Code thuật toán Q-Learning update & epsilon-greedy recommendation.
+- Code MemoryEngine (read/write Episodic Store vào DB).
+- Wrap Core logic thành FastAPI endpoints.
+- Streamlit: Vẽ Belief View (entropy curve) và Plan View (tree, repair).
+- Soạn Utility Table JSON.
+- UI: Popup hi�fn th�< kết quả chẩn �'oán và Đề xuất.
+Backend phải gọi �'ược BayesianTracker qua HTTP POST.
+10/04
+(Empathy)
+- Code logic Orchestrator: Utility comparison, tính total uncertainty.
+- Wrap Empathy Engine & Q-Learning thành API.
+- Code AuditLogger lưu log dạng JSON.
+- Sinh b�T 15-20 câu quiz Đạo hàm chất lượng cao (có �'áp án sai �'i�fn hình).
+- Logic: Gom batch behavioral signals gửi m�-i 5s lên Backend API.
+Huy cần API endpoint từ Đức �'�f test gửi tín hi�?u hành vi.
+11/04
+(Orch & HITL)
+- Tinh ch�?nh logic kích hoạt HITL based on threshold.
+- Dummy confidence calibration.
+- Hoàn thi�?n Orchestrator endpoint (nhận/trả response t�.ng hợp).
+- Streamlit: Vẽ State Estimate (particle distribution) & Q-Value View.
+- UI: Màn hình Recovery Mode (ngh�? ngơi) & Popup HITL yêu cầu xác nhận.
+Orchestrator là trái tim, Đức & Khang pair-programming phần này.
+Milestone 3: End-to-End Integration (12/04 - 14/04)
+Ngày
+Khang (AI Architect)
+Minh Đức (Backend)
+Hưng (Data/API/Prompt)
+Huy (Flutter/PO)
+Dependencies / Ghi chú
+12/04
+(E2E Acad)
+- Review E2E log của Bayesian & HTN.
+- Tinh ch�?nh thresholds �'�T nhạy.
+- Sửa bugs API tích hợp.
+- Đảm bảo AuditLogger ghi �'úng format.
+- Tích hợp gọi Gemini Flash cho giải thích.
+- Ki�fm tra prompt trả về �'úng chuẩn.
+- Tích hợp API: N�'i lu�"ng submit bài �?' Nhận plan m�>i/repair �?' Render UI.
+Tập trung lu�"ng s�' 1: Làm sai -> Chẩn �'oán g�'c r�. -> Đ�.i Plan.
+13/04
+(E2E Empa)
+- Verify Particle Filter weight changes khi nhận real signals từ app.
+- Xử lý async processing FastAPI �'�f giảm latency.
+- Streamlit: Vẽ Decision Log realtime.
+- Đảm bảo Dashboard realtime < 1s delay.
+- Tích hợp API: N�'i lu�"ng gửi signals �?' Nhận popup HITL/Recovery �?' Render UI.
+Tập trung lu�"ng s�' 2: M�?t mỏi/B�'i r�'i -> Kích hoạt HITL/Recovery.
+14/04
+(Bug Hunt)
+- Fix toán học nếu b�< underflow/overflow (NumPy issues).
+- Ki�fm tra Load/Latency.
+- Đảm bảo p95 < 4.5s.
+- Chạy k�<ch bản Synthetic User �'�f test Dashboard hi�fn th�< �'úng Audit Log.
+- Xử lý l�-i UI, Timeout, mất mạng (Fallback safe). Đo mức tiêu thụ pin.
+App chạy mượt trên máy thật Android.
+Milestone 4: Polish, QA & Submission (15/04 - 17/04)
+Ngày
+Khang (AI Architect)
+Minh Đức (Backend)
+Hưng (Data/API/Prompt)
+Huy (Flutter/PO)
+Dependencies / Ghi chú
+15/04
+(Media)
+- H�- trợ chuẩn b�< n�Ti dung báo cáo kỹ thuật (focus vào tính ki�fm chứng).
+- Deploy Cloud Run bản stable.
+- Setup RLS Supabase bảo mật.
+- Viết Báo cáo Kỹ thuật MVP (chụp màn hình Dashboard chứng minh cơ chế).
+- Quay 4 k�<ch bản video demo màn hình App. Cắt ghép, chèn text.
+Dữ li�?u DB phải �'ược clear sạch trư�>c khi quay video.
+16/04
+(Dry-run)
+- Giải quyết các edge cases (nếu có).
+- Trực h�? th�'ng trong lúc dry-run, fix hot-bugs.
+- Review Proposal Final & Báo cáo kỹ thuật �'�'i chiếu v�>i thực tế code.
+- Dry-run n�Ti b�T 3 lần. Build APK Release, test trên 2 thiết b�< khác nhau.
+Freeze code hoàn toàn. Ch�? fix bug Blocker.
+17/04
+(Submit)
+- Review t�.ng th�f tính toàn vẹn AI.
+- Check API live, database quotas.
+- Publish Dashboard lên Streamlit Cloud. Ch�'t link.
+- Submit h�? th�'ng: APK, Video link, Báo cáo, Slide.
+DEADLINE 23:59. Submit bu�.i chiều �'�f tránh sập server.
+3. KI�,M CHỨNG & DEFINITION OF DONE (DoD) CHI TIẾT
+Đ�f chứng minh tính "Agentic thực thụ" cho BGK trong 4 Video Demo:
+Video 1: Bayesian & HTN Repair (Chẩn �'oán g�'c r�.):
+App: Học sinh làm sai Tích phân �?' Làm quiz Đạo hàm xác nhận �?' Đề xuất �'�.i l�T trình.
+Dashboard (chèn góc màn hình): Entropy giảm. Kế hoạch HTN kích hoạt Repair = Insert Task. L�<ch sử log ghi rõ: Failure Diagnosis: H_DERIV_GAP.
+Video 2: Particle Filter & Empathy (Phát hi�?n ki�?t sức vô hình):
+App: Học sinh gõ chậm, ngâm bài lâu (Idle time cao). App �'ề xuất Recovery.
+Dashboard: Phân ph�'i hạt h�Ti tụ về State: Exhausted. Quyết �'�<nh ghi nhận: Max Expected Utility = Recovery.
+Video 3: Tự giám sát & HITL (B�'i r�'i vs Ki�?t sức):
+App: Tín hi�?u nhi�.u. Popup HITL hi�?n lên: "Mình không chắc bạn �'ang m�?t hay b�'i r�'i. Bạn mu�'n ngh�? hay xem gợi ý?"
+Dashboard: Ch�? s�' Uncertainty Score > Threshold. Action log: Trigger HITL.
+Video 4: Memory System (Học t�fng cường):
+App: Học sinh liên tục "Từ ch�'i" xem video giải thích, thích xem Text.
+Dashboard: Màn hình Q-Value View hi�fn th�< giá tr�< Q của Action Video giảm dần, Action Text t�fng lên.
+4. QUẢN TR�S RỦI RO MVP (PM ADVICE)
+Là m�Tt PM, tôi lưu ý 4 thành viên các "tử huy�?t" sau trong 12 ngày:
+"H�' �'en" LLM Generation (Hưng & Đức): API Gemini Flash có th�f trả về JSON/Text không �'úng chuẩn gây crash lu�"ng Agent. Mitigation: Đức phải viết Pydantic parser cực kỳ chặt chẽ. Nếu Gemini fail, trả về Fallback Text hardcode ngay lập tức �'�f không gãy demo.
+Frontend State Mess (Huy): Vi�?c gửi batch 5 giây liên tục và nhận UI updates bất �'�"ng b�T d�. gây lag/crash Flutter. Mitigation: Huy cần sử dụng BLoC/Provider cẩn thận, block UI (nhưng hi�fn th�< animation De-stress) khi �'ang �'ợi Orchestrator xử lý.
+Math Bugs (Khang): Phép tính Bayesian cập nhật liên tục d�. b�< Underflow (xác suất tiến về 0). Mitigation: Khang nh�> sử dụng Log-probabilities (log(P)) trong NumPy �'�f tính toán �.n �'�<nh hơn.
+Cái bẫy "Làm quá �'ẹp" (Huy & Hưng): Dashboard ch�? cần Streamlit cơ bản dạng chart, không cần CSS màu mè. App Flutter ưu tiên tính n�fng �'úng trư�>c, De-stress UI (animation confetti) nhét vào ngày 14/04 nếu còn thời gian.
+Kế hoạch này �'ã �'ược lock scope và align 100% v�>i kiến trúc phân tầng trong proposal. Chúc �'�Ti noleAI có m�Tt mùa Hackathon thành công bùng n�.! Bạn cần tôi sinh mã ngu�"n khung (boilerplate) cho component nào không?

@@ -25,16 +25,17 @@ class Section extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     return Container(
       width: double.infinity,
       padding: padding,
       decoration: BoxDecoration(
-        color: backgroundColor ?? GrowMateColors.surfaceContainerLow,
+        color: backgroundColor ?? colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0B0F172A),
+            color: colors.shadow.withValues(alpha: 0.1),
             blurRadius: 26,
             offset: Offset(0, 10),
           ),
@@ -62,7 +63,7 @@ class Section extends StatelessWidget {
                       Text(
                         subtitle!,
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: colors.onSurfaceVariant,
                           fontWeight: FontWeight.w400,
                           height: 1.45,
                         ),
@@ -99,6 +100,7 @@ class StatItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final color = accent ?? GrowMateColors.primary;
 
     return Container(
@@ -108,11 +110,11 @@ class StatItem extends StatelessWidget {
         vertical: GrowMateLayout.space12,
       ),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow,
+        color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x080F172A),
+            color: colors.shadow.withValues(alpha: 0.08),
             blurRadius: 18,
             offset: Offset(0, 8),
           ),
@@ -144,7 +146,7 @@ class StatItem extends StatelessWidget {
           Text(
             label,
             style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
+              color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w500,
             ),
           ),
@@ -176,6 +178,7 @@ class ProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final safeValue = value.clamp(0.0, 1.0).toDouble();
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     final barColor = color ?? GrowMateColors.primary;
 
     return Padding(
@@ -197,7 +200,7 @@ class ProgressBar extends StatelessWidget {
               Text(
                 trailing ?? '${(safeValue * 100).toStringAsFixed(0)}%',
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: GrowMateColors.textPrimary,
+                  color: colors.onSurface,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -214,8 +217,9 @@ class ProgressBar extends StatelessWidget {
                 return LinearProgressIndicator(
                   minHeight: 6,
                   value: animated,
-                  backgroundColor: GrowMateColors.surfaceContainerHigh
-                      .withValues(alpha: 0.65),
+                  backgroundColor: colors.surfaceContainerHigh.withValues(
+                    alpha: 0.75,
+                  ),
                   valueColor: AlwaysStoppedAnimation<Color>(barColor),
                 );
               },
@@ -226,7 +230,7 @@ class ProgressBar extends StatelessWidget {
             Text(
               caption!,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: GrowMateColors.textSecondary,
+                color: colors.onSurfaceVariant,
                 fontWeight: FontWeight.w400,
               ),
             ),

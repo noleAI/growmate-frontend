@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../inspection/domain/inspection_runtime_store.dart';
+import '../../../notification/data/repositories/notification_repository.dart';
 import '../../data/repositories/intervention_repository.dart';
 import 'intervention_event.dart';
 import 'intervention_state.dart';
@@ -16,10 +17,13 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     required List<Map<String, dynamic>> backendInterventionPlan,
     required this.uncertaintyHigh,
     InspectionRuntimeStore? inspectionRuntimeStore,
+    NotificationRepository? notificationRepository,
   }) : _interventionRepository = interventionRepository,
        _backendInterventionPlan = backendInterventionPlan,
        _inspectionRuntimeStore =
            inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
+       _notificationRepository =
+           notificationRepository ?? NotificationRepository.instance,
        super(
          const InterventionState(
            mode: InterventionMode.academic,
@@ -46,6 +50,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
   final List<Map<String, dynamic>> _backendInterventionPlan;
   final bool uncertaintyHigh;
   final InspectionRuntimeStore _inspectionRuntimeStore;
+  final NotificationRepository _notificationRepository;
 
   Timer? _recoveryTimer;
 
@@ -87,6 +92,12 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     );
 
     _syncRecoveryTimer(initialMode, _defaultRecoverySeconds);
+
+    await _notificationRepository.pushInterventionEvent(
+      submissionId: submissionId,
+      diagnosisId: diagnosisId,
+      mode: initialMode == InterventionMode.recovery ? 'recovery' : 'normal',
+    );
   }
 
   Future<void> _onInterventionOptionSelected(
@@ -136,6 +147,8 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
           isSubmitting: false,
           feedbackRecorded: true,
           updatedQValues: qValues,
+          selectedOptionLabel: event.option.label,
+          selectedOptionId: event.option.id,
           toastMessage:
               response['message']?.toString() ??
               'Đã ghi nhận lựa chọn của bạn.',

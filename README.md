@@ -26,6 +26,11 @@ Phiên bản hiện tại đã triển khai đầy đủ luồng MVP cần demo:
 - Design system de-stress với reusable widgets (`ZenButton`, `ZenCard`, `ZenTextField`, ...)
 - BLoC cho các flow chính (Auth, Quiz, Diagnosis, Intervention)
 
+Luồng học đã được hợp nhất để tránh chia nhánh logic:
+
+- `Quiz -> Diagnosis (Result) -> Intervention -> Quiz/Session Complete`
+- Khi backend core chưa hoàn thiện, app vẫn chạy ổn theo chế độ hybrid (mock core + Supabase data-plane).
+
 ## Kiến trúc kỹ thuật
 
 Frontend stack:
@@ -115,6 +120,25 @@ Trong `lib/main.dart` có cờ:
 
 - `useMockApi = true`: chạy mock data nội bộ để demo nhanh
 - `useMockApi = false`: chuyển sang `RealApiService` (cần backend endpoint thật)
+
+Để tích hợp dần khi API của backend chưa xong, giữ:
+
+- `useMockApi = true`
+- `useSupabaseRpcDataPlane = true`
+
+Chế độ này cho phép app dùng mock cho flow chẩn đoán chính, đồng thời vẫn ghi nhận behavioral signals, audit log, episodic memory và q-value qua Supabase RPC.
+
+## Supabase Agentic schema
+
+Repo có 2 script SQL:
+
+- `supabase_migration.sql`: profile + auth/RLS nền tảng
+- `supabase_agentic_schema_v2.sql`: hoàn thiện schema Agentic (learning sessions, signals, audit logs, episodic memory, q-table, diagnosis/intervention tables, RPC, RLS)
+
+Thứ tự chạy khuyến nghị trong SQL Editor:
+
+1. `supabase_migration.sql`
+2. `supabase_agentic_schema_v2.sql`
 
 ## Test coverage hiện có
 

@@ -17,13 +17,21 @@ import '../../features/diagnosis/data/repositories/diagnosis_repository.dart';
 import '../../features/diagnosis/presentation/pages/result_screen.dart';
 import '../../features/intervention/data/repositories/intervention_repository.dart';
 import '../../features/intervention/presentation/pages/intervention_page.dart';
+import '../../features/notification/data/repositories/notification_repository.dart';
 import '../../features/notification/presentation/pages/notification_page.dart';
+import '../../features/privacy/data/repositories/privacy_repository.dart';
+import '../../features/privacy/presentation/pages/data_export_page.dart';
+import '../../features/privacy/presentation/pages/privacy_policy_page.dart';
+import '../../features/privacy/presentation/pages/terms_of_service_page.dart';
 import '../../features/progress/presentation/pages/progress_page.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
+import '../../features/schedule/presentation/pages/smart_schedule_page.dart';
+import '../../features/session/data/repositories/session_history_repository.dart';
 import '../../features/session/presentation/pages/session_complete_page.dart';
 import '../../features/today/presentation/pages/today_page.dart';
+import '../../features/wellness/presentation/pages/mindful_break_page.dart';
 
 class AppRouter {
   AppRouter({
@@ -33,12 +41,18 @@ class AppRouter {
     required QuizRepository quizRepository,
     required DiagnosisRepository diagnosisRepository,
     required InterventionRepository interventionRepository,
+    required NotificationRepository notificationRepository,
+    required SessionHistoryRepository sessionHistoryRepository,
+    required PrivacyRepository privacyRepository,
   }) : _authBloc = authBloc,
        _authRepository = authRepository,
        _profileRepository = profileRepository,
        _quizRepository = quizRepository,
        _diagnosisRepository = diagnosisRepository,
-       _interventionRepository = interventionRepository;
+       _interventionRepository = interventionRepository,
+       _notificationRepository = notificationRepository,
+       _sessionHistoryRepository = sessionHistoryRepository,
+       _privacyRepository = privacyRepository;
 
   static const String welcomePath = AppRoutes.welcome;
   static const String loginPath = AppRoutes.login;
@@ -50,7 +64,13 @@ class AppRouter {
   static const String todayPath = AppRoutes.today;
   static const String progressPath = AppRoutes.progress;
   static const String profilePath = AppRoutes.profile;
+  static const String settingsPath = AppRoutes.settings;
   static const String notificationsPath = AppRoutes.notifications;
+  static const String dataExportPath = AppRoutes.dataExport;
+  static const String termsOfServicePath = AppRoutes.termsOfService;
+  static const String privacyPolicyPath = AppRoutes.privacyPolicy;
+  static const String schedulePath = AppRoutes.schedule;
+  static const String mindfulBreakPath = AppRoutes.mindfulBreak;
 
   static const String quizPath = AppRoutes.quiz;
   static const String recoveryPath = AppRoutes.recovery;
@@ -71,6 +91,9 @@ class AppRouter {
   final QuizRepository _quizRepository;
   final DiagnosisRepository _diagnosisRepository;
   final InterventionRepository _interventionRepository;
+  final NotificationRepository _notificationRepository;
+  final SessionHistoryRepository _sessionHistoryRepository;
+  final PrivacyRepository _privacyRepository;
   bool _isSessionResolved = false;
   bool _hasAuthenticatedSession = false;
 
@@ -143,7 +166,9 @@ class AppRouter {
       GoRoute(
         path: progressPath,
         builder: (context, state) {
-          return const ProgressPage();
+          return ProgressPage(
+            sessionHistoryRepository: _sessionHistoryRepository,
+          );
         },
       ),
       GoRoute(
@@ -152,13 +177,63 @@ class AppRouter {
           return ProfileScreen(
             profileRepository: _profileRepository,
             appVersion: '1.0.0+1',
+            section: ProfileScreenSection.profile,
+          );
+        },
+      ),
+      GoRoute(
+        path: settingsPath,
+        builder: (context, state) {
+          return ProfileScreen(
+            profileRepository: _profileRepository,
+            appVersion: '1.0.0+1',
+            section: ProfileScreenSection.settings,
           );
         },
       ),
       GoRoute(
         path: notificationsPath,
         builder: (context, state) {
-          return const NotificationPage();
+          return NotificationPage(
+            notificationRepository: _notificationRepository,
+          );
+        },
+      ),
+      GoRoute(
+        path: dataExportPath,
+        builder: (context, state) {
+          final userId =
+              state.uri.queryParameters['uid']?.trim() ?? 'mock-user';
+          final email = state.uri.queryParameters['email']?.trim() ?? '';
+          return DataExportPage(
+            userId: userId,
+            email: email,
+            privacyRepository: _privacyRepository,
+          );
+        },
+      ),
+      GoRoute(
+        path: termsOfServicePath,
+        builder: (context, state) {
+          return const TermsOfServicePage();
+        },
+      ),
+      GoRoute(
+        path: privacyPolicyPath,
+        builder: (context, state) {
+          return const PrivacyPolicyPage();
+        },
+      ),
+      GoRoute(
+        path: schedulePath,
+        builder: (context, state) {
+          return const SmartSchedulePage();
+        },
+      ),
+      GoRoute(
+        path: mindfulBreakPath,
+        builder: (context, state) {
+          return const MindfulBreakPage();
         },
       ),
       GoRoute(
@@ -195,28 +270,16 @@ class AppRouter {
       GoRoute(
         path: interventionPath,
         builder: (context, state) {
-          final extra = state.extra;
-          if (extra is! Map<String, dynamic>) {
-            return const _RouteDataErrorPage(
-              title: 'Thiếu dữ liệu intervention',
-              message:
-                  'Route /intervention cần extra dạng Map<String, dynamic> chứa submissionId, diagnosisId, finalMode và interventionPlan.',
-            );
-          }
+          final payload = _resolveInterventionPayload(
+            state.extra,
+            state.uri.queryParameters,
+          );
 
-          final submissionId = extra['submissionId']?.toString() ?? '';
-          final diagnosisId = extra['diagnosisId']?.toString() ?? '';
-          final finalMode = extra['finalMode']?.toString() ?? 'normal';
-          final uncertaintyHigh = extra['uncertaintyHigh'] == true;
-          final interventionPlan = _toPlan(extra['interventionPlan']);
-
-          if (submissionId.isEmpty || diagnosisId.isEmpty) {
-            return const _RouteDataErrorPage(
-              title: 'Thiếu khóa điều hướng',
-              message:
-                  'Intervention cần đủ submissionId và diagnosisId để tạo BLoC đúng ngữ cảnh.',
-            );
-          }
+          final submissionId = payload['submissionId']?.toString() ?? '';
+          final diagnosisId = payload['diagnosisId']?.toString() ?? '';
+          final finalMode = payload['finalMode']?.toString() ?? 'normal';
+          final uncertaintyHigh = payload['uncertaintyHigh'] == true;
+          final interventionPlan = _toPlan(payload['interventionPlan']);
 
           return InterventionPage(
             submissionId: submissionId,
@@ -231,7 +294,11 @@ class AppRouter {
       GoRoute(
         path: sessionCompletePath,
         builder: (context, state) {
-          return const SessionCompletePage();
+          return SessionCompletePage(
+            queryParameters: state.uri.queryParameters,
+            sessionHistoryRepository: _sessionHistoryRepository,
+            notificationRepository: _notificationRepository,
+          );
         },
       ),
     ],
@@ -252,6 +319,38 @@ class AppRouter {
         .whereType<Map>()
         .map((item) => Map<String, dynamic>.from(item))
         .toList();
+  }
+
+  static Map<String, dynamic> _resolveInterventionPayload(
+    Object? extra,
+    Map<String, String> query,
+  ) {
+    if (extra is Map<String, dynamic>) {
+      return extra;
+    }
+
+    final nowMillis = DateTime.now().millisecondsSinceEpoch;
+    final submissionId = query['submissionId']?.trim();
+    final diagnosisId = query['diagnosisId']?.trim();
+    final finalMode = query['mode']?.trim();
+    final uncertaintyRaw = query['uncertainty']?.trim().toLowerCase();
+
+    return <String, dynamic>{
+      'submissionId': submissionId == null || submissionId.isEmpty
+          ? 'sub_local_$nowMillis'
+          : submissionId,
+      'diagnosisId': diagnosisId == null || diagnosisId.isEmpty
+          ? 'dx_local_$nowMillis'
+          : diagnosisId,
+      'finalMode': finalMode == null || finalMode.isEmpty
+          ? 'normal'
+          : finalMode,
+      'uncertaintyHigh':
+          uncertaintyRaw == '1' ||
+          uncertaintyRaw == 'true' ||
+          uncertaintyRaw == 'yes',
+      'interventionPlan': <Map<String, dynamic>>[],
+    };
   }
 
   void _syncAuthSnapshot(AuthState state) {

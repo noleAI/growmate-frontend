@@ -33,13 +33,35 @@ class AppTheme {
         surfaceTint: Colors.transparent,
       );
 
-  static ThemeData get lightTheme {
-    final colorScheme = _lightColorScheme;
-    final textTheme = GoogleFonts.plusJakartaSansTextTheme()
-        .apply(
-          bodyColor: GrowMateColors.textPrimary,
-          displayColor: GrowMateColors.textPrimary,
-        )
+  static final ColorScheme _darkColorScheme =
+      ColorScheme.fromSeed(
+        brightness: Brightness.dark,
+        seedColor: const Color(0xFF7DA9FF),
+      ).copyWith(
+        primary: const Color(0xFF8DB4FF),
+        onPrimary: const Color(0xFF0A1A37),
+        primaryContainer: const Color(0xFF1F3460),
+        secondary: const Color(0xFFC5D7FF),
+        tertiary: const Color(0xFF5FD2A1),
+        surface: const Color(0xFF0F1628),
+        onSurface: const Color(0xFFE8EDF8),
+        secondaryContainer: const Color(0xFF1A2640),
+        tertiaryContainer: const Color(0xFF173428),
+        onPrimaryContainer: const Color(0xFFDCE8FF),
+        onSecondaryContainer: const Color(0xFFD6DFF2),
+        onTertiaryContainer: const Color(0xFFCEEEDD),
+        surfaceContainerLowest: const Color(0xFF090E1A),
+        surfaceContainerLow: const Color(0xFF151E31),
+        surfaceContainerHigh: const Color(0xFF202A40),
+        outline: const Color(0xFF3B4968),
+        outlineVariant: const Color(0xFF2D3953),
+        shadow: Colors.black,
+        surfaceTint: Colors.transparent,
+      );
+
+  static TextTheme _buildTextTheme(Color baseColor) {
+    return GoogleFonts.plusJakartaSansTextTheme()
+        .apply(bodyColor: baseColor, displayColor: baseColor)
         .copyWith(
           displayLarge: GoogleFonts.spaceGrotesk(
             fontSize: 40,
@@ -93,13 +115,35 @@ class AppTheme {
             height: 1.2,
           ),
         );
+  }
+
+  static ThemeData get lightTheme {
+    return _buildTheme(
+      colorScheme: _lightColorScheme,
+      scaffoldColor: GrowMateColors.background,
+    );
+  }
+
+  static ThemeData get darkTheme {
+    return _buildTheme(
+      colorScheme: _darkColorScheme,
+      scaffoldColor: _darkColorScheme.surface,
+    );
+  }
+
+  static ThemeData _buildTheme({
+    required ColorScheme colorScheme,
+    required Color scaffoldColor,
+  }) {
+    final textTheme = _buildTextTheme(colorScheme.onSurface);
+    final isDark = colorScheme.brightness == Brightness.dark;
 
     return ThemeData(
       useMaterial3: true,
       colorScheme: colorScheme,
       textTheme: textTheme,
-      scaffoldBackgroundColor: GrowMateColors.background,
-      canvasColor: GrowMateColors.background,
+      scaffoldBackgroundColor: scaffoldColor,
+      canvasColor: scaffoldColor,
       cardColor: colorScheme.surfaceContainerLow,
       splashFactory: InkRipple.splashFactory,
       pageTransitionsTheme: const PageTransitionsTheme(
@@ -112,8 +156,8 @@ class AppTheme {
         },
       ),
       appBarTheme: AppBarTheme(
-        backgroundColor: GrowMateColors.background,
-        foregroundColor: GrowMateColors.textPrimary,
+        backgroundColor: scaffoldColor,
+        foregroundColor: colorScheme.onSurface,
         centerTitle: false,
         elevation: 0,
         shadowColor: Colors.transparent,
@@ -125,7 +169,7 @@ class AppTheme {
         color: colorScheme.surfaceContainerLow,
         margin: EdgeInsets.zero,
         elevation: 0,
-        shadowColor: const Color(0x0D0F172A),
+        shadowColor: isDark ? const Color(0x2D000000) : const Color(0x0D0F172A),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
         ),
@@ -156,8 +200,8 @@ class AppTheme {
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
-          backgroundColor: GrowMateColors.textPrimary,
-          foregroundColor: Colors.white,
+          backgroundColor: colorScheme.onSurface,
+          foregroundColor: colorScheme.surface,
           textStyle: textTheme.titleMedium,
           shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(GrowMateLayout.buttonRadius),
@@ -166,7 +210,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: GrowMateColors.surfaceContainerLow,
+        fillColor: colorScheme.surfaceContainerLow,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 14,
@@ -184,7 +228,7 @@ class AppTheme {
           borderSide: BorderSide(color: GrowMateColors.primary, width: 1.25),
         ),
         hintStyle: textTheme.bodyMedium?.copyWith(
-          color: GrowMateColors.textSecondary,
+          color: colorScheme.onSurfaceVariant,
         ),
       ),
       chipTheme: ChipThemeData(
@@ -197,16 +241,20 @@ class AppTheme {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       ),
       snackBarTheme: SnackBarThemeData(
-        backgroundColor: GrowMateColors.textPrimary,
-        contentTextStyle: textTheme.bodyMedium?.copyWith(color: Colors.white),
+        backgroundColor: colorScheme.surfaceContainerHigh,
+        contentTextStyle: textTheme.bodyMedium?.copyWith(
+          color: colorScheme.onSurface,
+        ),
         behavior: SnackBarBehavior.floating,
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
         ),
       ),
       navigationBarTheme: NavigationBarThemeData(
-        backgroundColor: GrowMateColors.surface,
-        indicatorColor: GrowMateColors.primary.withValues(alpha: 0.1),
+        backgroundColor: colorScheme.surfaceContainerLow,
+        indicatorColor: GrowMateColors.primary.withValues(
+          alpha: isDark ? 0.2 : 0.1,
+        ),
         labelTextStyle: WidgetStatePropertyAll(
           textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
         ),

@@ -10,7 +10,10 @@ import 'package:growmate_frontend/features/auth/presentation/bloc/auth_event.dar
 import 'package:growmate_frontend/core/network/mock_api_service.dart';
 import 'package:growmate_frontend/features/diagnosis/data/repositories/diagnosis_repository.dart';
 import 'package:growmate_frontend/features/intervention/data/repositories/intervention_repository.dart';
+import 'package:growmate_frontend/features/notification/data/repositories/notification_repository.dart';
+import 'package:growmate_frontend/features/privacy/data/repositories/privacy_repository.dart';
 import 'package:growmate_frontend/features/quiz/data/repositories/quiz_repository.dart';
+import 'package:growmate_frontend/features/session/data/repositories/session_history_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -52,6 +55,13 @@ void main() {
         apiService: apiService,
         sessionId: sessionId,
       );
+      final notificationRepository = NotificationRepository.instance;
+      final sessionHistoryRepository = SessionHistoryRepository.instance;
+      final privacyRepository = PrivacyRepository(
+        profileRepository: profileRepository,
+        notificationRepository: notificationRepository,
+        sessionHistoryRepository: sessionHistoryRepository,
+      );
 
       final appRouter = AppRouter(
         authBloc: authBloc,
@@ -60,6 +70,9 @@ void main() {
         quizRepository: quizRepository,
         diagnosisRepository: diagnosisRepository,
         interventionRepository: interventionRepository,
+        notificationRepository: notificationRepository,
+        sessionHistoryRepository: sessionHistoryRepository,
+        privacyRepository: privacyRepository,
       );
 
       await tester.pumpWidget(

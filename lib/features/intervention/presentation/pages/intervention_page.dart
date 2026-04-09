@@ -100,7 +100,7 @@ class _InterventionPageState extends State<InterventionPage> {
     return BlocProvider<InterventionBloc>.value(
       value: _interventionBloc,
       child: Scaffold(
-        backgroundColor: GrowMateColors.background,
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Container(
           decoration: const BoxDecoration(
             gradient: LinearGradient(
@@ -330,7 +330,23 @@ class _InterventionPageState extends State<InterventionPage> {
                             : 'Tiếp tục học ngay',
                         onPressed: () {
                           if (state.feedbackRecorded) {
-                            context.push(AppRoutes.sessionComplete);
+                            final location = Uri(
+                              path: AppRoutes.sessionComplete,
+                              queryParameters: <String, String>{
+                                'submissionId': widget.submissionId,
+                                'diagnosisId': widget.diagnosisId,
+                                'mode': state.mode == InterventionMode.recovery
+                                    ? 'recovery'
+                                    : 'academic',
+                                'topic':
+                                    state.selectedOptionLabel ??
+                                    'Review Đạo hàm',
+                                'nextAction':
+                                    state.selectedOptionLabel ??
+                                    'Ôn 3 câu nhẹ trước khi vào bài mới',
+                              },
+                            ).toString();
+                            context.push(location);
                             return;
                           }
                           context.push(AppRoutes.quiz);

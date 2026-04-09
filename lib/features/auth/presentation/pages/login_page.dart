@@ -43,7 +43,7 @@ class _LoginPageState extends State<LoginPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      backgroundColor: GrowMateColors.background,
+      backgroundColor: Theme.of(context).scaffoldBackgroundColor,
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
@@ -203,12 +203,19 @@ class _LoginPageState extends State<LoginPage> {
   }
 
   void _showSoftMessage(BuildContext context, String message) {
+    final theme = Theme.of(context);
+
     ScaffoldMessenger.of(context)
       ..hideCurrentSnackBar()
       ..showSnackBar(
         SnackBar(
-          content: Text(message),
-          backgroundColor: GrowMateColors.surfaceContainerHigh,
+          content: Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+            ),
+          ),
+          backgroundColor: theme.colorScheme.surfaceContainerHigh,
           behavior: SnackBarBehavior.floating,
         ),
       );

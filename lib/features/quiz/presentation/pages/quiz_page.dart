@@ -138,7 +138,7 @@ class _QuizPageState extends State<QuizPage> {
           FocusScope.of(context).unfocus();
         },
         child: Scaffold(
-          backgroundColor: GrowMateColors.background,
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
           body: BlocConsumer<QuizCubit, QuizCubitState>(
             listener: (context, state) {
               if (state is QuizSubmitFailureState) {

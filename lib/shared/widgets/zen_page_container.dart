@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 
 class ZenPageContainer extends StatelessWidget {
@@ -15,6 +14,8 @@ class ZenPageContainer extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return SafeArea(
       child: Center(
         child: ConstrainedBox(
@@ -24,7 +25,7 @@ class ZenPageContainer extends StatelessWidget {
           child: Padding(
             padding: padding,
             child: DefaultTextStyle.merge(
-              style: const TextStyle(color: GrowMateColors.textPrimary),
+              style: TextStyle(color: theme.colorScheme.onSurface),
               child: child,
             ),
           ),
