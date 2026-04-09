@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
+import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
@@ -31,6 +32,8 @@ class ResultScreen extends StatefulWidget {
 class _ResultScreenState extends State<ResultScreen> {
   late final ResultCubit _resultCubit;
   bool _proposalPopupVisible = false;
+  bool _showDecisionAnalyzing = false;
+  bool _navigationTriggered = false;
   String? _proposalShownForDiagnosisId;
 
   @override
@@ -63,12 +66,32 @@ class _ResultScreenState extends State<ResultScreen> {
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
                   ..showSnackBar(SnackBar(content: Text(state.infoMessage!)));
-                context.read<ResultCubit>().clearInfoMessage();
+                _resultCubit.clearInfoMessage();
               }
 
               if (state.navigateToNextQuiz) {
-                context.read<ResultCubit>().clearNavigationFlag();
-                context.go(AppRoutes.quiz);
+                if (_navigationTriggered) {
+                  return;
+                }
+
+                _navigationTriggered = true;
+                _resultCubit.clearNavigationFlag();
+                final router = GoRouter.of(context);
+
+                ScaffoldMessenger.of(context)
+                  ..hideCurrentSnackBar()
+                  ..showSnackBar(
+                    const SnackBar(
+                      content: Text('Lộ trình học của bạn đã được cập nhật'),
+                    ),
+                  );
+
+                Future<void>.delayed(const Duration(milliseconds: 780), () {
+                  if (!mounted) {
+                    return;
+                  }
+                  router.go(AppRoutes.quiz);
+                });
                 return;
               }
 
@@ -87,7 +110,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 if (!mounted) {
                   return;
                 }
-                _showProposalDialog(context, state.result);
+                _showDecisionMoment(state.result);
               });
             },
             builder: (context, state) {
@@ -99,26 +122,31 @@ class _ResultScreenState extends State<ResultScreen> {
                 return _ResultErrorView(
                   message: state.message,
                   onRetry: () {
-                    context.read<ResultCubit>().loadResult(widget.submissionId);
+                    _resultCubit.loadResult(widget.submissionId);
                   },
                 );
               }
 
               final readyState = state as ResultReady;
+              final showOverlay =
+                  readyState.isAnalyzingFeedback || _showDecisionAnalyzing;
+              final overlayMessage = _showDecisionAnalyzing
+                  ? 'Đang phân tích hiệu suất của bạn...'
+                  : 'AI đang xử lý phản hồi của bạn...';
 
               return Stack(
                 children: [
                   _ResultContent(state: readyState),
                   IgnorePointer(
-                    ignoring: !readyState.isAnalyzingFeedback,
+                    ignoring: !showOverlay,
                     child: AnimatedOpacity(
                       duration: const Duration(milliseconds: 220),
-                      opacity: readyState.isAnalyzingFeedback ? 1 : 0,
+                      opacity: showOverlay ? 1 : 0,
                       child: Container(
                         color: Colors.black.withValues(alpha: 0.12),
                         alignment: Alignment.center,
                         child: Container(
-                          width: 280,
+                          width: 290,
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
                             color: Colors.white,
@@ -131,21 +159,21 @@ class _ResultScreenState extends State<ResultScreen> {
                               ),
                             ],
                           ),
-                          child: const Column(
+                          child: Column(
                             mainAxisSize: MainAxisSize.min,
                             children: [
-                              SizedBox(
+                              const SizedBox(
                                 width: 28,
                                 height: 28,
                                 child: CircularProgressIndicator(
                                   strokeWidth: 2.8,
                                 ),
                               ),
-                              SizedBox(height: 12),
+                              const SizedBox(height: 12),
                               Text(
-                                'AI đang phân tích phản hồi của bạn...',
+                                overlayMessage,
                                 textAlign: TextAlign.center,
-                                style: TextStyle(
+                                style: const TextStyle(
                                   color: GrowMateColors.textSecondary,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
@@ -171,105 +199,68 @@ class _ResultScreenState extends State<ResultScreen> {
     );
   }
 
-  Future<void> _showProposalDialog(
-    BuildContext context,
-    ResultModel result,
-  ) async {
+  Future<void> _showDecisionMoment(ResultModel result) async {
     if (_proposalPopupVisible) {
       return;
     }
 
     _proposalPopupVisible = true;
-    final cubit = context.read<ResultCubit>();
 
     try {
-      await showDialog<void>(
-        context: context,
-        barrierDismissible: false,
-        builder: (dialogContext) {
-          return AlertDialog(
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(18),
-            ),
-            title: const Text('Một chút xác nhận nha'),
-            content: SizedBox(
-              width: 360,
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    'Lý do gợi ý: ${result.diagnosisReason}',
-                    style: Theme.of(dialogContext).textTheme.bodyMedium,
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Độ tự tin của hệ thống: ${(result.confidenceScore * 100).toStringAsFixed(0)}%',
-                    style: Theme.of(dialogContext).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      minHeight: 6,
-                      value: result.confidenceScore,
-                      backgroundColor: GrowMateColors.surfaceContainerHigh,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        GrowMateColors.success,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Độ bất định: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
-                    style: Theme.of(dialogContext).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 5),
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
-                      minHeight: 6,
-                      value: result.uncertaintyScore,
-                      backgroundColor: GrowMateColors.surfaceContainerHigh,
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        GrowMateColors.warningSoft,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    'Mức rủi ro: ${result.riskLevel.toUpperCase()}',
-                    style: Theme.of(dialogContext).textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    'Đề xuất tiếp theo: ${result.nextSuggestedTopic}',
-                    style: Theme.of(dialogContext).textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ),
-            actions: [
-              TextButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  cubit.onPlanRejected();
-                },
-                child: const Text('Để sau'),
-              ),
-              ElevatedButton(
-                onPressed: () {
-                  Navigator.of(dialogContext).pop();
-                  cubit.onPlanAccepted();
-                },
-                child: const Text('Đồng ý'),
-              ),
-            ],
-          );
-        },
+      if (mounted) {
+        setState(() {
+          _showDecisionAnalyzing = true;
+        });
+      }
+
+      await Future<void>.delayed(const Duration(milliseconds: 900));
+
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _showDecisionAnalyzing = false;
+      });
+
+      final action = await AiResultModal.show(
+        context,
+        didWell: result.strengths.take(2).toList(growable: false),
+        needsImprovement: result.needsReview.take(2).toList(growable: false),
+        nextStep: result.nextSuggestedTopic,
+        subtitle:
+            'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(result.riskLevel)}',
       );
+
+      if (!mounted || action == null) {
+        return;
+      }
+
+      if (action == AiResultAction.applyPlan) {
+        await _resultCubit.onPlanAccepted();
+      } else {
+        await _resultCubit.onPlanRejected();
+      }
     } finally {
+      if (mounted) {
+        setState(() {
+          _showDecisionAnalyzing = false;
+        });
+      }
       _proposalPopupVisible = false;
+    }
+  }
+
+  String _riskLabel(String riskLevel) {
+    switch (riskLevel.toLowerCase()) {
+      case 'high':
+        return 'CAO';
+      case 'medium':
+        return 'TRUNG BÌNH';
+      case 'low':
+        return 'THẤP';
+      default:
+        return riskLevel.toUpperCase();
     }
   }
 }
@@ -373,7 +364,7 @@ class _ResultContent extends StatelessWidget {
                 _SkillTile(
                   icon: Icons.lightbulb_rounded,
                   iconColor: GrowMateColors.warningSoft,
-                  title: 'Cần ôn nhẹ',
+                  title: 'Cần củng cố',
                   value: result.needsReview.first,
                 ),
                 const SizedBox(height: 14),
@@ -398,7 +389,7 @@ class _ResultContent extends StatelessWidget {
                       const SizedBox(width: 8),
                       Expanded(
                         child: Text(
-                          'Gợi ý tiếp theo: ${result.nextSuggestedTopic}',
+                          'Gợi ý bước tiếp theo: ${result.nextSuggestedTopic}',
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: GrowMateColors.textPrimary,
                             fontWeight: FontWeight.w600,
@@ -435,12 +426,12 @@ class _ResultContent extends StatelessWidget {
                 const SizedBox(height: 8),
                 _TransparencyHint(
                   icon: Icons.flag_rounded,
-                  text: 'Điểm cần củng cố: ${result.needsReview.first}',
+                  text: 'Lỗ hổng ưu tiên: ${result.needsReview.first}',
                 ),
                 const SizedBox(height: 8),
                 _TransparencyHint(
                   icon: Icons.alt_route_rounded,
-                  text: 'Lý do gợi ý bước tiếp: ${result.nextSuggestedTopic}',
+                  text: 'Lý do bước tiếp theo: ${result.nextSuggestedTopic}',
                 ),
               ],
             ),
@@ -451,7 +442,7 @@ class _ResultContent extends StatelessWidget {
             color: GrowMateColors.tertiaryContainer.withValues(alpha: 0.35),
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
             child: Text(
-              'Bước xác nhận đề xuất đã hiển thị bằng popup để bạn chọn Đồng ý hoặc Để sau.',
+              'Khoảnh khắc ra quyết định của AI sẽ tự động kích hoạt sau mỗi bài hoàn thành.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: GrowMateColors.textSecondary,
@@ -491,7 +482,7 @@ class _ResultLoadingView extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 Text(
-                  'Mình đang tổng hợp kết quả để gợi ý đúng nhịp học của bạn...',
+                  'AI đang phân tích hiệu suất của bạn...',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: GrowMateColors.textSecondary,
@@ -563,11 +554,8 @@ class _SkillTile extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.8),
+        color: Colors.white.withValues(alpha: 0.84),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: GrowMateColors.primary.withValues(alpha: 0.08),
-        ),
       ),
       child: Row(
         children: [

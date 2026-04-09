@@ -43,7 +43,8 @@ class ProgressScreen extends StatelessWidget {
             const SizedBox(height: 20),
             const SectionHeader(
               title: 'Tiến trình học tập',
-              subtitle: 'AI tổng hợp điểm mạnh và lỗ hổng cần xử lý tiếp theo',
+              subtitle:
+                  'AI liên tục tổng hợp điểm mạnh, điểm yếu và bước tiếp theo',
               bottomSpacing: 14,
             ),
             if (progress.isEmpty)
@@ -51,11 +52,13 @@ class ProgressScreen extends StatelessWidget {
             else ...[
               _ProgressOverview(progress: progress),
               const SizedBox(height: 14),
+              _AiInsightSection(progress: progress),
+              const SizedBox(height: 14),
               _StrengthSection(progress: progress),
               const SizedBox(height: 14),
               _ImproveSection(progress: progress),
               const SizedBox(height: 14),
-              _FocusTrendSection(progress: progress),
+              _RecommendationSection(progress: progress),
             ],
             const SizedBox(height: 8),
           ],
@@ -78,7 +81,7 @@ class _ProgressOverview extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return InsightCard(
+    return AiInsightCard(
       title: 'Tổng quan hôm nay',
       subtitle: progress.weeklyConsistency,
       delayMs: 40,
@@ -89,7 +92,7 @@ class _ProgressOverview extends StatelessWidget {
             children: [
               Expanded(
                 child: _StatTile(
-                  label: 'Khái niệm đã fix',
+                  label: 'Khái niệm đã ổn định',
                   value: '${progress.fixedConcepts.length}',
                   icon: Icons.check_circle_outline_rounded,
                 ),
@@ -117,6 +120,60 @@ class _ProgressOverview extends StatelessWidget {
   }
 }
 
+class _AiInsightSection extends StatelessWidget {
+  const _AiInsightSection({required this.progress});
+
+  final UserProgressSnapshot progress;
+
+  @override
+  Widget build(BuildContext context) {
+    final sortedByLowest = progress.masteryMap.toList(growable: false)
+      ..sort((a, b) => a.score.compareTo(b.score));
+
+    final weakestTopic = sortedByLowest.isEmpty
+        ? null
+        : sortedByLowest.first.topic;
+    final insightText = weakestTopic == null
+        ? 'Nhận định AI: Nhịp học hiện tại đang cân bằng. Hãy giữ đà này.'
+        : 'Nhận định AI: Bạn đang gặp khó ổn định ở các bài tốc độ phần $weakestTopic.';
+
+    return AiInsightCard(
+      title: 'Nhận định AI',
+      subtitle: 'Tổng hợp từ các bài bạn vừa hoàn thành',
+      delayMs: 65,
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: GrowMateColors.primaryContainer,
+              borderRadius: BorderRadius.circular(11),
+            ),
+            child: const Icon(
+              Icons.psychology_alt_rounded,
+              color: GrowMateColors.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              insightText,
+              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                color: GrowMateColors.textSecondary,
+                height: 1.35,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _StrengthSection extends StatelessWidget {
   const _StrengthSection({required this.progress});
 
@@ -130,9 +187,9 @@ class _StrengthSection extends StatelessWidget {
             .toList(growable: false)
           ..sort((a, b) => b.score.compareTo(a.score));
 
-    return InsightCard(
-      title: 'Bạn đang mạnh ở',
-      subtitle: 'Tiếp tục duy trì đà này',
+    return AiInsightCard(
+      title: 'Điểm mạnh',
+      subtitle: 'Tận dụng để tăng tốc các chủ đề khó hơn',
       delayMs: 80,
       child: strengths.isEmpty
           ? const _EmptyHint(
@@ -144,7 +201,7 @@ class _StrengthSection extends StatelessWidget {
                   .asMap()
                   .entries
                   .map(
-                    (entry) => ProgressBarItem(
+                    (entry) => ProgressItem(
                       label: entry.value.topic,
                       value: entry.value.score / 4,
                       trailingLabel:
@@ -173,9 +230,9 @@ class _ImproveSection extends StatelessWidget {
             .toList(growable: false)
           ..sort((a, b) => a.score.compareTo(b.score));
 
-    return InsightCard(
-      title: 'Cần cải thiện',
-      subtitle: 'Ưu tiên xử lý trong phiên kế tiếp',
+    return AiInsightCard(
+      title: 'Điểm yếu',
+      subtitle: 'Đây là các điểm đang giới hạn tốc độ và độ tự tin',
       delayMs: 120,
       child: gaps.isEmpty
           ? const _EmptyHint(
@@ -186,7 +243,7 @@ class _ImproveSection extends StatelessWidget {
                   .asMap()
                   .entries
                   .map(
-                    (entry) => ProgressBarItem(
+                    (entry) => ProgressItem(
                       label: entry.value.topic,
                       value: entry.value.score / 4,
                       trailingLabel:
@@ -202,32 +259,103 @@ class _ImproveSection extends StatelessWidget {
   }
 }
 
-class _FocusTrendSection extends StatelessWidget {
-  const _FocusTrendSection({required this.progress});
+class _RecommendationSection extends StatelessWidget {
+  const _RecommendationSection({required this.progress});
 
   final UserProgressSnapshot progress;
 
   @override
   Widget build(BuildContext context) {
-    return InsightCard(
-      title: 'Xu hướng tập trung',
-      subtitle: '3 phiên gần nhất',
+    final sortedByLowest = progress.masteryMap.toList(growable: false)
+      ..sort((a, b) => a.score.compareTo(b.score));
+    final weakest = sortedByLowest.isEmpty ? null : sortedByLowest.first;
+    final recommendationText = weakest == null
+        ? 'Giữ nhịp hiện tại và thêm 1 thử thách nâng cao ở phiên tiếp theo.'
+        : 'Luyện trọng tâm 15 phút cho ${weakest.topic}, rồi kiểm tra lại độ chính xác với 3 câu tính giờ.';
+
+    return AiInsightCard(
+      title: 'Khuyến nghị',
+      subtitle: 'Lộ trình của bạn đã được AI điều chỉnh',
       delayMs: 160,
       child: Column(
-        children: progress.moodTrend
-            .asMap()
-            .entries
-            .map(
-              (entry) => ProgressBarItem(
-                label: entry.value.sessionLabel,
-                value: entry.value.focusScore / 4,
-                trailingLabel:
-                    '${(entry.value.focusScore / 4 * 100).toStringAsFixed(0)}%',
-                color: GrowMateColors.primary,
-                delayMs: 180 + entry.key * 30,
-              ),
-            )
-            .toList(growable: false),
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: progress.moodTrend.isEmpty
+            ? <Widget>[
+                Text(
+                  recommendationText,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: GrowMateColors.textSecondary,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ]
+            : <Widget>[
+                Text(
+                  recommendationText,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: GrowMateColors.textSecondary,
+                    height: 1.35,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Text(
+                  'Xu hướng tập trung gần đây',
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: GrowMateColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 8),
+                ...progress.moodTrend.asMap().entries.map(
+                  (entry) => ProgressItem(
+                    label: entry.value.sessionLabel,
+                    value: entry.value.focusScore / 4,
+                    trailingLabel:
+                        '${(entry.value.focusScore / 4 * 100).toStringAsFixed(0)}%',
+                    color: GrowMateColors.primary,
+                    delayMs: 180 + entry.key * 30,
+                  ),
+                ),
+                if (progress.fixedConcepts.isNotEmpty) ...[
+                  const SizedBox(height: 6),
+                  Text(
+                    'Các khái niệm đã ổn định',
+                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                      color: GrowMateColors.textPrimary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: progress.fixedConcepts
+                        .map(
+                          (concept) => Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 10,
+                              vertical: 6,
+                            ),
+                            decoration: BoxDecoration(
+                              color: GrowMateColors.tertiaryContainer,
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              concept,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: GrowMateColors.success,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ],
+              ],
       ),
     );
   }
@@ -238,9 +366,9 @@ class _ProgressEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return InsightCard(
+    return AiInsightCard(
       title: 'Chưa có dữ liệu tiến trình',
-      subtitle: 'Bắt đầu một phiên học để AI tổng hợp năng lực',
+      subtitle: 'Hoàn thành 1 phiên học để AI bắt đầu lập bản đồ năng lực',
       delayMs: 30,
       child: Row(
         children: [
@@ -260,7 +388,7 @@ class _ProgressEmptyState extends StatelessWidget {
           const SizedBox(width: 12),
           const Expanded(
             child: Text(
-              'Khi hoàn tất bài đầu tiên, bạn sẽ thấy phân tích mạnh/yếu ngay tại đây.',
+              'Khi bạn hoàn tất bài đầu tiên, nhận định AI sẽ tự động hiển thị tại đây.',
               style: TextStyle(
                 color: GrowMateColors.textSecondary,
                 fontWeight: FontWeight.w600,

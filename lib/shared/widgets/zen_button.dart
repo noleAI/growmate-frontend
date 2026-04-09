@@ -15,6 +15,10 @@ class ZenButton extends StatefulWidget {
     this.trailing,
     this.expanded = true,
     this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+    this.backgroundColor,
+    this.textColor,
+    this.borderColor,
+    this.shadowColor,
   });
 
   final String label;
@@ -24,6 +28,10 @@ class ZenButton extends StatefulWidget {
   final Widget? trailing;
   final bool expanded;
   final EdgeInsets padding;
+  final Color? backgroundColor;
+  final Color? textColor;
+  final Color? borderColor;
+  final Color? shadowColor;
 
   @override
   State<ZenButton> createState() => _ZenButtonState();
@@ -108,13 +116,14 @@ class _ZenButtonState extends State<ZenButton> {
           borderRadius: radius,
           color: disabled
               ? GrowMateColors.textSecondary.withValues(alpha: 0.35)
-              : GrowMateColors.primary,
-          border: Border.all(color: Colors.transparent),
+              : (widget.backgroundColor ?? GrowMateColors.primary),
+          border: Border.all(color: widget.borderColor ?? Colors.transparent),
           boxShadow: disabled
               ? const []
               : [
                   BoxShadow(
-                    color: GrowMateColors.shadowButton.withValues(alpha: 0.3),
+                    color: (widget.shadowColor ?? GrowMateColors.shadowButton)
+                        .withValues(alpha: 0.3),
                     blurRadius: 14,
                     offset: const Offset(0, 6),
                   ),
@@ -125,13 +134,16 @@ class _ZenButtonState extends State<ZenButton> {
           borderRadius: radius,
           color: disabled
               ? GrowMateColors.surfaceContainerHigh.withValues(alpha: 0.65)
-              : GrowMateColors.surface,
+              : (widget.backgroundColor ?? GrowMateColors.surface),
           border: Border.all(
-            color: GrowMateColors.primary.withValues(alpha: 0.2),
+            color:
+                widget.borderColor ??
+                GrowMateColors.primary.withValues(alpha: 0.2),
           ),
           boxShadow: [
             BoxShadow(
-              color: GrowMateColors.shadowSoft.withValues(alpha: 0.75),
+              color: (widget.shadowColor ?? GrowMateColors.shadowSoft)
+                  .withValues(alpha: 0.75),
               blurRadius: 10,
               offset: const Offset(0, 4),
             ),
@@ -143,6 +155,10 @@ class _ZenButtonState extends State<ZenButton> {
   }
 
   Color _textColor(bool disabled) {
+    if (widget.textColor != null && !disabled) {
+      return widget.textColor!;
+    }
+
     switch (widget.variant) {
       case ZenButtonVariant.primary:
         return disabled ? Colors.white.withValues(alpha: 0.65) : Colors.white;

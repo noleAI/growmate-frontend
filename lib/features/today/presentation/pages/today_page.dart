@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -12,8 +14,36 @@ import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
 import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 
-class TodayPage extends StatelessWidget {
+class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
+
+  @override
+  State<TodayPage> createState() => _TodayPageState();
+}
+
+class _TodayPageState extends State<TodayPage> {
+  Timer? _thinkingTimer;
+  bool _aiReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _thinkingTimer = Timer(const Duration(milliseconds: 980), () {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _aiReady = true;
+      });
+    });
+  }
+
+  @override
+  void dispose() {
+    _thinkingTimer?.cancel();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -27,29 +57,54 @@ class TodayPage extends StatelessWidget {
             _buildTopAppBar(context),
             const SizedBox(height: 20),
             SectionHeader(
-              title: 'Hôm nay nên làm gì tiếp?',
+              title: 'Hệ thống AI học tập đang hoạt động',
               subtitle:
-                  '${_vnDateLabel(DateTime.now())} · Kế hoạch từ AI Agent',
+                  '${_vnDateLabel(DateTime.now())} · Quan sát -> quyết định -> dẫn dắt',
               bottomSpacing: 0,
             ),
             const SizedBox(height: 16),
-            AiRecommendationCard(
-              topic: 'Đạo hàm ứng dụng',
-              reason: 'AI nhận thấy bạn dễ mất điểm ở bài vận tốc tức thời.',
-              confidence: 0.87,
-              onStart: () => context.push(AppRoutes.quiz),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 440),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeOutCubic,
+              transitionBuilder: (child, animation) {
+                final slide = Tween<Offset>(
+                  begin: const Offset(0, 0.05),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: slide, child: child),
+                );
+              },
+              child: _aiReady
+                  ? AiRecommendationCard(
+                      key: const ValueKey<String>('ai-recommendation-ready'),
+                      topic: 'Ứng dụng đạo hàm theo tốc độ',
+                      reason:
+                          'Bạn giảm độ chính xác ở 2 câu tính giờ gần nhất.',
+                      confidence: 0.87,
+                      ctaLabel: 'Bắt đầu phiên tăng tốc cùng AI',
+                      onStart: () => context.push(AppRoutes.quiz),
+                    )
+                  : const AiThinkingStateCard(
+                      key: ValueKey<String>('ai-thinking'),
+                      message: 'AI đang phân tích tiến độ của bạn...',
+                    ),
             ),
             const SizedBox(height: 16),
             const FadeSlideIn(delayMs: 80, child: _ProgressSnapshot()),
             const SizedBox(height: 14),
-            InsightCard(
+            const _AiFeedbackTimeline(),
+            const SizedBox(height: 14),
+            AiInsightCard(
               title: 'Trạng thái học tập hiện tại',
-              subtitle: 'AI đánh giá trước phiên học tiếp theo',
+              subtitle: 'Tín hiệu AI trước phiên học tiếp theo',
               delayMs: 120,
               child: const _MentalStateRow(),
             ),
             const SizedBox(height: 14),
-            InsightCard(
+            AiInsightCard(
               title: 'Bước tiếp theo',
               subtitle: 'Mục tiêu: hoàn thành trong 20 phút',
               delayMs: 160,
@@ -128,15 +183,15 @@ class _ProgressSnapshot extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const SectionHeader(
-          title: 'Snapshot',
-          subtitle: 'Tình hình học tập trong 24h',
+          title: 'Tổng quan nhanh',
+          subtitle: 'Tín hiệu hệ thống trong 24 giờ qua',
           bottomSpacing: 10,
         ),
         Row(
           children: const [
             Expanded(
               child: _MiniMetricCard(
-                label: 'Streak',
+                label: 'Chuỗi ngày',
                 value: '6 ngày',
                 icon: Icons.local_fire_department_rounded,
               ),
@@ -152,7 +207,7 @@ class _ProgressSnapshot extends StatelessWidget {
             SizedBox(width: 10),
             Expanded(
               child: _MiniMetricCard(
-                label: 'Focus',
+                label: 'Tập trung',
                 value: 'Tốt',
                 icon: Icons.bolt_rounded,
               ),
@@ -182,9 +237,8 @@ class _MiniMetricCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: GrowMateColors.surface,
+        color: Colors.white.withValues(alpha: 0.9),
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: const [
           BoxShadow(
             color: Color(0x120F172A),
@@ -216,6 +270,96 @@ class _MiniMetricCard extends StatelessWidget {
   }
 }
 
+class _AiFeedbackTimeline extends StatelessWidget {
+  const _AiFeedbackTimeline();
+
+  @override
+  Widget build(BuildContext context) {
+    return const AiInsightCard(
+      title: 'Lớp phản hồi hệ thống AI',
+      subtitle: 'Vòng lặp mô hình theo thời gian thực',
+      delayMs: 108,
+      child: Column(
+        children: [
+          _SystemStep(
+            icon: Icons.visibility_rounded,
+            label: 'Đã quan sát',
+            detail:
+                'Mô hình hành vi phát hiện tốc độ xử lý phần ứng dụng đạo hàm đang giảm.',
+          ),
+          SizedBox(height: 10),
+          _SystemStep(
+            icon: Icons.psychology_alt_rounded,
+            label: 'Đã quyết định',
+            detail:
+                'Ưu tiên một phiên tăng tốc có hướng dẫn trước khi tăng độ khó.',
+          ),
+          SizedBox(height: 10),
+          _SystemStep(
+            icon: Icons.update_rounded,
+            label: 'Đã cập nhật kế hoạch',
+            detail: 'Chèn một vòng ôn ngắn + luyện tính giờ cho hôm nay.',
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SystemStep extends StatelessWidget {
+  const _SystemStep({
+    required this.icon,
+    required this.label,
+    required this.detail,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detail;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Container(
+          width: 28,
+          height: 28,
+          decoration: BoxDecoration(
+            color: GrowMateColors.primaryContainer,
+            borderRadius: BorderRadius.circular(9),
+          ),
+          child: Icon(icon, color: GrowMateColors.primaryDark, size: 17),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                detail,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: GrowMateColors.textSecondary,
+                  height: 1.32,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _MentalStateRow extends StatelessWidget {
   const _MentalStateRow();
 
@@ -243,7 +387,7 @@ class _MentalStateRow extends StatelessWidget {
         const SizedBox(width: 10),
         Expanded(
           child: Text(
-            'AI đề xuất tăng dần độ khó, chưa cần kích hoạt recovery mode.',
+            'AI gợi ý tăng độ khó nhẹ. Hiện tại chưa cần kích hoạt chế độ phục hồi.',
             style: theme.textTheme.bodyMedium?.copyWith(
               color: GrowMateColors.textSecondary,
             ),
@@ -262,7 +406,7 @@ class _NextActions extends StatelessWidget {
     final theme = Theme.of(context);
     final actions = <String>[
       'Làm 3 câu ứng dụng đạo hàm có gợi ý.',
-      'Kiểm tra lại lỗi sai thường gặp ở bước biến đổi.',
+      'Rà lại bước biến đổi nơi lỗi lặp lại nhiều nhất.',
       'Kết thúc bằng 1 câu tự luận ngắn để AI chấm nhanh.',
     ];
 

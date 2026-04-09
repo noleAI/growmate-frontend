@@ -205,7 +205,7 @@ class ResultCubit extends Cubit<ResultState> {
         current.copyWith(
           isAnalyzingFeedback: false,
           result: current.result.copyWith(nextSuggestedTopic: repairedTopic),
-          infoMessage: 'Mình đã điều chỉnh lộ trình theo ý bạn nhé!',
+          infoMessage: 'Lộ trình học của bạn đã được cập nhật',
         ),
       );
     } catch (_) {
@@ -226,7 +226,7 @@ class ResultCubit extends Cubit<ResultState> {
         current.copyWith(
           isAnalyzingFeedback: false,
           result: current.result.copyWith(nextSuggestedTopic: repairedTopic),
-          infoMessage: 'Mình đã điều chỉnh lộ trình theo ý bạn nhé!',
+          infoMessage: 'Lộ trình học của bạn đã được cập nhật',
         ),
       );
 
