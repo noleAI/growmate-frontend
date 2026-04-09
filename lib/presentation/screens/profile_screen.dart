@@ -9,6 +9,7 @@ import '../../data/repositories/profile_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
 import '../../features/inspection/presentation/cubit/inspection_cubit.dart';
+import '../../shared/widgets/ai_components.dart';
 import '../../shared/widgets/bottom_nav_bar.dart';
 import '../../shared/widgets/nav_tab_routing.dart';
 import '../../shared/widgets/top_app_bar.dart';
@@ -182,12 +183,12 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   GrowMateTopAppBar(userName: profile?.fullName),
                   const SizedBox(height: 20),
                   Text(
-                    'Bạn đang duy trì nhịp học rất tốt',
-                    style: theme.textTheme.titleLarge?.copyWith(fontSize: 30),
+                    'Hồ sơ học tập',
+                    style: theme.textTheme.titleLarge?.copyWith(fontSize: 32),
                   ),
                   const SizedBox(height: 6),
                   Text(
-                    'Nghỉ ngơi là một phần của học tập. Mình tinh chỉnh hồ sơ để lộ trình nhẹ nhàng hơn nhé.',
+                    'Thiết lập cá nhân hóa để AI ra quyết định chính xác hơn cho từng phiên học.',
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: GrowMateColors.textSecondary,
                     ),
@@ -286,16 +287,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     final theme = Theme.of(context);
 
-    return ZenCard(
-      radius: 26,
+    return InsightCard(
+      title: 'Thông tin cá nhân',
+      subtitle: 'Thông tin học viên và môn học ưu tiên.',
+      delayMs: 20,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _SectionHeader(
-            title: 'Personal',
-            subtitle: 'Thông tin học viên và môn học đang ưu tiên.',
-          ),
-          const SizedBox(height: 12),
           Row(
             children: [
               Container(
@@ -408,16 +406,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildLearningSection({required bool isProcessing}) {
-    return ZenCard(
-      radius: 26,
+    return InsightCard(
+      title: 'Learning & Agentic',
+      subtitle: 'Nhịp học ưa thích và cơ chế hỗ trợ phục hồi.',
+      delayMs: 40,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
-            title: 'Learning & Agentic',
-            subtitle: 'Nhịp học ưa thích và cơ chế hỗ trợ phục hồi nhẹ.',
-          ),
-          const SizedBox(height: 12),
           SwitchListTile.adaptive(
             value: _recoveryModeEnabled,
             onChanged: isProcessing
@@ -490,16 +485,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }) {
     final cubit = context.read<ProfileCubit>();
 
-    return ZenCard(
-      radius: 26,
+    return InsightCard(
+      title: 'Privacy & Subscription',
+      subtitle: 'Quyền riêng tư và gói học tập theo nhu cầu.',
+      delayMs: 60,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
-            title: 'Privacy & Subscription',
-            subtitle: 'Quyền riêng tư và gói học tập theo nhu cầu của bạn.',
-          ),
-          const SizedBox(height: 10),
           SwitchListTile.adaptive(
             value: _consentBehavioral,
             onChanged: isProcessing
@@ -585,16 +577,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final theme = Theme.of(context);
     final inspectionCubit = _tryGetInspectionCubit(context);
 
-    return ZenCard(
-      radius: 26,
+    return InsightCard(
+      title: 'System',
+      subtitle: 'Thông tin ứng dụng, hỗ trợ và quản lý phiên đăng nhập.',
+      delayMs: 80,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const _SectionHeader(
-            title: 'System',
-            subtitle: 'Thông tin ứng dụng, hỗ trợ và quản lý phiên đăng nhập.',
-          ),
-          const SizedBox(height: 10),
           _MenuTile(
             icon: Icons.verified_rounded,
             title: 'Phiên bản ứng dụng',
@@ -730,33 +719,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 }
 
-class _SectionHeader extends StatelessWidget {
-  const _SectionHeader({required this.title, required this.subtitle});
-
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.titleLarge?.copyWith(fontSize: 22)),
-        const SizedBox(height: 4),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: GrowMateColors.textSecondary,
-            height: 1.35,
-          ),
-        ),
-      ],
-    );
-  }
-}
-
 class _MenuTile extends StatelessWidget {
   const _MenuTile({
     required this.icon,
@@ -776,11 +738,8 @@ class _MenuTile extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: GrowMateColors.primary.withValues(alpha: 0.08),
-        ),
+        color: GrowMateColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
       ),
       child: Row(
         children: [

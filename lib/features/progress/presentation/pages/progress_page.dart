@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:fl_chart/fl_chart.dart';
 
 import '../../../../core/constants/colors.dart';
 import '../../../../data/models/user_profile.dart';
+import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
-import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/mock_user_progress_generator.dart';
 
@@ -30,7 +29,6 @@ class ProgressScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final progress = MockUserProgressGenerator.fromUserProfile(
       profile,
       forceEmptyState: forceEmptyState,
@@ -42,32 +40,24 @@ class ProgressScreen extends StatelessWidget {
         child: ListView(
           children: [
             const GrowMateTopAppBar(),
-            const SizedBox(height: 16),
-            Text(
-              'Tiến trình',
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontSize: 34,
-                color: GrowMateColors.textPrimary,
-              ),
+            const SizedBox(height: 20),
+            const SectionHeader(
+              title: 'Tiến trình học tập',
+              subtitle: 'AI tổng hợp điểm mạnh và lỗ hổng cần xử lý tiếp theo',
+              bottomSpacing: 14,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'Mình lưu lại nhịp học và tinh thần của bạn để gợi ý nhẹ nhàng hơn theo thời gian.',
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.textSecondary,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: 16),
             if (progress.isEmpty)
               const _ProgressEmptyState()
             else ...[
-              _LearningRhythmCard(progress: progress),
+              _ProgressOverview(progress: progress),
               const SizedBox(height: 14),
-              _MasteryCard(progress: progress),
+              _StrengthSection(progress: progress),
               const SizedBox(height: 14),
-              _MoodTrendCard(progress: progress),
+              _ImproveSection(progress: progress),
+              const SizedBox(height: 14),
+              _FocusTrendSection(progress: progress),
             ],
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -79,8 +69,8 @@ class ProgressScreen extends StatelessWidget {
   }
 }
 
-class _LearningRhythmCard extends StatelessWidget {
-  const _LearningRhythmCard({required this.progress});
+class _ProgressOverview extends StatelessWidget {
+  const _ProgressOverview({required this.progress});
 
   final UserProgressSnapshot progress;
 
@@ -88,51 +78,37 @@ class _LearningRhythmCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return ZenCard(
-      radius: 26,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF4F8EF), Color(0xFFEAF0E5)],
-      ),
+    return InsightCard(
+      title: 'Tổng quan hôm nay',
+      subtitle: progress.weeklyConsistency,
+      delayMs: 40,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            'Nhịp học tuần này',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: GrowMateColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
+          Row(
+            children: [
+              Expanded(
+                child: _StatTile(
+                  label: 'Khái niệm đã fix',
+                  value: '${progress.fixedConcepts.length}',
+                  icon: Icons.check_circle_outline_rounded,
+                ),
+              ),
+              const SizedBox(width: 10),
+              const Expanded(
+                child: _StatTile(
+                  label: 'Mục tiêu tuần',
+                  value: '6 phiên',
+                  icon: Icons.track_changes_rounded,
+                ),
+              ),
+            ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           Text(
             progress.learningRhythm,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: GrowMateColors.textSecondary,
-              height: 1.45,
-            ),
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: const [
-              _RhythmChip(label: 'T2', active: true),
-              _RhythmChip(label: 'T3', active: true),
-              _RhythmChip(label: 'T4', active: false),
-              _RhythmChip(label: 'T5', active: true),
-              _RhythmChip(label: 'T6', active: true),
-              _RhythmChip(label: 'T7', active: false),
-            ],
-          ),
-          const SizedBox(height: 10),
-          Text(
-            progress.weeklyConsistency,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.success,
-              fontWeight: FontWeight.w700,
             ),
           ),
         ],
@@ -141,279 +117,117 @@ class _LearningRhythmCard extends StatelessWidget {
   }
 }
 
-class _MasteryCard extends StatelessWidget {
-  const _MasteryCard({required this.progress});
+class _StrengthSection extends StatelessWidget {
+  const _StrengthSection({required this.progress});
 
   final UserProgressSnapshot progress;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final strengths =
+        progress.masteryMap
+            .where((item) => item.score >= 3.0)
+            .toList(growable: false)
+          ..sort((a, b) => b.score.compareTo(a.score));
 
-    return ZenCard(
-      radius: 26,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      color: Colors.white.withValues(alpha: 0.86),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Lỗ hổng đã lấp',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: GrowMateColors.textPrimary,
-              fontWeight: FontWeight.w700,
+    return InsightCard(
+      title: 'Bạn đang mạnh ở',
+      subtitle: 'Tiếp tục duy trì đà này',
+      delayMs: 80,
+      child: strengths.isEmpty
+          ? const _EmptyHint(
+              label:
+                  'Chưa có chủ đề vượt ngưỡng mạnh. Hãy hoàn thành thêm 1 phiên luyện.',
+            )
+          : Column(
+              children: strengths
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => ProgressBarItem(
+                      label: entry.value.topic,
+                      value: entry.value.score / 4,
+                      trailingLabel:
+                          '${(entry.value.score / 4 * 100).toStringAsFixed(0)}%',
+                      caption: 'Trạng thái: ${entry.value.statusLabel}',
+                      color: GrowMateColors.success,
+                      delayMs: 120 + entry.key * 35,
+                    ),
+                  )
+                  .toList(growable: false),
             ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 250,
-            child: RadarChart(
-              RadarChartData(
-                radarShape: RadarShape.polygon,
-                radarBackgroundColor: Colors.transparent,
-                radarBorderData: BorderSide(
-                  color: GrowMateColors.primary.withValues(alpha: 0.16),
-                ),
-                tickBorderData: BorderSide(
-                  color: GrowMateColors.primary.withValues(alpha: 0.08),
-                ),
-                gridBorderData: BorderSide(
-                  color: GrowMateColors.primary.withValues(alpha: 0.08),
-                ),
-                titleTextStyle: theme.textTheme.bodySmall?.copyWith(
-                  color: GrowMateColors.textSecondary,
-                  fontWeight: FontWeight.w600,
-                ),
-                getTitle: (index, angle) {
-                  final topic = progress.masteryMap[index].topic;
-                  return RadarChartTitle(text: topic, angle: angle);
-                },
-                dataSets: [
-                  RadarDataSet(
-                    dataEntries: progress.masteryMap
-                        .map((item) => RadarEntry(value: item.score))
-                        .toList(growable: false),
-                    fillColor: GrowMateColors.primary.withValues(alpha: 0.2),
-                    borderColor: GrowMateColors.primary,
-                    borderWidth: 2,
-                    entryRadius: 3,
-                  ),
-                ],
-                tickCount: 4,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          ...progress.masteryMap.map((item) {
-            return Padding(
-              padding: const EdgeInsets.only(bottom: 8),
-              child: Row(
-                children: [
-                  const Icon(
-                    Icons.fiber_manual_record_rounded,
-                    size: 10,
-                    color: GrowMateColors.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '${item.topic}: ${item.statusLabel}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: GrowMateColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            );
-          }),
-          const SizedBox(height: 8),
-          Text(
-            'Những phần bạn đã xử lý tốt gần đây:',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: progress.fixedConcepts
-                .map(
-                  (concept) => Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: GrowMateColors.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      concept,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: GrowMateColors.textPrimary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ],
-      ),
     );
   }
 }
 
-class _MoodTrendCard extends StatelessWidget {
-  const _MoodTrendCard({required this.progress});
+class _ImproveSection extends StatelessWidget {
+  const _ImproveSection({required this.progress});
 
   final UserProgressSnapshot progress;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    final gaps =
+        progress.masteryMap
+            .where((item) => item.score < 3.0)
+            .toList(growable: false)
+          ..sort((a, b) => a.score.compareTo(b.score));
 
-    return ZenCard(
-      radius: 26,
-      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
-      color: const Color(0xFFF2F5EF),
+    return InsightCard(
+      title: 'Cần cải thiện',
+      subtitle: 'Ưu tiên xử lý trong phiên kế tiếp',
+      delayMs: 120,
+      child: gaps.isEmpty
+          ? const _EmptyHint(
+              label: 'Tuyệt vời, hiện chưa có lỗ hổng cần ưu tiên.',
+            )
+          : Column(
+              children: gaps
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => ProgressBarItem(
+                      label: entry.value.topic,
+                      value: entry.value.score / 4,
+                      trailingLabel:
+                          '${(entry.value.score / 4 * 100).toStringAsFixed(0)}%',
+                      caption: 'Khuyến nghị: luyện 4-6 câu mức cơ bản',
+                      color: GrowMateColors.warningSoft,
+                      delayMs: 140 + entry.key * 35,
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _FocusTrendSection extends StatelessWidget {
+  const _FocusTrendSection({required this.progress});
+
+  final UserProgressSnapshot progress;
+
+  @override
+  Widget build(BuildContext context) {
+    return InsightCard(
+      title: 'Xu hướng tập trung',
+      subtitle: '3 phiên gần nhất',
+      delayMs: 160,
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            'Sức khỏe tinh thần',
-            style: theme.textTheme.titleLarge?.copyWith(
-              color: GrowMateColors.textPrimary,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Xu hướng mức tập trung trong 3 phiên gần nhất',
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
-            ),
-          ),
-          const SizedBox(height: 12),
-          SizedBox(
-            height: 190,
-            child: LineChart(
-              LineChartData(
-                minX: 0,
-                maxX: (progress.moodTrend.length - 1).toDouble(),
-                minY: 1,
-                maxY: 4,
-                gridData: FlGridData(
-                  show: true,
-                  horizontalInterval: 1,
-                  getDrawingHorizontalLine: (value) => FlLine(
-                    color: GrowMateColors.primary.withValues(alpha: 0.08),
-                    strokeWidth: 1,
-                  ),
-                  drawVerticalLine: false,
-                ),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      getTitlesWidget: (value, meta) {
-                        final label = switch (value.toInt()) {
-                          1 => 'Hơi mệt',
-                          2 => 'Ổn',
-                          3 => 'Tập trung',
-                          4 => 'Rất tốt',
-                          _ => '',
-                        };
-                        return Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: Text(
-                            label,
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: GrowMateColors.textSecondary,
-                            ),
-                          ),
-                        );
-                      },
-                      reservedSize: 60,
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      getTitlesWidget: (value, meta) {
-                        final rounded = value.roundToDouble();
-                        if ((value - rounded).abs() > 0.001) {
-                          return const SizedBox.shrink();
-                        }
-
-                        final index = rounded.toInt();
-                        if (index < 0 || index >= progress.moodTrend.length) {
-                          return const SizedBox.shrink();
-                        }
-
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 8),
-                          child: Text(
-                            'P${index + 1}',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: GrowMateColors.textSecondary,
-                              fontWeight: FontWeight.w600,
-                            ),
-                          ),
-                        );
-                      },
-                      reservedSize: 28,
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: List<FlSpot>.generate(progress.moodTrend.length, (
-                      index,
-                    ) {
-                      return FlSpot(
-                        index.toDouble(),
-                        progress.moodTrend[index].focusScore,
-                      );
-                    }),
-                    isCurved: true,
-                    curveSmoothness: 0.28,
-                    color: const Color(0xFF6A8F77),
-                    barWidth: 3,
-                    isStrokeCapRound: true,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, percent, barData, index) {
-                        return FlDotCirclePainter(
-                          radius: 4,
-                          color: const Color(0xFF6A8F77),
-                          strokeWidth: 1.2,
-                          strokeColor: Colors.white,
-                        );
-                      },
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: const Color(0xFF9FC3AE).withValues(alpha: 0.25),
-                    ),
-                  ),
-                ],
+        children: progress.moodTrend
+            .asMap()
+            .entries
+            .map(
+              (entry) => ProgressBarItem(
+                label: entry.value.sessionLabel,
+                value: entry.value.focusScore / 4,
+                trailingLabel:
+                    '${(entry.value.focusScore / 4 * 100).toStringAsFixed(0)}%',
+                color: GrowMateColors.primary,
+                delayMs: 180 + entry.key * 30,
               ),
-            ),
-          ),
-        ],
+            )
+            .toList(growable: false),
       ),
     );
   }
@@ -424,40 +238,33 @@ class _ProgressEmptyState extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return ZenCard(
-      radius: 28,
-      gradient: const LinearGradient(
-        begin: Alignment.topLeft,
-        end: Alignment.bottomRight,
-        colors: [Color(0xFFF5F8EE), Color(0xFFF2EFE3)],
-      ),
-      padding: const EdgeInsets.fromLTRB(20, 26, 20, 24),
-      child: Column(
+    return InsightCard(
+      title: 'Chưa có dữ liệu tiến trình',
+      subtitle: 'Bắt đầu một phiên học để AI tổng hợp năng lực',
+      delayMs: 30,
+      child: Row(
         children: [
           Container(
-            width: 96,
-            height: 96,
-            decoration: const BoxDecoration(
-              color: Color(0xFFECE7D7),
-              shape: BoxShape.circle,
-            ),
+            width: 44,
+            height: 44,
             alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: GrowMateColors.primaryContainer,
+              borderRadius: BorderRadius.circular(12),
+            ),
             child: const Icon(
-              Icons.auto_graph_rounded,
+              Icons.timeline_rounded,
               color: GrowMateColors.primary,
-              size: 42,
             ),
           ),
-          const SizedBox(height: 14),
-          Text(
-            'Hãy bắt đầu bài học đầu tiên để thấy tiến trình của bạn nhé!',
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: GrowMateColors.textSecondary,
-              height: 1.45,
-              fontWeight: FontWeight.w600,
+          const SizedBox(width: 12),
+          const Expanded(
+            child: Text(
+              'Khi hoàn tất bài đầu tiên, bạn sẽ thấy phân tích mạnh/yếu ngay tại đây.',
+              style: TextStyle(
+                color: GrowMateColors.textSecondary,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ],
@@ -466,37 +273,67 @@ class _ProgressEmptyState extends StatelessWidget {
   }
 }
 
-class _RhythmChip extends StatelessWidget {
-  const _RhythmChip({required this.label, required this.active});
+class _StatTile extends StatelessWidget {
+  const _StatTile({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
 
   final String label;
-  final bool active;
+  final String value;
+  final IconData icon;
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      width: 42,
-      height: 32,
-      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 10),
       decoration: BoxDecoration(
-        color: active
-            ? GrowMateColors.primary.withValues(alpha: 0.14)
-            : Colors.white.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: active
-              ? GrowMateColors.primary.withValues(alpha: 0.28)
-              : GrowMateColors.primary.withValues(alpha: 0.08),
-        ),
+        color: GrowMateColors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(12),
       ),
-      child: Text(
-        label,
-        style: TextStyle(
-          color: active ? GrowMateColors.primary : GrowMateColors.textSecondary,
-          fontWeight: FontWeight.w700,
-          fontSize: 12,
-        ),
+      child: Row(
+        children: [
+          Icon(icon, size: 18, color: GrowMateColors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  value,
+                  style: theme.textTheme.titleMedium?.copyWith(fontSize: 16),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  label,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: GrowMateColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
       ),
+    );
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(
+      label,
+      style: Theme.of(
+        context,
+      ).textTheme.bodyMedium?.copyWith(color: GrowMateColors.textSecondary),
     );
   }
 }

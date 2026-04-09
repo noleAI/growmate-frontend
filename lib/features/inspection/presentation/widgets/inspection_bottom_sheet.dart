@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/constants/colors.dart';
+import '../../../../shared/widgets/ai_components.dart';
 import '../cubit/inspection_cubit.dart';
 
 class InspectionBottomSheet extends StatefulWidget {
@@ -42,18 +43,18 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
     final cubit = context.read<InspectionCubit>();
+    final theme = Theme.of(context);
 
     return SafeArea(
       top: false,
       child: Container(
         decoration: const BoxDecoration(
-          color: GrowMateColors.surface,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(30)),
+          color: GrowMateColors.background,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
         child: Padding(
-          padding: const EdgeInsets.fromLTRB(18, 12, 18, 20),
+          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
           child: StreamBuilder<InspectionState>(
             stream: cubit.stream,
             initialData: cubit.state,
@@ -66,93 +67,89 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                   children: [
                     Center(
                       child: Container(
-                        width: 56,
+                        width: 48,
                         height: 5,
                         decoration: BoxDecoration(
-                          color: GrowMateColors.primary.withValues(alpha: 0.2),
+                          color: GrowMateColors.surfaceContainerHigh,
                           borderRadius: BorderRadius.circular(999),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 14),
-                    Row(
-                      children: [
-                        Container(
-                          width: 40,
-                          height: 40,
-                          decoration: BoxDecoration(
-                            color: GrowMateColors.primaryContainer,
-                            shape: BoxShape.circle,
-                          ),
-                          alignment: Alignment.center,
-                          child: const Icon(
-                            Icons.visibility_rounded,
-                            color: GrowMateColors.primary,
-                          ),
+                    const SizedBox(height: 12),
+                    SectionHeader(
+                      title: 'AI Insight Panel',
+                      subtitle:
+                          'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
+                      trailing: IconButton(
+                        onPressed: cubit.refreshNow,
+                        icon: const Icon(
+                          Icons.refresh_rounded,
+                          color: GrowMateColors.primary,
                         ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Text(
-                            'Mini Inspection Dashboard',
-                            style: theme.textTheme.titleLarge?.copyWith(
-                              fontSize: 22,
-                            ),
-                          ),
-                        ),
-                        IconButton(
-                          onPressed: cubit.refreshNow,
-                          icon: const Icon(
-                            Icons.refresh_rounded,
-                            color: GrowMateColors.primary,
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      'Cập nhật: ${_formatTimestamp(state.updatedAt)}',
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: GrowMateColors.textSecondary,
                       ),
                     ),
-                    const SizedBox(height: 16),
-                    _SectionCard(
-                      title: 'Belief Distribution (Bayesian)',
+                    InsightCard(
+                      title: 'AI nhận định',
+                      subtitle: 'Belief distribution theo chủ đề',
+                      delayMs: 40,
                       child: Column(
                         children: state.beliefs
+                            .asMap()
+                            .entries
                             .map(
-                              (belief) => Padding(
-                                padding: const EdgeInsets.only(bottom: 10),
-                                child: _BeliefBar(belief: belief),
+                              (entry) => ProgressBarItem(
+                                label: entry.value.topic,
+                                value: entry.value.ratio,
+                                color: GrowMateColors.primary,
+                                delayMs: 60 + entry.key * 25,
                               ),
                             )
                             .toList(growable: false),
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Current Plan Tree (HTN)',
+                    InsightCard(
+                      title: 'Kế hoạch hành động',
+                      subtitle: 'Plan tree rút gọn cho phiên hiện tại',
+                      delayMs: 70,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: state.planSteps
+                            .asMap()
+                            .entries
                             .map(
-                              (step) => Padding(
-                                padding: const EdgeInsets.only(bottom: 8),
+                              (entry) => Padding(
+                                padding: EdgeInsets.only(
+                                  bottom:
+                                      entry.key == state.planSteps.length - 1
+                                      ? 0
+                                      : 10,
+                                ),
                                 child: Row(
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
-                                    const Padding(
-                                      padding: EdgeInsets.only(top: 2),
-                                      child: Icon(
-                                        Icons.subdirectory_arrow_right_rounded,
-                                        size: 18,
-                                        color: GrowMateColors.primary,
+                                    Container(
+                                      width: 20,
+                                      height: 20,
+                                      alignment: Alignment.center,
+                                      decoration: BoxDecoration(
+                                        color: GrowMateColors.primaryContainer,
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                      ),
+                                      child: Text(
+                                        '${entry.key + 1}',
+                                        style: const TextStyle(
+                                          color: GrowMateColors.primary,
+                                          fontWeight: FontWeight.w700,
+                                          fontSize: 11,
+                                        ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        step,
+                                        entry.value,
                                         style: theme.textTheme.bodyMedium,
                                       ),
                                     ),
@@ -164,22 +161,25 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Mental State (Particle Filter)',
+                    InsightCard(
+                      title: 'Mental state',
+                      subtitle: 'Trạng thái hiện tại của người học',
+                      delayMs: 100,
                       child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Container(
                             padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
+                              horizontal: 10,
+                              vertical: 6,
                             ),
                             decoration: BoxDecoration(
                               color: GrowMateColors.tertiaryContainer,
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              'Trạng thái: ${state.mentalStateLabel}',
-                              style: theme.textTheme.bodyMedium?.copyWith(
+                              state.mentalStateLabel,
+                              style: theme.textTheme.bodySmall?.copyWith(
                                 color: GrowMateColors.success,
                                 fontWeight: FontWeight.w700,
                               ),
@@ -198,111 +198,40 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Confidence & Uncertainty',
+                    InsightCard(
+                      title: 'Độ tin cậy',
+                      subtitle: 'Model confidence và uncertainty',
+                      delayMs: 130,
                       child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
-                          _MetricRow(
+                          ProgressBarItem(
                             label: 'Model confidence',
-                            value:
-                                '${(state.confidenceScore * 100).toStringAsFixed(0)}%',
+                            value: state.confidenceScore,
+                            color: GrowMateColors.success,
+                            delayMs: 150,
                           ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              minHeight: 7,
-                              value: state.confidenceScore,
-                              backgroundColor:
-                                  GrowMateColors.surfaceContainerHigh,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                GrowMateColors.success,
-                              ),
-                            ),
-                          ),
-                          const SizedBox(height: 12),
-                          _MetricRow(
+                          ProgressBarItem(
                             label: 'Aggregate uncertainty',
-                            value:
-                                '${(state.uncertaintyScore * 100).toStringAsFixed(0)}%',
-                          ),
-                          const SizedBox(height: 8),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              minHeight: 7,
-                              value: state.uncertaintyScore,
-                              backgroundColor:
-                                  GrowMateColors.surfaceContainerHigh,
-                              valueColor: const AlwaysStoppedAnimation<Color>(
-                                GrowMateColors.warningSoft,
-                              ),
-                            ),
+                            value: state.uncertaintyScore,
+                            color: GrowMateColors.warningSoft,
+                            delayMs: 180,
                           ),
                         ],
                       ),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Q-Value View (Memory)',
-                      child: state.qValues.isEmpty
-                          ? Text(
-                              'Chưa có cập nhật Q-value từ tương tác gần đây.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
-                              ),
-                            )
-                          : Builder(
-                              builder: (context) {
-                                final sortedEntries =
-                                    state.qValues.entries.toList(
-                                      growable: false,
-                                    )..sort(
-                                      (a, b) => b.value.compareTo(a.value),
-                                    );
-
-                                return Column(
-                                  children: sortedEntries
-                                      .map(
-                                        (entry) => Padding(
-                                          padding: const EdgeInsets.only(
-                                            bottom: 10,
-                                          ),
-                                          child: _QValueBar(
-                                            strategy: entry.key,
-                                            score: entry.value,
-                                          ),
-                                        ),
-                                      )
-                                      .toList(growable: false),
-                                );
-                              },
-                            ),
+                    InsightCard(
+                      title: 'Q-Value ưu tiên',
+                      subtitle: 'Giá trị chiến lược đang được model ưu tiên',
+                      delayMs: 160,
+                      child: _QValueList(qValues: state.qValues),
                     ),
                     const SizedBox(height: 12),
-                    _SectionCard(
-                      title: 'Decision Log',
-                      child: state.decisionLogs.isEmpty
-                          ? Text(
-                              'Chưa có quyết định nào được ghi nhận trong phiên hiện tại.',
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
-                              ),
-                            )
-                          : Column(
-                              children: state.decisionLogs
-                                  .take(8)
-                                  .map(
-                                    (entry) => Padding(
-                                      padding: const EdgeInsets.only(
-                                        bottom: 10,
-                                      ),
-                                      child: _DecisionTile(entry: entry),
-                                    ),
-                                  )
-                                  .toList(growable: false),
-                            ),
+                    InsightCard(
+                      title: 'Decision log',
+                      subtitle: 'Các quyết định gần nhất',
+                      delayMs: 190,
+                      child: _DecisionList(entries: state.decisionLogs),
                     ),
                     const SizedBox(height: 8),
                   ],
@@ -323,216 +252,114 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
   }
 }
 
-class _SectionCard extends StatelessWidget {
-  const _SectionCard({required this.title, required this.child});
+class _QValueList extends StatelessWidget {
+  const _QValueList({required this.qValues});
 
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: GrowMateColors.primary.withValues(alpha: 0.08),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(14, 14, 14, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              title,
-              style: theme.textTheme.bodyLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-                color: GrowMateColors.textPrimary,
-              ),
-            ),
-            const SizedBox(height: 10),
-            child,
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _BeliefBar extends StatelessWidget {
-  const _BeliefBar({required this.belief});
-
-  final InspectionBelief belief;
+  final Map<String, double> qValues;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
+    if (qValues.isEmpty) {
+      return const Text(
+        'Chưa có Q-value mới trong phiên hiện tại.',
+        style: TextStyle(
+          color: GrowMateColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    final sortedEntries = qValues.entries.toList(growable: false)
+      ..sort((a, b) => b.value.compareTo(a.value));
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                belief.topic,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
+      children: sortedEntries
+          .asMap()
+          .entries
+          .map(
+            (entry) => ProgressBarItem(
+              label: entry.value.key,
+              value: entry.value.value,
+              trailingLabel: entry.value.value.toStringAsFixed(3),
+              delayMs: 210 + entry.key * 20,
             ),
-            Text(
-              belief.percentageLabel,
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            minHeight: 7,
-            value: belief.ratio,
-            backgroundColor: GrowMateColors.surfaceContainerHigh,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              GrowMateColors.primaryContainer,
-            ),
-          ),
-        ),
-      ],
+          )
+          .toList(growable: false),
     );
   }
 }
 
-class _QValueBar extends StatelessWidget {
-  const _QValueBar({required this.strategy, required this.score});
+class _DecisionList extends StatelessWidget {
+  const _DecisionList({required this.entries});
 
-  final String strategy;
-  final double score;
+  final List<InspectionDecisionLog> entries;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final normalizedScore = score.clamp(0, 1).toDouble();
+
+    if (entries.isEmpty) {
+      return Text(
+        'Chưa có quyết định mới được ghi nhận.',
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: GrowMateColors.textSecondary,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
 
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Row(
-          children: [
-            Expanded(
-              child: Text(
-                strategy,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
+      children: entries
+          .take(6)
+          .map(
+            (entry) => Container(
+              margin: const EdgeInsets.only(bottom: 10),
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: GrowMateColors.surfaceContainerHigh,
+                borderRadius: BorderRadius.circular(12),
               ),
-            ),
-            Text(
-              score.toStringAsFixed(3),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.primary,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 6),
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            minHeight: 7,
-            value: normalizedScore,
-            backgroundColor: GrowMateColors.surfaceContainerHigh,
-            valueColor: const AlwaysStoppedAnimation<Color>(
-              GrowMateColors.primary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _DecisionTile extends StatelessWidget {
-  const _DecisionTile({required this.entry});
-
-  final InspectionDecisionLog entry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: GrowMateColors.primary.withValues(alpha: 0.08),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    entry.action,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textPrimary,
-                      fontWeight: FontWeight.w700,
-                    ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          entry.action,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        _formatTime(entry.createdAt),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: GrowMateColors.textSecondary,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ],
                   ),
-                ),
-                Text(
-                  _formatTime(entry.createdAt),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: GrowMateColors.textSecondary,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Text(
-              entry.reason,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: GrowMateColors.textSecondary,
-                height: 1.35,
-              ),
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                Text(
-                  'source: ${entry.source}',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: GrowMateColors.textSecondary,
-                  ),
-                ),
-                const Spacer(),
-                if (entry.uncertaintyScore != null)
+                  const SizedBox(height: 4),
                   Text(
-                    'uncertainty ${(entry.uncertaintyScore! * 100).toStringAsFixed(0)}%',
+                    entry.reason,
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: GrowMateColors.warningSoft,
-                      fontWeight: FontWeight.w700,
+                      color: GrowMateColors.textSecondary,
                     ),
                   ),
-              ],
+                  const SizedBox(height: 4),
+                  Text(
+                    'Nguồn: ${entry.source}',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: GrowMateColors.textSecondary,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ],
-        ),
-      ),
+          )
+          .toList(growable: false),
     );
   }
 
@@ -541,37 +368,5 @@ class _DecisionTile extends StatelessWidget {
     final mm = time.minute.toString().padLeft(2, '0');
     final ss = time.second.toString().padLeft(2, '0');
     return '$hh:$mm:$ss';
-  }
-}
-
-class _MetricRow extends StatelessWidget {
-  const _MetricRow({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            label,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: GrowMateColors.textSecondary,
-            ),
-          ),
-        ),
-        Text(
-          value,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: GrowMateColors.textPrimary,
-            fontWeight: FontWeight.w700,
-          ),
-        ),
-      ],
-    );
   }
 }

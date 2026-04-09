@@ -4,14 +4,13 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../inspection/presentation/cubit/inspection_cubit.dart';
-import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
+import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
-import '../../../../shared/widgets/zen_button.dart';
-import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../inspection/presentation/cubit/inspection_cubit.dart';
+import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 
 class TodayPage extends StatelessWidget {
   const TodayPage({super.key});
@@ -26,171 +25,45 @@ class TodayPage extends StatelessWidget {
         child: ListView(
           children: [
             _buildTopAppBar(context),
-            const SizedBox(height: 18),
-            Text(
-              _vnDateLabel(DateTime.now()),
-              style: const TextStyle(
-                color: GrowMateColors.textSecondary,
-                fontSize: 15,
-                fontWeight: FontWeight.w600,
-                letterSpacing: 0.45,
-              ),
+            const SizedBox(height: 20),
+            SectionHeader(
+              title: 'Hôm nay nên làm gì tiếp?',
+              subtitle:
+                  '${_vnDateLabel(DateTime.now())} · Kế hoạch từ AI Agent',
+              bottomSpacing: 0,
+            ),
+            const SizedBox(height: 16),
+            AiRecommendationCard(
+              topic: 'Đạo hàm ứng dụng',
+              reason: 'AI nhận thấy bạn dễ mất điểm ở bài vận tốc tức thời.',
+              confidence: 0.87,
+              onStart: () => context.push(AppRoutes.quiz),
+            ),
+            const SizedBox(height: 16),
+            const FadeSlideIn(delayMs: 80, child: _ProgressSnapshot()),
+            const SizedBox(height: 14),
+            InsightCard(
+              title: 'Trạng thái học tập hiện tại',
+              subtitle: 'AI đánh giá trước phiên học tiếp theo',
+              delayMs: 120,
+              child: const _MentalStateRow(),
+            ),
+            const SizedBox(height: 14),
+            InsightCard(
+              title: 'Bước tiếp theo',
+              subtitle: 'Mục tiêu: hoàn thành trong 20 phút',
+              delayMs: 160,
+              child: const _NextActions(),
             ),
             const SizedBox(height: 8),
             Text(
-              'Mọi thứ đã sẵn sàng cho\nmột ngày mới nhẹ\nnhàng.',
-              style: theme.textTheme.headlineLarge?.copyWith(
-                fontSize: 36,
-                height: 1.14,
-                letterSpacing: -0.55,
-              ),
-            ),
-            const SizedBox(height: 20),
-            ZenCard(
-              radius: 34,
-              gradient: const LinearGradient(
-                begin: Alignment.topLeft,
-                end: Alignment.bottomRight,
-                colors: [Color(0xFFFBFCFA), Color(0xFFF4F1EA)],
-              ),
-              padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
-              child: Column(
-                children: [
-                  Container(
-                    width: 98,
-                    height: 98,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      gradient: const LinearGradient(
-                        begin: Alignment.topCenter,
-                        end: Alignment.bottomCenter,
-                        colors: [Color(0xFFD9ECEF), Color(0xFFC2E0E6)],
-                      ),
-                    ),
-                    alignment: Alignment.center,
-                    child: const Icon(
-                      Icons.auto_awesome_rounded,
-                      color: GrowMateColors.primary,
-                      size: 42,
-                    ),
-                  ),
-                  const SizedBox(height: 24),
-                  Text(
-                    'Hôm nay mình học nhẹ\nphần Đạo hàm nhé 😊',
-                    textAlign: TextAlign.center,
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontSize: 26,
-                      height: 1.26,
-                    ),
-                  ),
-                  const SizedBox(height: 22),
-                  SizedBox(
-                    width: 220,
-                    child: ZenButton(
-                      label: 'Bắt đầu',
-                      onPressed: () => context.push(AppRoutes.quiz),
-                      expanded: true,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 24,
-                        vertical: 16,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Align(
-              child: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 8,
-                ),
-                decoration: BoxDecoration(
-                  color: Colors.white.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: GrowMateColors.primary.withValues(alpha: 0.1),
-                  ),
-                ),
-                child: const Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      Icons.timer_outlined,
-                      size: 18,
-                      color: GrowMateColors.success,
-                    ),
-                    SizedBox(width: 8),
-                    Text(
-                      'Dự kiến: 15 phút',
-                      style: TextStyle(
-                        color: GrowMateColors.textSecondary,
-                        fontWeight: FontWeight.w600,
-                        fontSize: 16,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 28),
-            Text(
-              'GỢI Ý KHÁC',
-              style: theme.textTheme.bodyMedium?.copyWith(
+              'Mẹo: Hoàn tất phiên này để AI cập nhật lộ trình can thiệp chính xác hơn.',
+              style: theme.textTheme.bodySmall?.copyWith(
                 color: GrowMateColors.textSecondary,
-                fontWeight: FontWeight.w700,
-                letterSpacing: 0.65,
+                fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 14),
-            Wrap(
-              runSpacing: 12,
-              spacing: 12,
-              children: const [
-                _SoftChip(
-                  icon: Icons.psychology_alt_rounded,
-                  label: 'Luyện tập tư duy',
-                ),
-                _SoftChip(icon: Icons.eco_rounded, label: 'Nghỉ ngơi 5p'),
-              ],
-            ),
-            const SizedBox(height: 22),
-            Container(
-              height: 170,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(34),
-                gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    Color(0xFFB8D5D9),
-                    Color(0xFFD2E3E4),
-                    Color(0xFFEDEFE9),
-                  ],
-                ),
-              ),
-              child: Stack(
-                children: const [
-                  Positioned.fill(
-                    child: DecoratedBox(
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.all(Radius.circular(34)),
-                      ),
-                    ),
-                  ),
-                  Align(
-                    alignment: Alignment.bottomCenter,
-                    child: Icon(
-                      Icons.landscape_rounded,
-                      size: 132,
-                      color: Color(0xFF9AA8A5),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 6),
+            const SizedBox(height: 8),
           ],
         ),
       ),
@@ -233,48 +106,204 @@ class TodayPage extends StatelessWidget {
 
   static String _vnDateLabel(DateTime now) {
     const weekdays = <int, String>{
-      1: 'THỨ HAI',
-      2: 'THỨ BA',
-      3: 'THỨ TƯ',
-      4: 'THỨ NĂM',
-      5: 'THỨ SÁU',
-      6: 'THỨ BẢY',
-      7: 'CHỦ NHẬT',
+      1: 'Thứ Hai',
+      2: 'Thứ Ba',
+      3: 'Thứ Tư',
+      4: 'Thứ Năm',
+      5: 'Thứ Sáu',
+      6: 'Thứ Bảy',
+      7: 'Chủ Nhật',
     };
-    final weekday = weekdays[now.weekday] ?? 'THỨ';
-    return '$weekday, ${now.day} THÁNG ${now.month}';
+    final weekday = weekdays[now.weekday] ?? 'Hôm nay';
+    return '$weekday, ${now.day}/${now.month}';
   }
 }
 
-class _SoftChip extends StatelessWidget {
-  const _SoftChip({required this.icon, required this.label});
-
-  final IconData icon;
-  final String label;
+class _ProgressSnapshot extends StatelessWidget {
+  const _ProgressSnapshot();
 
   @override
   Widget build(BuildContext context) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const SectionHeader(
+          title: 'Snapshot',
+          subtitle: 'Tình hình học tập trong 24h',
+          bottomSpacing: 10,
+        ),
+        Row(
+          children: const [
+            Expanded(
+              child: _MiniMetricCard(
+                label: 'Streak',
+                value: '6 ngày',
+                icon: Icons.local_fire_department_rounded,
+              ),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: _MiniMetricCard(
+                label: 'Hoàn thành',
+                value: '4/5',
+                icon: Icons.task_alt_rounded,
+              ),
+            ),
+            SizedBox(width: 10),
+            Expanded(
+              child: _MiniMetricCard(
+                label: 'Focus',
+                value: 'Tốt',
+                icon: Icons.bolt_rounded,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+}
+
+class _MiniMetricCard extends StatelessWidget {
+  const _MiniMetricCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(999),
+        color: GrowMateColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x120F172A),
+            blurRadius: 10,
+            offset: Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, size: 20, color: GrowMateColors.primary),
-          const SizedBox(width: 10),
+          Icon(icon, color: GrowMateColors.primary, size: 18),
+          const SizedBox(height: 8),
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
+          ),
+          const SizedBox(height: 2),
           Text(
             label,
-            style: const TextStyle(
-              color: GrowMateColors.textPrimary,
-              fontSize: 17,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: GrowMateColors.textSecondary,
               fontWeight: FontWeight.w600,
             ),
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MentalStateRow extends StatelessWidget {
+  const _MentalStateRow();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Row(
+      children: [
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: GrowMateColors.tertiaryContainer,
+            borderRadius: BorderRadius.circular(999),
+          ),
+          child: const Text(
+            'Tập trung ổn định',
+            style: TextStyle(
+              color: GrowMateColors.success,
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            'AI đề xuất tăng dần độ khó, chưa cần kích hoạt recovery mode.',
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: GrowMateColors.textSecondary,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _NextActions extends StatelessWidget {
+  const _NextActions();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final actions = <String>[
+      'Làm 3 câu ứng dụng đạo hàm có gợi ý.',
+      'Kiểm tra lại lỗi sai thường gặp ở bước biến đổi.',
+      'Kết thúc bằng 1 câu tự luận ngắn để AI chấm nhanh.',
+    ];
+
+    return Column(
+      children: actions
+          .asMap()
+          .entries
+          .map(
+            (entry) => Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.key == actions.length - 1 ? 0 : 10,
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Container(
+                    width: 20,
+                    height: 20,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: GrowMateColors.primary,
+                      borderRadius: BorderRadius.circular(999),
+                    ),
+                    child: Text(
+                      '${entry.key + 1}',
+                      style: const TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w700,
+                        fontSize: 11,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(entry.value, style: theme.textTheme.bodyMedium),
+                  ),
+                ],
+              ),
+            ),
+          )
+          .toList(growable: false),
     );
   }
 }

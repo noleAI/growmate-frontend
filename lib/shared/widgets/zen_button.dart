@@ -30,7 +30,7 @@ class ZenButton extends StatefulWidget {
 }
 
 class _ZenButtonState extends State<ZenButton> {
-  static const Duration _motionDuration = Duration(milliseconds: 260);
+  static const Duration _motionDuration = Duration(milliseconds: 180);
   bool _pressed = false;
 
   void _setPressed(bool value) {
@@ -76,7 +76,7 @@ class _ZenButtonState extends State<ZenButton> {
     );
 
     final body = AnimatedScale(
-      scale: _pressed ? 0.96 : 1,
+      scale: _pressed ? 0.97 : 1,
       duration: _motionDuration,
       curve: Curves.easeOut,
       child: AnimatedContainer(
@@ -106,41 +106,34 @@ class _ZenButtonState extends State<ZenButton> {
       case ZenButtonVariant.primary:
         return BoxDecoration(
           borderRadius: radius,
-          gradient: LinearGradient(
-            begin: Alignment.topLeft,
-            end: Alignment.bottomRight,
-            colors: disabled
-                ? [
-                    GrowMateColors.textSecondary.withValues(alpha: 0.35),
-                    GrowMateColors.textSecondary.withValues(alpha: 0.3),
-                  ]
-                : [GrowMateColors.primary, GrowMateColors.primaryDark],
-          ),
-          border: Border.all(
-            color: Colors.white.withValues(alpha: disabled ? 0.2 : 0.35),
-          ),
+          color: disabled
+              ? GrowMateColors.textSecondary.withValues(alpha: 0.35)
+              : GrowMateColors.primary,
+          border: Border.all(color: Colors.transparent),
           boxShadow: disabled
               ? const []
-              : const [
+              : [
                   BoxShadow(
-                    color: GrowMateColors.shadowButton,
-                    blurRadius: 22,
-                    offset: Offset(0, 10),
+                    color: GrowMateColors.shadowButton.withValues(alpha: 0.3),
+                    blurRadius: 14,
+                    offset: const Offset(0, 6),
                   ),
                 ],
         );
       case ZenButtonVariant.secondary:
         return BoxDecoration(
           borderRadius: radius,
-          color: Colors.white.withValues(alpha: disabled ? 0.4 : 0.72),
+          color: disabled
+              ? GrowMateColors.surfaceContainerHigh.withValues(alpha: 0.65)
+              : GrowMateColors.surface,
           border: Border.all(
-            color: GrowMateColors.primary.withValues(alpha: 0.16),
+            color: GrowMateColors.primary.withValues(alpha: 0.2),
           ),
-          boxShadow: const [
+          boxShadow: [
             BoxShadow(
-              color: GrowMateColors.shadowSoft,
-              blurRadius: 14,
-              offset: Offset(0, 6),
+              color: GrowMateColors.shadowSoft.withValues(alpha: 0.75),
+              blurRadius: 10,
+              offset: const Offset(0, 4),
             ),
           ],
         );
@@ -156,7 +149,7 @@ class _ZenButtonState extends State<ZenButton> {
       case ZenButtonVariant.secondary:
         return disabled
             ? GrowMateColors.textSecondary.withValues(alpha: 0.65)
-            : GrowMateColors.textPrimary;
+            : GrowMateColors.primaryDark;
       case ZenButtonVariant.text:
         return disabled
             ? GrowMateColors.textSecondary.withValues(alpha: 0.65)

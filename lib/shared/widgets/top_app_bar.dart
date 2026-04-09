@@ -1,5 +1,3 @@
-import 'dart:ui';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -92,81 +90,83 @@ class _TopAppBarBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 10, sigmaY: 10),
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
-          decoration: BoxDecoration(
-            color: Colors.white.withValues(alpha: 0.62),
-            border: Border.all(color: Colors.white.withValues(alpha: 0.78)),
-            borderRadius: BorderRadius.circular(22),
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      decoration: BoxDecoration(
+        color: GrowMateColors.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x140F172A),
+            blurRadius: 12,
+            offset: Offset(0, 5),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 42,
-                height: 42,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  border: Border.all(
-                    color: GrowMateColors.primaryContainer.withValues(
-                      alpha: 0.9,
-                    ),
-                    width: 2,
-                  ),
-                  gradient: const LinearGradient(
-                    begin: Alignment.topLeft,
-                    end: Alignment.bottomRight,
-                    colors: [
-                      GrowMateColors.primaryDark,
-                      GrowMateColors.primary,
-                    ],
+        ],
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: GrowMateColors.primaryContainer,
+            ),
+            child: const Icon(
+              Icons.psychology_alt_rounded,
+              color: GrowMateColors.primary,
+              size: 22,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'GrowMate AI Tutor',
+                  style: TextStyle(
+                    color: GrowMateColors.textSecondary,
+                    fontSize: 12,
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                child: const Icon(
-                  Icons.person_rounded,
-                  color: Colors.white,
-                  size: 21,
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Text(
-                  'Chào $userName 👋',
+                const SizedBox(height: 2),
+                Text(
+                  'Chào $userName',
                   style: const TextStyle(
                     color: GrowMateColors.textPrimary,
-                    fontSize: 20,
+                    fontSize: 17,
                     fontWeight: FontWeight.w700,
-                    height: 1.25,
+                    height: 1.2,
                   ),
                 ),
-              ),
-              if (onInspectionTap != null)
-                IconButton(
-                  onPressed: onInspectionTap,
-                  icon: const Icon(
-                    Icons.visibility_rounded,
-                    color: GrowMateColors.primary,
-                    size: 24,
-                  ),
-                ),
-              IconButton(
-                onPressed:
-                    onNotificationTap ??
-                    () {
-                      context.push(AppRoutes.notifications);
-                    },
-                icon: const Icon(
-                  Icons.notifications_rounded,
-                  color: GrowMateColors.primary,
-                  size: 26,
-                ),
-              ),
-            ],
+              ],
+            ),
           ),
-        ),
+          if (onInspectionTap != null)
+            IconButton(
+              onPressed: onInspectionTap,
+              icon: const Icon(
+                Icons.insights_rounded,
+                color: GrowMateColors.primary,
+                size: 22,
+              ),
+            ),
+          IconButton(
+            onPressed:
+                onNotificationTap ??
+                () {
+                  context.push(AppRoutes.notifications);
+                },
+            icon: const Icon(
+              Icons.notifications_none_rounded,
+              color: GrowMateColors.primary,
+              size: 24,
+            ),
+          ),
+        ],
       ),
     );
   }

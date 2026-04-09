@@ -3,8 +3,8 @@ import 'package:flutter/material.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 
-class ZenCard extends StatelessWidget {
-  const ZenCard({
+class AIGlassCard extends StatelessWidget {
+  const AIGlassCard({
     super.key,
     required this.child,
     this.padding = const EdgeInsets.all(22),
@@ -26,23 +26,15 @@ class ZenCard extends StatelessWidget {
     final card = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? GrowMateColors.surfaceContainerLow,
+        color: color ?? GrowMateColors.surface,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(
-          color: Colors.white.withValues(alpha: 0.72),
-          width: 1.1,
-        ),
+        border: Border.all(color: const Color(0xFFE5E7EB)),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(20, 64, 74, 0.12),
-            blurRadius: 22,
-            offset: Offset(0, 12),
-          ),
-          BoxShadow(
-            color: Color.fromRGBO(255, 255, 255, 0.5),
-            blurRadius: 10,
-            offset: Offset(0, -2),
+            color: Color(0x140F172A),
+            blurRadius: 14,
+            offset: Offset(0, 6),
           ),
         ],
       ),
@@ -55,4 +47,16 @@ class ZenCard extends StatelessWidget {
 
     return Padding(padding: margin!, child: card);
   }
+}
+
+class ZenCard extends AIGlassCard {
+  const ZenCard({
+    super.key,
+    required super.child,
+    super.padding = const EdgeInsets.all(22),
+    super.radius = GrowMateLayout.cardRadius,
+    super.color,
+    super.gradient,
+    super.margin,
+  });
 }

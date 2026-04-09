@@ -17,20 +17,18 @@ class GrowMateBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
+      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.88),
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        color: GrowMateColors.surface,
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
         border: Border(
-          top: BorderSide(
-            color: GrowMateColors.primary.withValues(alpha: 0.08),
-          ),
+          top: BorderSide(color: GrowMateColors.surfaceContainerHigh),
         ),
         boxShadow: const [
           BoxShadow(
-            color: Color.fromRGBO(20, 64, 74, 0.11),
-            blurRadius: 18,
-            offset: Offset(0, -8),
+            color: Color(0x120F172A),
+            blurRadius: 14,
+            offset: Offset(0, -4),
           ),
         ],
       ),
@@ -82,12 +80,12 @@ class _NavItem extends StatelessWidget {
       child: GestureDetector(
         onTap: onTap,
         child: AnimatedContainer(
-          duration: const Duration(milliseconds: 280),
+          duration: const Duration(milliseconds: 220),
           curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
           decoration: BoxDecoration(
             color: selected
-                ? GrowMateColors.primary.withValues(alpha: 0.12)
+                ? GrowMateColors.primary.withValues(alpha: 0.1)
                 : Colors.transparent,
             borderRadius: BorderRadius.circular(16),
             border: Border.all(
