@@ -87,6 +87,27 @@ class RealApiService implements ApiService {
     });
   }
 
+  @override
+  Future<Map<String, dynamic>> saveInteractionFeedback({
+    required String sessionId,
+    required String submissionId,
+    required String diagnosisId,
+    required String eventName,
+    required String memoryScope,
+    String? reason,
+    Map<String, dynamic>? metadata,
+  }) {
+    return _post('/memory/interaction-feedback', <String, dynamic>{
+      'sessionId': sessionId,
+      'submissionId': submissionId,
+      'diagnosisId': diagnosisId,
+      'eventName': eventName,
+      'memoryScope': memoryScope,
+      'reason': reason,
+      'metadata': metadata ?? <String, dynamic>{},
+    });
+  }
+
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, dynamic> body,

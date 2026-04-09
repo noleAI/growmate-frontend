@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../inspection/domain/inspection_runtime_store.dart';
 import '../../data/repositories/intervention_repository.dart';
 import 'intervention_event.dart';
 import 'intervention_state.dart';
@@ -14,18 +15,21 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     required this.finalMode,
     required List<Map<String, dynamic>> backendInterventionPlan,
     required this.uncertaintyHigh,
-  })  : _interventionRepository = interventionRepository,
-        _backendInterventionPlan = backendInterventionPlan,
-        super(
-          const InterventionState(
-            mode: InterventionMode.academic,
-            options: <InterventionOption>[],
-            remainingRestSeconds: _defaultRecoverySeconds,
-            isSubmitting: false,
-            showUncertaintyPrompt: false,
-            feedbackRecorded: false,
-          ),
-        ) {
+    InspectionRuntimeStore? inspectionRuntimeStore,
+  }) : _interventionRepository = interventionRepository,
+       _backendInterventionPlan = backendInterventionPlan,
+       _inspectionRuntimeStore =
+           inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
+       super(
+         const InterventionState(
+           mode: InterventionMode.academic,
+           options: <InterventionOption>[],
+           remainingRestSeconds: _defaultRecoverySeconds,
+           isSubmitting: false,
+           showUncertaintyPrompt: false,
+           feedbackRecorded: false,
+         ),
+       ) {
     on<InterventionStarted>(_onInterventionStarted);
     on<InterventionOptionSelected>(_onInterventionOptionSelected);
     on<InterventionPromptResolved>(_onInterventionPromptResolved);
@@ -41,6 +45,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
   final String finalMode;
   final List<Map<String, dynamic>> _backendInterventionPlan;
   final bool uncertaintyHigh;
+  final InspectionRuntimeStore _inspectionRuntimeStore;
 
   Timer? _recoveryTimer;
 
@@ -48,8 +53,9 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     InterventionStarted event,
     Emitter<InterventionState> emit,
   ) async {
-    final initialMode =
-        finalMode == 'recovery' ? InterventionMode.recovery : InterventionMode.academic;
+    final initialMode = finalMode == 'recovery'
+        ? InterventionMode.recovery
+        : InterventionMode.academic;
     final options = _buildOptionsFromBackend(_backendInterventionPlan);
 
     emit(
@@ -60,6 +66,24 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
         showUncertaintyPrompt: uncertaintyHigh,
         toastMessage: null,
       ),
+    );
+
+    if (uncertaintyHigh) {
+      _inspectionRuntimeStore.addDecision(
+        action: 'HITL Prompt Triggered',
+        reason:
+            'Độ bất định cao trong pha intervention, cần người dùng xác nhận hướng hỗ trợ.',
+        source: 'intervention',
+      );
+    }
+
+    _inspectionRuntimeStore.updateMentalState(
+      label: initialMode == InterventionMode.recovery
+          ? 'Hơi mệt'
+          : 'Bối rối nhẹ',
+      hint: initialMode == InterventionMode.recovery
+          ? 'Đang ưu tiên nhịp học phục hồi và giảm tải.'
+          : 'Đang giữ nhịp học với can thiệp hỗ trợ vừa phải.',
     );
 
     _syncRecoveryTimer(initialMode, _defaultRecoverySeconds);
@@ -76,7 +100,9 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     emit(state.copyWith(isSubmitting: true, toastMessage: null));
 
     try {
-      final modeLabel = state.mode == InterventionMode.recovery ? 'recovery' : 'academic';
+      final modeLabel = state.mode == InterventionMode.recovery
+          ? 'recovery'
+          : 'academic';
 
       final response = await _interventionRepository.submitFeedback(
         submissionId: submissionId,
@@ -96,13 +122,23 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
           ? data['updatedQValues'] as Map<String, dynamic>
           : <String, dynamic>{};
 
+      _inspectionRuntimeStore.updateQValues(qValues);
+      _inspectionRuntimeStore.addDecision(
+        action: 'Intervention Selected: ${event.option.label}',
+        reason:
+            response['message']?.toString() ??
+            'Đã ghi nhận phản hồi intervention từ người dùng.',
+        source: 'intervention',
+      );
+
       emit(
         state.copyWith(
           isSubmitting: false,
           feedbackRecorded: true,
           updatedQValues: qValues,
           toastMessage:
-              response['message']?.toString() ?? 'Đã ghi nhận lựa chọn của bạn.',
+              response['message']?.toString() ??
+              'Đã ghi nhận lựa chọn của bạn.',
         ),
       );
     } catch (_) {
@@ -119,13 +155,14 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     InterventionPromptResolved event,
     Emitter<InterventionState> emit,
   ) {
-    final nextMode =
-        event.chooseRecovery ? InterventionMode.recovery : InterventionMode.academic;
+    final nextMode = event.chooseRecovery
+        ? InterventionMode.recovery
+        : InterventionMode.academic;
 
     final nextRestSeconds = event.chooseRecovery
         ? (state.remainingRestSeconds > 0
-            ? state.remainingRestSeconds
-            : _defaultRecoverySeconds)
+              ? state.remainingRestSeconds
+              : _defaultRecoverySeconds)
         : state.remainingRestSeconds;
 
     emit(
@@ -137,6 +174,23 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
             ? 'Mình để bạn nghỉ một chút nhé.'
             : 'Okie, mình đưa gợi ý học nhẹ nhàng luôn nè.',
       ),
+    );
+
+    _inspectionRuntimeStore.addDecision(
+      action: event.chooseRecovery
+          ? 'HITL Confirmed Recovery'
+          : 'HITL Continue Guidance',
+      reason: event.chooseRecovery
+          ? 'Người dùng chọn nghỉ để phục hồi trước khi học tiếp.'
+          : 'Người dùng muốn nhận gợi ý học ngay, không nghỉ.',
+      source: 'hitl',
+    );
+
+    _inspectionRuntimeStore.updateMentalState(
+      label: nextMode == InterventionMode.recovery ? 'Hơi mệt' : 'Tập trung',
+      hint: nextMode == InterventionMode.recovery
+          ? 'Đang ở Recovery Mode để nạp lại năng lượng.'
+          : 'Đã xác nhận học tiếp, ưu tiên gợi ý ngắn gọn.',
     );
 
     _syncRecoveryTimer(nextMode, nextRestSeconds);

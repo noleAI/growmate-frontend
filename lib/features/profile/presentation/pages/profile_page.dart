@@ -39,11 +39,14 @@ class ProfilePage extends StatelessWidget {
         body: ZenPageContainer(
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
+              final theme = Theme.of(context);
               final isLoading = state is AuthLoading;
               final displayName = state is AuthAuthenticated
                   ? state.session.displayName
                   : 'Bạn';
-              final email = state is AuthAuthenticated ? state.session.email : '';
+              final email = state is AuthAuthenticated
+                  ? state.session.email
+                  : '';
 
               return ListView(
                 children: [
@@ -54,22 +57,17 @@ class ProfilePage extends StatelessWidget {
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        const Text(
+                        Text(
                           'Hồ sơ học tập',
-                          style: TextStyle(
-                            color: GrowMateColors.textPrimary,
+                          style: theme.textTheme.headlineLarge?.copyWith(
                             fontSize: 32,
-                            fontWeight: FontWeight.w800,
-                            height: 1.22,
                           ),
                         ),
                         const SizedBox(height: 10),
                         Text(
                           'Chào $displayName, bạn đang duy trì nhịp học rất tốt. Mình sẽ cá nhân hóa lộ trình sâu hơn theo tiến trình của bạn.',
-                          style: const TextStyle(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             color: GrowMateColors.textSecondary,
-                            fontSize: 20,
-                            height: 1.45,
                           ),
                         ),
                         if (email.isNotEmpty) ...[
@@ -91,8 +89,8 @@ class ProfilePage extends StatelessWidget {
                               ? null
                               : () {
                                   context.read<AuthBloc>().add(
-                                        const LogoutRequested(),
-                                      );
+                                    const LogoutRequested(),
+                                  );
                                 },
                           trailing: isLoading
                               ? const SizedBox(

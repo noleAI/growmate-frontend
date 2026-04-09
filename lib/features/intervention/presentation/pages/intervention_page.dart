@@ -74,8 +74,8 @@ class _InterventionPageState extends State<InterventionPage> {
             TextButton(
               onPressed: () {
                 context.read<InterventionBloc>().add(
-                      const InterventionPromptResolved(chooseRecovery: true),
-                    );
+                  const InterventionPromptResolved(chooseRecovery: true),
+                );
                 Navigator.of(dialogContext).pop();
               },
               child: const Text('Nghỉ chút nha'),
@@ -83,8 +83,8 @@ class _InterventionPageState extends State<InterventionPage> {
             ElevatedButton(
               onPressed: () {
                 context.read<InterventionBloc>().add(
-                      const InterventionPromptResolved(chooseRecovery: false),
-                    );
+                  const InterventionPromptResolved(chooseRecovery: false),
+                );
                 Navigator.of(dialogContext).pop();
               },
               child: const Text('Xem gợi ý'),
@@ -107,8 +107,8 @@ class _InterventionPageState extends State<InterventionPage> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFEAF8E5),
-                Color(0xFFEAF3F7),
+                Color(0xFFEFF7E8),
+                Color(0xFFEAF2F5),
                 GrowMateColors.background,
               ],
             ),
@@ -125,12 +125,14 @@ class _InterventionPageState extends State<InterventionPage> {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(SnackBar(content: Text(toast)));
-                  context
-                      .read<InterventionBloc>()
-                      .add(const InterventionMessageCleared());
+                  context.read<InterventionBloc>().add(
+                    const InterventionMessageCleared(),
+                  );
                 }
               },
               builder: (context, state) {
+                final theme = Theme.of(context);
+
                 final skipOption = state.options
                     .where((option) => option.id == 'skip_once')
                     .firstOrNull;
@@ -145,50 +147,58 @@ class _InterventionPageState extends State<InterventionPage> {
                     children: [
                       const GrowMateTopAppBar(),
                       if (state.mode == InterventionMode.recovery) ...[
-                        const SizedBox(height: 16),
-                        Container(
+                        const SizedBox(height: 14),
+                        SizedBox(
                           height: 210,
-                          padding: const EdgeInsets.all(18),
-                          decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(22),
-                            color: Colors.white.withValues(alpha: 0.42),
-                          ),
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              Text(
-                                _formatDuration(state.remainingRestSeconds),
-                                style: const TextStyle(
-                                  color: Color(0xFFA7B2DC),
-                                  fontSize: 48,
-                                  height: 1,
-                                  fontWeight: FontWeight.w300,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 20,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Colors.white.withValues(alpha: 0.62),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: const Text(
-                                  'THỜI GIAN HỒI PHỤC',
-                                  style: TextStyle(
-                                    color: GrowMateColors.textSecondary,
-                                    fontSize: 16,
-                                    fontWeight: FontWeight.w600,
+                          child: ZenCard(
+                            radius: 28,
+                            padding: const EdgeInsets.all(18),
+                            gradient: const LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [Color(0xFFF4FAF3), Color(0xFFE7F0EA)],
+                            ),
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Text(
+                                  _formatDuration(state.remainingRestSeconds),
+                                  style: theme.textTheme.displayLarge?.copyWith(
+                                    color: GrowMateColors.primary,
+                                    fontSize: 46,
+                                    height: 1,
                                   ),
                                 ),
-                              ),
-                            ],
+                                const SizedBox(height: 10),
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 20,
+                                    vertical: 10,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Colors.white.withValues(alpha: 0.72),
+                                    borderRadius: BorderRadius.circular(999),
+                                    border: Border.all(
+                                      color: GrowMateColors.primary.withValues(
+                                        alpha: 0.1,
+                                      ),
+                                    ),
+                                  ),
+                                  child: const Text(
+                                    'THỜI GIAN HỒI PHỤC',
+                                    style: TextStyle(
+                                      color: GrowMateColors.textSecondary,
+                                      fontSize: 16,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                         ),
                       ],
-                      const SizedBox(height: 20),
+                      const SizedBox(height: 18),
                       Align(
                         alignment: Alignment.center,
                         child: Container(
@@ -199,6 +209,11 @@ class _InterventionPageState extends State<InterventionPage> {
                           decoration: BoxDecoration(
                             color: GrowMateColors.tertiaryContainer,
                             borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: GrowMateColors.success.withValues(
+                                alpha: 0.16,
+                              ),
+                            ),
                           ),
                           child: const Row(
                             mainAxisSize: MainAxisSize.min,
@@ -222,26 +237,23 @@ class _InterventionPageState extends State<InterventionPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 20),
-                      const Text(
+                      const SizedBox(height: 18),
+                      Text(
                         'Mình chọn cách học nhẹ\nnhàng hơn nha?',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: theme.textTheme.headlineLarge?.copyWith(
                           color: GrowMateColors.primary,
-                          fontSize: 31,
-                          height: 1.2,
-                          fontWeight: FontWeight.w800,
+                          fontSize: 34,
+                          height: 1.14,
                         ),
                       ),
-                      const SizedBox(height: 14),
-                      const Text(
+                      const SizedBox(height: 10),
+                      Text(
                         'Học tập là một hành trình dài, mình đi\nchậm lại một chút cũng được nha. 🌿',
                         textAlign: TextAlign.center,
-                        style: TextStyle(
+                        style: theme.textTheme.bodyLarge?.copyWith(
                           color: GrowMateColors.textSecondary,
-                          fontSize: 20,
                           height: 1.45,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       const SizedBox(height: 22),
@@ -252,33 +264,35 @@ class _InterventionPageState extends State<InterventionPage> {
                             option: option,
                             isSubmitting: state.isSubmitting,
                             onTap: () {
-                              context
-                                  .read<InterventionBloc>()
-                                  .add(InterventionOptionSelected(option));
+                              context.read<InterventionBloc>().add(
+                                InterventionOptionSelected(option),
+                              );
                             },
                           ),
                         );
                       }),
-                      const SizedBox(height: 4),
+                      const SizedBox(height: 2),
                       ZenButton(
-                        label: skipOption?.label ?? 'Bỏ qua lần này cũng không sao',
+                        label:
+                            skipOption?.label ??
+                            'Bỏ qua lần này cũng không sao',
                         variant: ZenButtonVariant.text,
                         onPressed: state.isSubmitting || skipOption == null
                             ? null
                             : () {
                                 context.read<InterventionBloc>().add(
-                                      InterventionOptionSelected(skipOption),
-                                    );
+                                  InterventionOptionSelected(skipOption),
+                                );
                               },
                       ),
-                      const SizedBox(height: 18),
-                      const ZenCard(
+                      const SizedBox(height: 14),
+                      ZenCard(
                         radius: 26,
-                        color: Color(0xFFFAF9F6),
+                        color: const Color(0xFFFAF9F6),
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Row(
+                            const Row(
                               children: [
                                 Spacer(),
                                 Icon(
@@ -290,20 +304,18 @@ class _InterventionPageState extends State<InterventionPage> {
                             ),
                             Text(
                               'Gợi ý từ GrowMate',
-                              style: TextStyle(
+                              style: theme.textTheme.titleMedium?.copyWith(
                                 color: GrowMateColors.textSecondary,
-                                fontSize: 22,
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w500,
                               ),
                             ),
-                            SizedBox(height: 6),
+                            const SizedBox(height: 6),
                             Text(
                               '"Hôm nay có vẻ bạn đang hơi mệt.\nHãy dành 5 phút nghe một bản nhạc\nkhông lời trước khi bắt đầu nhé."',
                               textAlign: TextAlign.center,
-                              style: TextStyle(
+                              style: theme.textTheme.bodyLarge?.copyWith(
                                 color: GrowMateColors.textPrimary,
-                                fontSize: 20,
                                 height: 1.45,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -361,36 +373,37 @@ class _InterventionOptionCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final icon = _iconByType(option.type);
     final iconBg = _iconBgByType(option.type);
 
     return GestureDetector(
       onTap: isSubmitting ? null : onTap,
       child: ZenCard(
-        radius: 26,
-        color: Colors.white.withValues(alpha: 0.84),
+        radius: 24,
+        color: Colors.white.withValues(alpha: 0.86),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Row(
           children: [
             Container(
-              width: 72,
-              height: 72,
+              width: 66,
+              height: 66,
               decoration: BoxDecoration(
                 color: iconBg,
-                borderRadius: BorderRadius.circular(22),
+                borderRadius: BorderRadius.circular(18),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: GrowMateColors.primary, size: 34),
+              child: Icon(icon, color: GrowMateColors.primary, size: 30),
             ),
-            const SizedBox(width: 14),
+            const SizedBox(width: 12),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
                     option.label,
-                    style: const TextStyle(
+                    style: theme.textTheme.titleMedium?.copyWith(
                       color: GrowMateColors.textPrimary,
-                      fontSize: 22,
                       fontWeight: FontWeight.w700,
                       height: 1.32,
                     ),
@@ -398,20 +411,19 @@ class _InterventionOptionCard extends StatelessWidget {
                   const SizedBox(height: 4),
                   Text(
                     _descriptionByType(option.type),
-                    style: const TextStyle(
+                    style: theme.textTheme.bodyMedium?.copyWith(
                       color: GrowMateColors.textSecondary,
-                      fontSize: 17,
                       height: 1.4,
                     ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            const SizedBox(width: 4),
             const Icon(
               Icons.chevron_right_rounded,
               color: Color(0xFFA3A3A3),
-              size: 32,
+              size: 28,
             ),
           ],
         ),

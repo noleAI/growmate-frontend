@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:growmate_frontend/app/router/app_router.dart';
+import 'package:growmate_frontend/data/repositories/profile_repository.dart';
 import 'package:growmate_frontend/features/auth/data/repositories/auth_repository.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_event.dart';
@@ -16,7 +17,7 @@ void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'Quiz -> Diagnosis -> Intervention flow shows expected mock data',
+    'Quiz -> Result flow handles plan acceptance and navigates to next quiz',
     (tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{});
 
@@ -28,6 +29,7 @@ void main() {
       });
 
       final authRepository = AuthRepository();
+      final profileRepository = ProfileRepository();
       final authBloc = AuthBloc(authRepository: authRepository)
         ..add(const AppStarted());
       addTearDown(authBloc.close);
@@ -54,6 +56,7 @@ void main() {
       final appRouter = AppRouter(
         authBloc: authBloc,
         authRepository: authRepository,
+        profileRepository: profileRepository,
         quizRepository: quizRepository,
         diagnosisRepository: diagnosisRepository,
         interventionRepository: interventionRepository,
@@ -75,7 +78,10 @@ void main() {
       await tester.tap(find.text('Đăng nhập'));
       await tester.pumpAndSettle();
 
-      await tester.enterText(find.byType(TextField).first, 'learner@growmate.vn');
+      await tester.enterText(
+        find.byType(TextField).first,
+        'learner@growmate.vn',
+      );
       await tester.enterText(find.byType(TextField).last, '123456');
       await tester.tap(find.text('Đăng nhập').last);
       await tester.pump(const Duration(seconds: 2));
@@ -108,39 +114,31 @@ void main() {
       await tester.tap(submitButton, warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(seconds: 3));
-      await tester.pumpAndSettle();
-
-      expect(find.text('Có vẻ bạn đang hơi yếu phần Đạo hàm nè'), findsOneWidget);
-      await tester.scrollUntilVisible(
-        find.textContaining('Minh bạch AI'),
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.textContaining('Minh bạch AI:'), findsOneWidget);
-      expect(find.textContaining('Entropy giảm'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('Đồng ý nè'),
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Đồng ý nè'));
-      await tester.pump();
       await tester.pump(const Duration(seconds: 2));
-      await tester.pumpAndSettle();
 
-      expect(find.text('Một chút xác nhận nha'), findsOneWidget);
       expect(
-        find.textContaining('Mình không chắc bạn đang mệt hay bối rối'),
+        find.text('Có vẻ bạn đang hơi yếu phần Đạo hàm nè'),
         findsOneWidget,
       );
+      await tester.scrollUntilVisible(
+        find.textContaining('PHÂN TÍCH LỖ HỔNG'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
+      expect(find.textContaining('PHÂN TÍCH LỖ HỔNG'), findsOneWidget);
 
-      await tester.tap(find.text('Xem gợi ý'));
-      await tester.pumpAndSettle();
+      await tester.scrollUntilVisible(
+        find.text('Đồng ý'),
+        180,
+        scrollable: find.byType(Scrollable).first,
+      );
+      await tester.tap(find.text('Đồng ý'));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 2));
+      await tester.pump(const Duration(seconds: 2));
 
-      expect(find.textContaining('Mình chọn cách học nhẹ'), findsOneWidget);
-      expect(find.text('Clinician-guided breathing set'), findsOneWidget);
-      expect(find.text('Bỏ qua lần này cũng không sao'), findsOneWidget);
+      expect(find.textContaining('Tính đạo hàm của hàm'), findsOneWidget);
+      expect(find.byType(TextField), findsOneWidget);
     },
   );
 }

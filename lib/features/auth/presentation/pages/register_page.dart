@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_button.dart';
+import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../bloc/auth_bloc.dart';
@@ -22,7 +23,8 @@ class _RegisterPageState extends State<RegisterPage> {
   final TextEditingController _nameController = TextEditingController();
   final TextEditingController _emailController = TextEditingController();
   final TextEditingController _passwordController = TextEditingController();
-  final TextEditingController _confirmPasswordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
 
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
@@ -66,11 +68,12 @@ class _RegisterPageState extends State<RegisterPage> {
         },
         builder: (context, state) {
           final isLoading = state is AuthLoading;
+          final theme = Theme.of(context);
 
           return ZenPageContainer(
             child: ListView(
               children: [
-                const SizedBox(height: 20),
+                const SizedBox(height: 10),
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
@@ -81,102 +84,108 @@ class _RegisterPageState extends State<RegisterPage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
-                const Text(
-                  'Tạo tài khoản mới 🌱',
-                  style: TextStyle(
-                    color: GrowMateColors.textPrimary,
-                    fontSize: 33,
-                    fontWeight: FontWeight.w800,
-                    height: 1.2,
-                  ),
-                ),
                 const SizedBox(height: 8),
-                const Text(
+                Text(
+                  'Tạo tài khoản mới',
+                  style: theme.textTheme.headlineLarge?.copyWith(fontSize: 34),
+                ),
+                const SizedBox(height: 6),
+                Text(
                   'Bắt đầu hành trình học tập nhẹ nhàng',
-                  style: TextStyle(
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: GrowMateColors.textSecondary,
-                    fontSize: 20,
-                    fontWeight: FontWeight.w500,
-                    height: 1.45,
                   ),
                 ),
-                const SizedBox(height: 24),
-                ZenTextField(
-                  controller: _nameController,
-                  textInputAction: TextInputAction.next,
-                  hintText: 'Tên của bạn',
-                  enabled: !isLoading,
-                ),
-                const SizedBox(height: 12),
-                ZenTextField(
-                  controller: _emailController,
-                  keyboardType: TextInputType.emailAddress,
-                  textInputAction: TextInputAction.next,
-                  hintText: 'Email',
-                  enabled: !isLoading,
-                ),
-                const SizedBox(height: 12),
-                ZenTextField(
-                  controller: _passwordController,
-                  textInputAction: TextInputAction.next,
-                  hintText: 'Mật khẩu',
-                  obscureText: _obscurePassword,
-                  enabled: !isLoading,
-                  suffixIcon: IconButton(
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            setState(() {
-                              _obscurePassword = !_obscurePassword;
-                            });
-                          },
-                    icon: Icon(
-                      _obscurePassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: GrowMateColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 12),
-                ZenTextField(
-                  controller: _confirmPasswordController,
-                  textInputAction: TextInputAction.done,
-                  hintText: 'Xác nhận mật khẩu',
-                  obscureText: _obscureConfirmPassword,
-                  enabled: !isLoading,
-                  onSubmitted: (_) => _submit(),
-                  suffixIcon: IconButton(
-                    onPressed: isLoading
-                        ? null
-                        : () {
-                            setState(() {
-                              _obscureConfirmPassword = !_obscureConfirmPassword;
-                            });
-                          },
-                    icon: Icon(
-                      _obscureConfirmPassword
-                          ? Icons.visibility_outlined
-                          : Icons.visibility_off_outlined,
-                      color: GrowMateColors.textSecondary,
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 18),
-                ZenButton(
-                  label: isLoading ? 'Đang tạo tài khoản...' : 'Tạo tài khoản',
-                  onPressed: isLoading ? null : _submit,
-                  trailing: isLoading
-                      ? const SizedBox(
-                          width: 20,
-                          height: 20,
-                          child: CircularProgressIndicator(
-                            strokeWidth: 2,
-                            valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                const SizedBox(height: 20),
+                ZenCard(
+                  radius: 30,
+                  padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      ZenTextField(
+                        controller: _nameController,
+                        textInputAction: TextInputAction.next,
+                        hintText: 'Tên của bạn',
+                        enabled: !isLoading,
+                      ),
+                      const SizedBox(height: 12),
+                      ZenTextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.next,
+                        hintText: 'Email',
+                        enabled: !isLoading,
+                      ),
+                      const SizedBox(height: 12),
+                      ZenTextField(
+                        controller: _passwordController,
+                        textInputAction: TextInputAction.next,
+                        hintText: 'Mật khẩu',
+                        obscureText: _obscurePassword,
+                        enabled: !isLoading,
+                        suffixIcon: IconButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _obscurePassword = !_obscurePassword;
+                                  });
+                                },
+                          icon: Icon(
+                            _obscurePassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: GrowMateColors.textSecondary,
                           ),
-                        )
-                      : null,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      ZenTextField(
+                        controller: _confirmPasswordController,
+                        textInputAction: TextInputAction.done,
+                        hintText: 'Xác nhận mật khẩu',
+                        obscureText: _obscureConfirmPassword,
+                        enabled: !isLoading,
+                        onSubmitted: (_) => _submit(),
+                        suffixIcon: IconButton(
+                          onPressed: isLoading
+                              ? null
+                              : () {
+                                  setState(() {
+                                    _obscureConfirmPassword =
+                                        !_obscureConfirmPassword;
+                                  });
+                                },
+                          icon: Icon(
+                            _obscureConfirmPassword
+                                ? Icons.visibility_outlined
+                                : Icons.visibility_off_outlined,
+                            color: GrowMateColors.textSecondary,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 16),
+                      ZenButton(
+                        label: isLoading
+                            ? 'Đang tạo tài khoản...'
+                            : 'Tạo tài khoản',
+                        onPressed: isLoading ? null : _submit,
+                        trailing: isLoading
+                            ? const SizedBox(
+                                width: 20,
+                                height: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
+                                  ),
+                                ),
+                              )
+                            : null,
+                      ),
+                    ],
+                  ),
                 ),
                 const SizedBox(height: 14),
                 Center(
@@ -184,12 +193,10 @@ class _RegisterPageState extends State<RegisterPage> {
                     alignment: WrapAlignment.center,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      const Text(
+                      Text(
                         'Đã có tài khoản?',
-                        style: TextStyle(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: GrowMateColors.textSecondary,
-                          fontSize: 16,
-                          fontWeight: FontWeight.w500,
                         ),
                       ),
                       TextButton(
@@ -200,7 +207,7 @@ class _RegisterPageState extends State<RegisterPage> {
                         ),
                         onPressed: isLoading
                             ? null
-                          : () => context.pushReplacement(AppRoutes.login),
+                            : () => context.pushReplacement(AppRoutes.login),
                         child: const Text(
                           'Đăng nhập',
                           style: TextStyle(

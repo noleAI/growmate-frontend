@@ -17,15 +17,20 @@ class GrowMateBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(20, 14, 20, 18),
+      padding: const EdgeInsets.fromLTRB(18, 12, 18, 16),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(32)),
+        color: Colors.white.withValues(alpha: 0.88),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(28)),
+        border: Border(
+          top: BorderSide(
+            color: GrowMateColors.primary.withValues(alpha: 0.08),
+          ),
+        ),
         boxShadow: const [
           BoxShadow(
-            color: GrowMateColors.shadowSoft,
-            blurRadius: 14,
-            offset: Offset(0, -4),
+            color: Color.fromRGBO(20, 64, 74, 0.11),
+            blurRadius: 18,
+            offset: Offset(0, -8),
           ),
         ],
       ),
@@ -82,21 +87,26 @@ class _NavItem extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 10),
           decoration: BoxDecoration(
             color: selected
-                ? GrowMateColors.primary.withValues(alpha: 0.1)
+                ? GrowMateColors.primary.withValues(alpha: 0.12)
                 : Colors.transparent,
-            borderRadius: BorderRadius.circular(999),
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: selected
+                  ? GrowMateColors.primary.withValues(alpha: 0.2)
+                  : Colors.transparent,
+            ),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: selected ? selectedColor : baseColor, size: 24),
+              Icon(icon, color: selected ? selectedColor : baseColor, size: 22),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   color: selected ? selectedColor : baseColor,
-                  fontSize: 14,
-                  letterSpacing: 0.4,
+                  fontSize: 12,
+                  letterSpacing: 0.25,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,

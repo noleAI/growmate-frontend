@@ -62,7 +62,8 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
               }
 
               if (state is DiagnosisSuccess) {
-                if (state.infoMessage != null && state.infoMessage!.isNotEmpty) {
+                if (state.infoMessage != null &&
+                    state.infoMessage!.isNotEmpty) {
                   ScaffoldMessenger.of(context)
                     ..hideCurrentSnackBar()
                     ..showSnackBar(SnackBar(content: Text(state.infoMessage!)));
@@ -83,6 +84,8 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
               }
             },
             builder: (context, state) {
+              final theme = Theme.of(context);
+
               if (state is DiagnosisLoading) {
                 return const _DiagnosisLoadingView();
               }
@@ -93,15 +96,14 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                     children: [
                       const GrowMateTopAppBar(),
                       const SizedBox(height: 20),
-                      const ZenCard(
+                      ZenCard(
                         radius: 28,
                         child: Text(
                           'Mình chưa lấy được phân tích lần này. Bấm thử lại để tụi mình tiếp tục nhé.',
-                          style: TextStyle(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             color: GrowMateColors.textSecondary,
-                            fontSize: 20,
                             height: 1.4,
-                            fontWeight: FontWeight.w500,
+                            fontWeight: FontWeight.w600,
                           ),
                           textAlign: TextAlign.center,
                         ),
@@ -111,8 +113,8 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                         label: 'Thử lại',
                         onPressed: () {
                           context.read<DiagnosisBloc>().add(
-                                DiagnosisRequested(widget.submissionId),
-                              );
+                            DiagnosisRequested(widget.submissionId),
+                          );
                         },
                       ),
                     ],
@@ -126,50 +128,68 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                 child: ListView(
                   children: [
                     const GrowMateTopAppBar(),
-                    const SizedBox(height: 16),
-                    Container(
-                      height: 246,
-                      decoration: BoxDecoration(
-                        borderRadius: BorderRadius.circular(20),
-                        gradient: const LinearGradient(
-                          begin: Alignment.topCenter,
-                          end: Alignment.bottomCenter,
-                          colors: [Color(0xFF314252), Color(0xFF3A4E53)],
-                        ),
-                      ),
-                      child: const Center(
-                        child: Icon(
-                          Icons.psychology_alt_rounded,
-                          color: Color(0xFFFFD77A),
-                          size: 130,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    Text(
-                      successState.headline,
-                      textAlign: TextAlign.center,
-                      style: const TextStyle(
-                        color: GrowMateColors.primary,
-                        fontSize: 45,
-                        height: 1.18,
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
                     const SizedBox(height: 14),
-                    const Text(
-                      'Đừng lo lắng nhé, những kiến thức này đôi khi hơi "khó chiều" một chút thôi.\nChúng mình cùng nhau gỡ rối nhé?',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                        color: GrowMateColors.textSecondary,
-                        fontSize: 20,
-                        height: 1.5,
-                        fontWeight: FontWeight.w500,
+                    ZenCard(
+                      radius: 34,
+                      padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFF0F7F8), Color(0xFFE7F0EC)],
+                      ),
+                      child: Column(
+                        children: [
+                          Container(
+                            width: 104,
+                            height: 104,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFFE0ECED), Color(0xFFCDDDE0)],
+                              ),
+                              boxShadow: const [
+                                BoxShadow(
+                                  color: GrowMateColors.shadowSoft,
+                                  blurRadius: 20,
+                                  offset: Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: const Icon(
+                              Icons.psychology_alt_rounded,
+                              color: GrowMateColors.primary,
+                              size: 56,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            successState.headline,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              color: GrowMateColors.primary,
+                              fontSize: 35,
+                              height: 1.14,
+                            ),
+                          ),
+                          const SizedBox(height: 8),
+                          Text(
+                            'Đừng lo lắng nhé, những kiến thức này đôi khi hơi "khó chiều" một chút thôi.\nChúng mình cùng nhau gỡ rối nhé?',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: GrowMateColors.textSecondary,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
                     const SizedBox(height: 18),
                     ZenCard(
-                      radius: 26,
+                      radius: 30,
+                      color: Colors.white.withValues(alpha: 0.82),
+                      padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
@@ -178,9 +198,10 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               Container(
                                 width: 50,
                                 height: 50,
-                                decoration: const BoxDecoration(
+                                decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: Color(0xFFE8E9F2),
+                                  color: GrowMateColors.primaryContainer
+                                      .withValues(alpha: 0.6),
                                 ),
                                 alignment: Alignment.center,
                                 child: const Icon(
@@ -189,12 +210,11 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                                 ),
                               ),
                               const SizedBox(width: 12),
-                              const Expanded(
+                              Expanded(
                                 child: Text(
                                   'PHÂN TÍCH LỖ HỔNG',
-                                  style: TextStyle(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     color: GrowMateColors.textSecondary,
-                                    fontSize: 16,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.5,
                                   ),
@@ -202,37 +222,34 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 10),
+                          const SizedBox(height: 12),
                           Text(
                             successState.gapAnalysis,
-                            style: const TextStyle(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: GrowMateColors.textPrimary,
-                              fontSize: 35 / 2,
                               fontWeight: FontWeight.w700,
-                              height: 1.3,
+                              height: 1.35,
                             ),
                           ),
                           const SizedBox(height: 14),
                           Row(
-                            children: const [
+                            children: [
                               Expanded(
                                 child: Text(
                                   'Mức độ hoàn thiện',
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
-                                  style: TextStyle(
+                                  style: theme.textTheme.bodyMedium?.copyWith(
                                     color: GrowMateColors.textSecondary,
-                                    fontSize: 17,
-                                    fontWeight: FontWeight.w500,
+                                    fontWeight: FontWeight.w600,
                                   ),
                                 ),
                               ),
-                              SizedBox(width: 10),
+                              const SizedBox(width: 10),
                               Text(
                                 '45%',
-                                style: TextStyle(
+                                style: theme.textTheme.titleMedium?.copyWith(
                                   color: GrowMateColors.primary,
-                                  fontSize: 22,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -242,9 +259,10 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                           ClipRRect(
                             borderRadius: BorderRadius.circular(999),
                             child: LinearProgressIndicator(
-                              minHeight: 3,
+                              minHeight: 6,
                               value: 0.45,
-                              backgroundColor: GrowMateColors.surfaceContainerHigh,
+                              backgroundColor:
+                                  GrowMateColors.surfaceContainerHigh,
                               color: GrowMateColors.primary,
                             ),
                           ),
@@ -266,44 +284,44 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                       ),
                     ),
                     const SizedBox(height: 20),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: GrowMateColors.secondaryContainer.withValues(alpha: 0.35),
-                        borderRadius: BorderRadius.circular(16),
+                    ZenCard(
+                      radius: 22,
+                      color: GrowMateColors.secondaryContainer.withValues(
+                        alpha: 0.35,
                       ),
+                      padding: const EdgeInsets.all(14),
                       child: Text(
                         'Minh bạch AI: ${successState.diagnosisReason}',
-                        style: const TextStyle(
+                        style: theme.textTheme.bodyMedium?.copyWith(
                           color: GrowMateColors.textSecondary,
-                          fontSize: 17,
                           height: 1.4,
                         ),
                       ),
                     ),
                     const SizedBox(height: 24),
-                    const Text(
+                    Text(
                       'Mình ôn lại phần này nhé?',
                       textAlign: TextAlign.center,
-                      style: TextStyle(
+                      style: theme.textTheme.titleLarge?.copyWith(
                         color: GrowMateColors.textPrimary,
-                        fontSize: 44 / 2,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
                     const SizedBox(height: 14),
                     ZenButton(
-                      label: successState.isConfirming ? 'Đang xử lý...' : 'Đồng ý nè',
+                      label: successState.isConfirming
+                          ? 'Đang xử lý...'
+                          : 'Đồng ý nè',
                       onPressed: successState.isConfirming
                           ? null
                           : () {
                               context.read<DiagnosisBloc>().add(
-                                    const HITLConfirmed(
-                                      approved: true,
-                                      reviewerNote:
-                                          'User agreed to continue with support plan.',
-                                    ),
-                                  );
+                                const HITLConfirmed(
+                                  approved: true,
+                                  reviewerNote:
+                                      'User agreed to continue with support plan.',
+                                ),
+                              );
                             },
                     ),
                     const SizedBox(height: 12),
@@ -360,23 +378,37 @@ class _DiagnosisLoadingView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ZenPageContainer(
       child: Column(
-        children: const [
-          GrowMateTopAppBar(),
-          Spacer(),
-          CircularProgressIndicator(),
-          SizedBox(height: 16),
-          Text(
-            'Mình đang phân tích để gợi ý đúng nhịp học của bạn...',
-            textAlign: TextAlign.center,
-            style: TextStyle(
-              color: GrowMateColors.textSecondary,
-              fontSize: 19,
-              height: 1.4,
+        children: [
+          const GrowMateTopAppBar(),
+          const Spacer(),
+          ZenCard(
+            radius: 24,
+            padding: const EdgeInsets.fromLTRB(18, 18, 18, 18),
+            color: Colors.white.withValues(alpha: 0.8),
+            child: Column(
+              children: [
+                const SizedBox(
+                  width: 30,
+                  height: 30,
+                  child: CircularProgressIndicator(strokeWidth: 2.8),
+                ),
+                const SizedBox(height: 14),
+                Text(
+                  'Mình đang phân tích để gợi ý đúng nhịp học của bạn...',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: GrowMateColors.textSecondary,
+                    height: 1.4,
+                  ),
+                ),
+              ],
             ),
           ),
-          Spacer(),
+          const Spacer(),
         ],
       ),
     );
@@ -398,11 +430,16 @@ class _SkillTile extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: GrowMateColors.primary.withValues(alpha: 0.08),
+        ),
       ),
       child: Row(
         children: [
@@ -414,20 +451,18 @@ class _SkillTile extends StatelessWidget {
               children: [
                 Text(
                   title,
-                  style: const TextStyle(
+                  style: theme.textTheme.bodyLarge?.copyWith(
                     color: GrowMateColors.textPrimary,
-                    fontSize: 19,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
                 const SizedBox(height: 2),
                 Text(
                   value,
-                  style: const TextStyle(
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: GrowMateColors.textSecondary,
-                    fontSize: 17,
                     height: 1.35,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ],
@@ -454,26 +489,30 @@ class _TipBento extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return ZenCard(
       radius: 24,
       color: background,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: GrowMateColors.success, size: 22),
+          Icon(icon, color: GrowMateColors.primary, size: 22),
           const SizedBox(width: 10),
           Expanded(
-            child: RichText(
-              text: TextSpan(
-                style: const TextStyle(
+            child: Text.rich(
+              TextSpan(
+                style: theme.textTheme.bodyMedium?.copyWith(
                   color: GrowMateColors.textPrimary,
-                  fontSize: 18,
                   height: 1.45,
                 ),
                 children: [
                   TextSpan(
                     text: '$title ',
-                    style: const TextStyle(fontWeight: FontWeight.w700),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: FontWeight.w700,
+                      color: GrowMateColors.textPrimary,
+                    ),
                   ),
                   TextSpan(text: message),
                 ],

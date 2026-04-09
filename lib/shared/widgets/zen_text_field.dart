@@ -6,6 +6,7 @@ class ZenTextField extends StatelessWidget {
   const ZenTextField({
     super.key,
     required this.controller,
+    this.focusNode,
     this.hintText,
     this.onChanged,
     this.onTap,
@@ -19,6 +20,7 @@ class ZenTextField extends StatelessWidget {
   });
 
   final TextEditingController controller;
+  final FocusNode? focusNode;
   final String? hintText;
   final ValueChanged<String>? onChanged;
   final VoidCallback? onTap;
@@ -34,6 +36,7 @@ class ZenTextField extends StatelessWidget {
   Widget build(BuildContext context) {
     return TextField(
       controller: controller,
+      focusNode: focusNode,
       onChanged: onChanged,
       onTap: onTap,
       enabled: enabled,
@@ -44,33 +47,42 @@ class ZenTextField extends StatelessWidget {
       onSubmitted: onSubmitted,
       style: const TextStyle(
         color: GrowMateColors.textPrimary,
-        fontSize: 22,
-        height: 1.25,
+        fontSize: 17,
+        height: 1.3,
         fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         hintText: hintText,
         hintStyle: const TextStyle(
-          color: Color(0xFFC8C8C8),
-          fontSize: 22,
+          color: Color(0xFF97A1A5),
+          fontSize: 17,
           height: 1.3,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: GrowMateColors.surfaceContainerLow,
-        contentPadding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+        fillColor: Colors.white.withValues(alpha: 0.72),
+        contentPadding: const EdgeInsets.symmetric(
+          horizontal: 18,
+          vertical: 14,
+        ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
+          borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide.none,
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: BorderSide.none,
+          borderRadius: BorderRadius.circular(20),
+          borderSide: BorderSide(
+            color: GrowMateColors.primary.withValues(alpha: 0.08),
+            width: 1.1,
+          ),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(28),
-          borderSide: const BorderSide(color: GrowMateColors.primary, width: 1.2),
+          borderRadius: BorderRadius.circular(20),
+          borderSide: const BorderSide(
+            color: GrowMateColors.primary,
+            width: 1.4,
+          ),
         ),
       ),
     );

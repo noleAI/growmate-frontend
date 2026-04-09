@@ -4,15 +4,13 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_button.dart';
+import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../../data/repositories/auth_repository.dart';
 
 class ForgotPasswordPage extends StatefulWidget {
-  const ForgotPasswordPage({
-    super.key,
-    required this.authRepository,
-  });
+  const ForgotPasswordPage({super.key, required this.authRepository});
 
   final AuthRepository authRepository;
 
@@ -52,7 +50,9 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ..hideCurrentSnackBar()
         ..showSnackBar(
           const SnackBar(
-            content: Text('Mình đã gửi link khôi phục rồi, bạn kiểm tra email nhé ✨'),
+            content: Text(
+              'Mình đã gửi link khôi phục rồi, bạn kiểm tra email nhé ✨',
+            ),
             backgroundColor: GrowMateColors.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
@@ -95,12 +95,14 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: GrowMateColors.background,
       body: ZenPageContainer(
         child: ListView(
           children: [
-            const SizedBox(height: 20),
+            const SizedBox(height: 10),
             Align(
               alignment: Alignment.centerLeft,
               child: IconButton(
@@ -111,49 +113,52 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
-            const Text(
-              'Quên mật khẩu?',
-              style: TextStyle(
-                color: GrowMateColors.textPrimary,
-                fontSize: 33,
-                fontWeight: FontWeight.w800,
-                height: 1.2,
-              ),
-            ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
+              'Quên mật khẩu?',
+              style: theme.textTheme.headlineLarge?.copyWith(fontSize: 34),
+            ),
+            const SizedBox(height: 6),
+            Text(
               'Nhập email để nhận link khôi phục',
-              style: TextStyle(
+              style: theme.textTheme.bodyLarge?.copyWith(
                 color: GrowMateColors.textSecondary,
-                fontSize: 20,
-                fontWeight: FontWeight.w500,
-                height: 1.45,
               ),
             ),
-            const SizedBox(height: 26),
-            ZenTextField(
-              controller: _emailController,
-              keyboardType: TextInputType.emailAddress,
-              textInputAction: TextInputAction.done,
-              hintText: 'Email',
-              enabled: !_isSending,
-              onSubmitted: (_) => _submit(),
-            ),
-            const SizedBox(height: 18),
-            ZenButton(
-              label: _isSending ? 'Đang gửi...' : 'Gửi link khôi phục',
-              onPressed: _isSending ? null : _submit,
-              trailing: _isSending
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                      ),
-                    )
-                  : null,
+            const SizedBox(height: 20),
+            ZenCard(
+              radius: 30,
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  ZenTextField(
+                    controller: _emailController,
+                    keyboardType: TextInputType.emailAddress,
+                    textInputAction: TextInputAction.done,
+                    hintText: 'Email',
+                    enabled: !_isSending,
+                    onSubmitted: (_) => _submit(),
+                  ),
+                  const SizedBox(height: 14),
+                  ZenButton(
+                    label: _isSending ? 'Đang gửi...' : 'Gửi link khôi phục',
+                    onPressed: _isSending ? null : _submit,
+                    trailing: _isSending
+                        ? const SizedBox(
+                            width: 20,
+                            height: 20,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2,
+                              valueColor: AlwaysStoppedAnimation<Color>(
+                                Colors.white,
+                              ),
+                            ),
+                          )
+                        : null,
+                  ),
+                ],
+              ),
             ),
           ],
         ),

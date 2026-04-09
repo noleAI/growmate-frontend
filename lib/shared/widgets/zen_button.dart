@@ -59,11 +59,11 @@ class _ZenButtonState extends State<ZenButton> {
             widget.label,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
-              color: _textColor(),
+              color: _textColor(disabled),
               fontWeight: FontWeight.w700,
-              fontSize: 19,
-              height: 1.2,
-              letterSpacing: 0.1,
+              fontSize: 17,
+              height: 1.25,
+              letterSpacing: 0.05,
             ),
             textAlign: TextAlign.center,
           ),
@@ -106,48 +106,61 @@ class _ZenButtonState extends State<ZenButton> {
       case ZenButtonVariant.primary:
         return BoxDecoration(
           borderRadius: radius,
-          gradient: const LinearGradient(
+          gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [GrowMateColors.primary, GrowMateColors.primaryDark],
+            colors: disabled
+                ? [
+                    GrowMateColors.textSecondary.withValues(alpha: 0.35),
+                    GrowMateColors.textSecondary.withValues(alpha: 0.3),
+                  ]
+                : [GrowMateColors.primary, GrowMateColors.primaryDark],
+          ),
+          border: Border.all(
+            color: Colors.white.withValues(alpha: disabled ? 0.2 : 0.35),
           ),
           boxShadow: disabled
               ? const []
               : const [
                   BoxShadow(
                     color: GrowMateColors.shadowButton,
-                    blurRadius: 32,
-                    offset: Offset(0, 12),
+                    blurRadius: 22,
+                    offset: Offset(0, 10),
                   ),
                 ],
         );
       case ZenButtonVariant.secondary:
         return BoxDecoration(
           borderRadius: radius,
-          color: GrowMateColors.surfaceContainerLow,
+          color: Colors.white.withValues(alpha: disabled ? 0.4 : 0.72),
+          border: Border.all(
+            color: GrowMateColors.primary.withValues(alpha: 0.16),
+          ),
           boxShadow: const [
             BoxShadow(
               color: GrowMateColors.shadowSoft,
-              blurRadius: 18,
-              offset: Offset(0, 8),
+              blurRadius: 14,
+              offset: Offset(0, 6),
             ),
           ],
         );
       case ZenButtonVariant.text:
-        return BoxDecoration(
-          borderRadius: radius,
-          color: Colors.transparent,
-        );
+        return BoxDecoration(borderRadius: radius, color: Colors.transparent);
     }
   }
 
-  Color _textColor() {
+  Color _textColor(bool disabled) {
     switch (widget.variant) {
       case ZenButtonVariant.primary:
-        return Colors.white;
+        return disabled ? Colors.white.withValues(alpha: 0.65) : Colors.white;
       case ZenButtonVariant.secondary:
+        return disabled
+            ? GrowMateColors.textSecondary.withValues(alpha: 0.65)
+            : GrowMateColors.textPrimary;
       case ZenButtonVariant.text:
-        return GrowMateColors.textPrimary;
+        return disabled
+            ? GrowMateColors.textSecondary.withValues(alpha: 0.65)
+            : GrowMateColors.primary;
     }
   }
 }

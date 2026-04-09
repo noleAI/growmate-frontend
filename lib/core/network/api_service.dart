@@ -34,4 +34,14 @@ abstract interface class ApiService {
     required bool approved,
     String? reviewerNote,
   });
+
+  Future<Map<String, dynamic>> saveInteractionFeedback({
+    required String sessionId,
+    required String submissionId,
+    required String diagnosisId,
+    required String eventName,
+    required String memoryScope,
+    String? reason,
+    Map<String, dynamic>? metadata,
+  });
 }

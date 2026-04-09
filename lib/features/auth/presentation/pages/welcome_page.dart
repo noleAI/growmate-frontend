@@ -12,60 +12,73 @@ class WelcomePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: GrowMateColors.background,
       body: ZenPageContainer(
         child: ListView(
           children: [
-            const SizedBox(height: 46),
-            Center(
-              child: Container(
-                width: 110,
-                height: 110,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: GrowMateColors.tertiaryContainer,
-                  boxShadow: const [
-                    BoxShadow(
-                      color: GrowMateColors.shadowSoft,
-                      blurRadius: 18,
-                      offset: Offset(0, 8),
+            const SizedBox(height: 14),
+            ZenCard(
+              radius: 30,
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFF9FBF8), Color(0xFFF2EFE8)],
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
+              child: Column(
+                children: [
+                  Container(
+                    width: 94,
+                    height: 94,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFEAF2E0), Color(0xFFD8E6D0)],
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: GrowMateColors.shadowSoft,
+                          blurRadius: 18,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
                     ),
-                  ],
-                ),
-                alignment: Alignment.center,
-                child: const Icon(
-                  Icons.energy_savings_leaf_rounded,
-                  size: 56,
-                  color: GrowMateColors.success,
-                ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.energy_savings_leaf_rounded,
+                      size: 48,
+                      color: GrowMateColors.success,
+                    ),
+                  ),
+                  const SizedBox(height: 20),
+                  Text(
+                    'Chào bạn đến với GrowMate',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.headlineLarge?.copyWith(
+                      fontSize: 34,
+                      height: 1.12,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Text(
+                    'Học nhẹ hơn, đều hơn, và vẫn hiệu quả từng ngày.',
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: GrowMateColors.textSecondary,
+                    ),
+                  ),
+                ],
               ),
             ),
-            const SizedBox(height: 24),
-            const Text(
-              'Chào bạn đến với GrowMate 🌿',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: GrowMateColors.textPrimary,
-                fontSize: 34,
-                height: 1.24,
-                fontWeight: FontWeight.w800,
-              ),
-            ),
-            const SizedBox(height: 10),
-            const Text(
-              'Cùng học tập nhẹ nhàng hơn mỗi ngày',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: GrowMateColors.textSecondary,
-                fontSize: 20,
-                height: 1.5,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: 34),
+            const SizedBox(height: 20),
             ZenCard(
               radius: 32,
+              padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
@@ -86,7 +99,7 @@ class WelcomePage extends StatelessWidget {
                     leading: const Icon(
                       Icons.g_mobiledata_rounded,
                       color: GrowMateColors.primary,
-                      size: 28,
+                      size: 30,
                     ),
                     onPressed: () {
                       ScaffoldMessenger.of(context).showSnackBar(
@@ -101,15 +114,12 @@ class WelcomePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 22),
-            const Text(
+            const SizedBox(height: 18),
+            Text(
               'Mỗi phiên học chỉ cần một nhịp nhỏ, bạn đang làm rất tốt rồi.',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: GrowMateColors.textSecondary,
-                fontSize: 17,
-                height: 1.45,
-                fontWeight: FontWeight.w500,
               ),
             ),
           ],

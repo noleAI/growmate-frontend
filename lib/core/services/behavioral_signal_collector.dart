@@ -26,6 +26,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
   bool _isObserverAttached = false;
   bool _isPaused = false;
+  bool _collectionEnabled = true;
   bool _responseCaptured = false;
 
   double? _responseTimeSeconds;
@@ -39,6 +40,21 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     _ensureInitialized();
   }
 
+  void setCollectionEnabled(bool enabled) {
+    if (_collectionEnabled == enabled) {
+      return;
+    }
+
+    _collectionEnabled = enabled;
+
+    if (!_collectionEnabled) {
+      _stopCollection();
+      return;
+    }
+
+    _ensureInitialized();
+  }
+
   void attachBatchSubmitter(
     Future<void> Function(List<Map<String, dynamic>> batch) submitter,
   ) {
@@ -47,6 +63,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void startQuestionTimer() {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
     _questionStopwatch = Stopwatch()..start();
     _responseCaptured = false;
@@ -55,6 +75,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void recordKeystroke({int characterCount = 1}) {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
 
     if (characterCount <= 0) {
@@ -74,12 +98,20 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void recordCorrection() {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
     _correctionsInWindow += 1;
     resetIdleTimer();
   }
 
   void recordSubmit() {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
     resetIdleTimer();
 
@@ -92,6 +124,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void resetIdleTimer() {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
     _idleStopwatch
       ..reset()
@@ -100,6 +136,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     switch (state) {
       case AppLifecycleState.resumed:
         _resumeCollector();
@@ -113,6 +153,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void _ensureInitialized() {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     if (!_isObserverAttached) {
       WidgetsBinding.instance.addObserver(this);
       _isObserverAttached = true;
@@ -177,8 +221,8 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
   void _collectSnapshot({required String trigger}) {
     final elapsedSeconds =
-      _batchElapsedSecondsOverrideForTest ??
-      (_batchStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond);
+        _batchElapsedSecondsOverrideForTest ??
+        (_batchStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond);
 
     final typingSpeed = elapsedSeconds <= 0
         ? 0.0
@@ -189,8 +233,8 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
         : _correctionsInWindow / _typedCharsInWindow;
 
     final idleSeconds =
-      _idleElapsedSecondsOverrideForTest ??
-      (_idleStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond);
+        _idleElapsedSecondsOverrideForTest ??
+        (_idleStopwatch.elapsedMicroseconds / Duration.microsecondsPerSecond);
 
     _pendingSignals.add({
       'trigger': trigger,
@@ -215,6 +259,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   Future<void> _flushBatch() async {
+    if (!_collectionEnabled) {
+      return;
+    }
+
     if (_pendingSignals.isEmpty) {
       return;
     }
@@ -303,12 +351,33 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     _batchSubmitter = null;
 
     _isPaused = false;
+    _collectionEnabled = true;
     _responseCaptured = false;
     _responseTimeSeconds = null;
     _batchElapsedSecondsOverrideForTest = null;
     _idleElapsedSecondsOverrideForTest = null;
     _typedCharsInWindow = 0;
     _correctionsInWindow = 0;
+  }
+
+  void _stopCollection() {
+    _batchTimer?.cancel();
+    _batchTimer = null;
+
+    _batchStopwatch.stop();
+    _batchStopwatch.reset();
+
+    _idleStopwatch.stop();
+    _idleStopwatch.reset();
+
+    _questionStopwatch?.stop();
+    _questionStopwatch = null;
+
+    _pendingSignals.clear();
+    _typedCharsInWindow = 0;
+    _correctionsInWindow = 0;
+    _responseCaptured = false;
+    _responseTimeSeconds = null;
   }
 
   @visibleForTesting

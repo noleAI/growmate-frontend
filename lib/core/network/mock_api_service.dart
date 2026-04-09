@@ -12,6 +12,7 @@ class MockApiService implements ApiService {
 
   final MockDiagnosisScenario scenario;
   int _diagnosisCallCount = 0;
+  final Map<String, String> _answerById = <String, String>{};
 
   @override
   Future<Map<String, dynamic>> submitAnswer({
@@ -22,14 +23,19 @@ class MockApiService implements ApiService {
   }) async {
     await Future.delayed(const Duration(seconds: 1));
 
+    final answerId = 'ans_${DateTime.now().millisecondsSinceEpoch}';
+    final isCorrect = _isCorrectDerivativeAnswer(answer);
+    _answerById[answerId] = answer;
+
     return <String, dynamic>{
       'status': 'success',
       'message': 'Answer accepted and queued for diagnosis.',
       'data': <String, dynamic>{
         'sessionId': sessionId,
-        'answerId': 'ans_${DateTime.now().millisecondsSinceEpoch}',
+        'answerId': answerId,
         'questionId': questionId,
         'answerText': answer,
+        'isCorrect': isCorrect,
         'receivedAt': DateTime.now().toIso8601String(),
         'pipeline': <String, dynamic>{
           'nextStep': 'diagnosis',
@@ -48,6 +54,18 @@ class MockApiService implements ApiService {
   }) async {
     await Future.delayed(const Duration(seconds: 1));
 
+    final submittedAnswer = _answerById[answerId] ?? '';
+    final answerIsCorrect = _isCorrectDerivativeAnswer(submittedAnswer);
+
+    if (scenario == MockDiagnosisScenario.autoCycle && answerIsCorrect) {
+      final diagnosisId = 'dx_${DateTime.now().millisecondsSinceEpoch}';
+      return _buildCorrectAnswerDiagnosis(
+        sessionId: sessionId,
+        answerId: answerId,
+        diagnosisId: diagnosisId,
+      );
+    }
+
     final activeScenario = _resolveScenario();
     final diagnosisId = 'dx_${DateTime.now().millisecondsSinceEpoch}';
 
@@ -62,7 +80,8 @@ class MockApiService implements ApiService {
             'diagnosisId': diagnosisId,
             'title': 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
             'gapAnalysis': 'Cần bổ trợ Đạo hàm bậc cao',
-            'diagnosisReason': 'Entropy giảm, belief hội tụ về H_DERIV_GAP',
+            'diagnosisReason':
+                'Mình thấy bạn đang chững ở Đạo hàm bậc cao, nên đề xuất ôn lại theo từng bước ngắn để chắc nền.',
             'strengths': <String>['Quy tắc đạo hàm cơ bản'],
             'needsReview': <String>['Đạo hàm hàm số hợp'],
             'mode': 'normal',
@@ -100,7 +119,7 @@ class MockApiService implements ApiService {
             'title': 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
             'gapAnalysis': 'Cần bổ trợ Đạo hàm hàm hợp và đạo hàm bậc cao',
             'diagnosisReason':
-                'Entropy chưa ổn định, belief phân tán quanh H_CHAIN_RULE_GAP',
+                'Hệ thống chưa đủ chắc chắn ở phần Đạo hàm hàm hợp, nên cần thêm xác nhận để tránh gợi ý quá sức.',
             'strengths': <String>['Quy tắc đạo hàm cơ bản'],
             'needsReview': <String>['Đạo hàm hàm số hợp'],
             'mode': 'hitl_pending',
@@ -130,7 +149,7 @@ class MockApiService implements ApiService {
             'title': 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
             'gapAnalysis': 'Mình ưu tiên lộ trình phục hồi nhẹ trước nhé',
             'diagnosisReason':
-                'Entropy tăng trở lại, hệ thống chuyển recovery để đảm bảo an toàn',
+                'Mức tập trung đang dao động, nên mình chuyển sang lộ trình phục hồi nhẹ để bạn lấy lại nhịp.',
             'strengths': <String>['Quy tắc đạo hàm cơ bản'],
             'needsReview': <String>['Đạo hàm hàm số hợp'],
             'mode': 'recovery',
@@ -265,6 +284,41 @@ class MockApiService implements ApiService {
     };
   }
 
+  @override
+  Future<Map<String, dynamic>> saveInteractionFeedback({
+    required String sessionId,
+    required String submissionId,
+    required String diagnosisId,
+    required String eventName,
+    required String memoryScope,
+    String? reason,
+    Map<String, dynamic>? metadata,
+  }) async {
+    await Future.delayed(const Duration(milliseconds: 650));
+
+    final repairedTopic = eventName == 'Plan Rejected'
+        ? 'Flashcard nhẹ nhàng'
+        : 'Review Đạo hàm';
+
+    return <String, dynamic>{
+      'status': 'success',
+      'message': 'Interaction feedback stored in episodic memory.',
+      'data': <String, dynamic>{
+        'sessionId': sessionId,
+        'submissionId': submissionId,
+        'diagnosisId': diagnosisId,
+        'eventName': eventName,
+        'memoryScope': memoryScope,
+        'reason': reason,
+        'nextSuggestedTopic': repairedTopic,
+        'eventId': 'epi_${DateTime.now().millisecondsSinceEpoch}',
+        'savedAt': DateTime.now().toIso8601String(),
+        'metadata': metadata ?? <String, dynamic>{},
+      },
+      'meta': <String, dynamic>{'source': 'mock', 'table': 'episodic_memory'},
+    };
+  }
+
   MockDiagnosisScenario _resolveScenario() {
     if (scenario != MockDiagnosisScenario.autoCycle) {
       return scenario;
@@ -280,5 +334,71 @@ class MockApiService implements ApiService {
       return MockDiagnosisScenario.hitlTriggered;
     }
     return MockDiagnosisScenario.recoveryMode;
+  }
+
+  bool _isCorrectDerivativeAnswer(String rawAnswer) {
+    var normalized = rawAnswer
+        .toLowerCase()
+        .replaceAll(' ', '')
+        .replaceAll('*', '')
+        .replaceAll('−', '-')
+        .replaceAll('²', '^2')
+        .replaceAll('³', '^3');
+
+    normalized = normalized.replaceAllMapped(
+      RegExp(r"^((y'|y’|dy/dx|f\(x\)|f'\(x\)|y)=?)"),
+      (_) => '',
+    );
+
+    if (normalized.startsWith('(') && normalized.endsWith(')')) {
+      normalized = normalized.substring(1, normalized.length - 1);
+    }
+
+    const acceptedForms = <String>{
+      '12x^2+4x',
+      '4x+12x^2',
+      '12x^2+4x+0',
+      '4x+12x^2+0',
+    };
+
+    return acceptedForms.contains(normalized);
+  }
+
+  Map<String, dynamic> _buildCorrectAnswerDiagnosis({
+    required String sessionId,
+    required String answerId,
+    required String diagnosisId,
+  }) {
+    return <String, dynamic>{
+      'status': 'success',
+      'message': 'Diagnosis completed.',
+      'data': <String, dynamic>{
+        'sessionId': sessionId,
+        'answerId': answerId,
+        'diagnosisId': diagnosisId,
+        'title': 'Bạn làm đúng phần Đạo hàm rồi nè',
+        'gapAnalysis': 'Bài này bạn làm đúng: y\' = 12x^2 + 4x.',
+        'diagnosisReason':
+            'Đối chiếu biểu thức cho thấy đáp án tương đương với đạo hàm chuẩn.',
+        'strengths': <String>['Áp dụng đúng quy tắc đạo hàm lũy thừa'],
+        'needsReview': <String>['Có thể luyện thêm tốc độ trình bày'],
+        'mode': 'normal',
+        'requiresHITL': false,
+        'recoveryMode': false,
+        'riskLevel': 'low',
+        'confidence': 0.98,
+        'summary': 'User solved derivative correctly with stable confidence.',
+        'interventionPlan': <Map<String, dynamic>>[
+          {
+            'id': 'int_boost_01',
+            'title': 'Tiếp tục với 1 bài nâng nhẹ',
+            'durationMinutes': 4,
+            'type': 'practice',
+          },
+        ],
+        'hitl': null,
+      },
+      'meta': <String, dynamic>{'source': 'mock', 'scenario': 'correct_answer'},
+    };
   }
 }

@@ -23,4 +23,23 @@ class DiagnosisRepository {
       reviewerNote: reviewerNote,
     );
   }
+
+  Future<Map<String, dynamic>> saveInteractionFeedback({
+    required String submissionId,
+    required String diagnosisId,
+    required String eventName,
+    required String memoryScope,
+    String? reason,
+    Map<String, dynamic>? metadata,
+  }) {
+    return _apiService.saveInteractionFeedback(
+      sessionId: sessionId,
+      submissionId: submissionId,
+      diagnosisId: diagnosisId,
+      eventName: eventName,
+      memoryScope: memoryScope,
+      reason: reason,
+      metadata: metadata,
+    );
+  }
 }

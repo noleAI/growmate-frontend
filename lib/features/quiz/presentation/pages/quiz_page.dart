@@ -6,14 +6,14 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../../core/services/behavioral_signal_collector.dart';
+import '../../../../core/models/signal_batch.dart';
+import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../shared/widgets/zen_button.dart';
+import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../../data/repositories/quiz_repository.dart';
-import '../bloc/quiz_bloc.dart';
-import '../bloc/quiz_event.dart';
-import '../bloc/quiz_state.dart';
+import '../cubit/quiz_cubit.dart';
 
 class QuizPage extends StatefulWidget {
   const QuizPage({super.key, required this.quizRepository});
@@ -25,16 +25,19 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
+  static const Duration _totalQuizDuration = Duration(minutes: 12, seconds: 45);
   static const String _questionId = 'math_derivative_001';
   static const int _questionNumber = 4;
-  static const String _questionText = 'Tính đạo hàm của hàm số y = 4x³ + 2x² - 5';
+  static const String _questionText =
+      'Tính đạo hàm của hàm số y = 4x³ + 2x² - 5';
 
-  final BehavioralSignalCollector _signalCollector =
-      BehavioralSignalCollector.instance;
+  final BehavioralSignalService _signalService =
+      BehavioralSignalService.instance;
   final TextEditingController _answerController = TextEditingController();
-  late final QuizBloc _quizBloc;
+  final FocusNode _answerFocusNode = FocusNode();
+  late final QuizCubit _quizCubit;
 
-  Duration _remainingTime = const Duration(minutes: 12, seconds: 45);
+  Duration _remainingTime = _totalQuizDuration;
   bool _showHint = false;
 
   Timer? _countdownTimer;
@@ -45,16 +48,26 @@ class _QuizPageState extends State<QuizPage> {
   void initState() {
     super.initState();
 
-    _quizBloc = QuizBloc(
+    _quizCubit = QuizCubit(
       quizRepository: widget.quizRepository,
       questionId: _questionId,
       questionText: _questionText,
-    )..add(const QuizStarted());
+    );
 
-    _signalCollector.attachBatchSubmitter((batch) async {
-      await widget.quizRepository.submitSignals(batch);
+    _answerFocusNode.addListener(_onAnswerFocusChanged);
+
+    _signalService.attachBatchSubmitter((List<SignalBatch> batch) async {
+      await widget.quizRepository.submitSignals(
+        batch
+            .map(
+              (signal) => signal.toSupabaseInsert(
+                sessionId: widget.quizRepository.sessionId,
+              ),
+            )
+            .toList(growable: false),
+      );
     });
-    _signalCollector.startQuestionTimer();
+    _signalService.startQuestion(questionId: _questionId);
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _remainingTime.inSeconds <= 0) {
@@ -80,65 +93,79 @@ class _QuizPageState extends State<QuizPage> {
   void dispose() {
     _countdownTimer?.cancel();
     _hintTimer?.cancel();
-    _signalCollector.dispose();
+    _signalService.stop();
+    _answerFocusNode
+      ..removeListener(_onAnswerFocusChanged)
+      ..dispose();
     _answerController.dispose();
-    _quizBloc.close();
+    _quizCubit.close();
     super.dispose();
   }
 
+  void _onAnswerFocusChanged() {
+    _signalService.recordFocusChanged(hasFocus: _answerFocusNode.hasFocus);
+  }
+
   void _onAnswerChanged(String value) {
-    _quizBloc.add(AnswerChanged(value));
+    _quizCubit.onAnswerChanged(value);
 
     final currentLength = value.length;
 
     if (currentLength > _previousLength) {
-      _signalCollector.recordKeystroke(
-        characterCount: currentLength - _previousLength,
-      );
+      _signalService.recordTypingDelta(currentLength - _previousLength);
     } else if (currentLength < _previousLength) {
       final correctionCount = _previousLength - currentLength;
-      for (var i = 0; i < correctionCount; i++) {
-        _signalCollector.recordCorrection();
-      }
+      _signalService.recordCorrectionCount(correctionCount);
     }
 
     _previousLength = currentLength;
-    _signalCollector.resetIdleTimer();
+    _signalService.registerInteraction();
   }
 
   void _submitCurrentAnswer() {
-    _signalCollector.recordSubmit();
-    _quizBloc.add(QuizSubmitted(answer: _answerController.text));
+    _signalService.markSubmitted();
+    _quizCubit.submitAnswer(_answerController.text);
   }
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider<QuizBloc>.value(
-      value: _quizBloc,
+    return BlocProvider<QuizCubit>.value(
+      value: _quizCubit,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
-          _signalCollector.resetIdleTimer();
+          _signalService.registerInteraction();
           FocusScope.of(context).unfocus();
         },
         child: Scaffold(
           backgroundColor: GrowMateColors.background,
-          body: BlocConsumer<QuizBloc, QuizState>(
+          body: BlocConsumer<QuizCubit, QuizCubitState>(
             listener: (context, state) {
-              if (state is QuizFailure) {
+              if (state is QuizSubmitFailureState) {
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
                   ..showSnackBar(SnackBar(content: Text(state.message)));
               }
 
-              if (state is QuizSuccess) {
-                context.push(
+              if (state is QuizSubmitSuccessState) {
+                context.go(
                   '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
+                );
+              }
+
+              if (state is QuizRecoveryTriggeredState) {
+                context.go(
+                  '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
                 );
               }
             },
             builder: (context, state) {
-              final isLoading = state is QuizLoading;
+              final isLoading = state is QuizSubmittingState;
+              final theme = Theme.of(context);
+              final progress =
+                  (_remainingTime.inSeconds / _totalQuizDuration.inSeconds)
+                      .clamp(0.0, 1.0)
+                      .toDouble();
 
               return ZenPageContainer(
                 padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
@@ -148,19 +175,25 @@ class _QuizPageState extends State<QuizPage> {
                     Row(
                       children: [
                         IconButton(
-                          onPressed: () => context.pop(),
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                              return;
+                            }
+
+                            context.go(AppRoutes.home);
+                          },
                           icon: const Icon(
                             Icons.arrow_back_ios_new_rounded,
                             color: GrowMateColors.primary,
                           ),
                         ),
                         const SizedBox(width: 6),
-                        const Expanded(
+                        Expanded(
                           child: Text(
                             'Giải tích 12',
-                            style: TextStyle(
+                            style: theme.textTheme.titleMedium?.copyWith(
                               color: GrowMateColors.primary,
-                              fontSize: 20,
                               fontWeight: FontWeight.w700,
                             ),
                           ),
@@ -173,78 +206,104 @@ class _QuizPageState extends State<QuizPage> {
                         const SizedBox(width: 6),
                         Text(
                           _formatDuration(_remainingTime),
-                          style: const TextStyle(
+                          style: theme.textTheme.titleMedium?.copyWith(
                             color: GrowMateColors.textSecondary,
-                            fontSize: 21,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
-                    Container(
-                      height: 2,
-                      width: double.infinity,
-                      color: GrowMateColors.tertiaryContainer,
-                      child: Align(
-                        alignment: Alignment.centerLeft,
-                        child: Container(
-                          width: 190,
-                          color: GrowMateColors.success,
+                    const SizedBox(height: 10),
+                    ClipRRect(
+                      borderRadius: BorderRadius.circular(999),
+                      child: Container(
+                        height: 6,
+                        width: double.infinity,
+                        color: GrowMateColors.surfaceContainerHigh,
+                        child: FractionallySizedBox(
+                          widthFactor: progress,
+                          alignment: Alignment.centerLeft,
+                          child: Container(
+                            decoration: const BoxDecoration(
+                              gradient: LinearGradient(
+                                begin: Alignment.centerLeft,
+                                end: Alignment.centerRight,
+                                colors: [
+                                  GrowMateColors.success,
+                                  GrowMateColors.primary,
+                                ],
+                              ),
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                    const SizedBox(height: 52),
-                    Center(
-                      child: Text(
-                        'CÂU HỎI SỐ $_questionNumber',
-                        style: const TextStyle(
-                          color: Color(0xFFA2AACF),
-                          fontWeight: FontWeight.w700,
-                          letterSpacing: 1,
-                          fontSize: 17,
+                    const SizedBox(height: 24),
+                    ZenCard(
+                      radius: 30,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topLeft,
+                        end: Alignment.bottomRight,
+                        colors: [Color(0xFFF6FAF8), Color(0xFFF1F3EA)],
+                      ),
+                      child: Column(
+                        children: [
+                          Text(
+                            'CÂU HỎI SỐ $_questionNumber',
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: GrowMateColors.textSecondary,
+                              fontWeight: FontWeight.w700,
+                              letterSpacing: 0.85,
+                            ),
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            'Tính đạo hàm của hàm\nsố',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.headlineLarge?.copyWith(
+                              color: GrowMateColors.textPrimary,
+                              fontSize: 34,
+                              height: 1.18,
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Text(
+                            'y = 4x³ + 2x² - 5',
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: GrowMateColors.primary,
+                              fontStyle: FontStyle.italic,
+                              fontSize: 32,
+                              height: 1.2,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(height: 14),
+                    ZenCard(
+                      radius: 24,
+                      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                      color: Colors.white.withValues(alpha: 0.78),
+                      child: GestureDetector(
+                        onTap: () {
+                          _signalService.registerInteraction();
+                          if (!_answerFocusNode.hasFocus) {
+                            _answerFocusNode.requestFocus();
+                          }
+                        },
+                        child: ZenTextField(
+                          controller: _answerController,
+                          focusNode: _answerFocusNode,
+                          onTap: _signalService.registerInteraction,
+                          onChanged: _onAnswerChanged,
+                          textAlign: TextAlign.center,
+                          enabled: !isLoading,
+                          hintText: 'Nhập kết quả của bạn…',
                         ),
                       ),
                     ),
                     const SizedBox(height: 14),
-                    const Center(
-                      child: Text(
-                        'Tính đạo hàm của hàm\nsố',
-                        textAlign: TextAlign.center,
-                        style: TextStyle(
-                          color: GrowMateColors.textPrimary,
-                          fontSize: 36,
-                          height: 1.22,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 18),
-                    const Center(
-                      child: Text(
-                        'y = 4x³ + 2x² - 5',
-                        style: TextStyle(
-                          color: GrowMateColors.primary,
-                          fontStyle: FontStyle.italic,
-                          fontSize: 37,
-                          height: 1.2,
-                          fontWeight: FontWeight.w500,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 26),
-                    GestureDetector(
-                      onTap: _signalCollector.resetIdleTimer,
-                      child: ZenTextField(
-                        controller: _answerController,
-                        onTap: _signalCollector.resetIdleTimer,
-                        onChanged: _onAnswerChanged,
-                        textAlign: TextAlign.center,
-                        enabled: !isLoading,
-                        hintText: 'Nhập kết quả của bạn…',
-                      ),
-                    ),
-                    const SizedBox(height: 18),
                     AnimatedOpacity(
                       opacity: _showHint ? 1 : 0,
                       duration: const Duration(milliseconds: 420),
@@ -253,14 +312,31 @@ class _QuizPageState extends State<QuizPage> {
                         duration: const Duration(milliseconds: 420),
                         curve: Curves.easeOut,
                         offset: _showHint ? Offset.zero : const Offset(0, 0.08),
-                        child: const Text(
-                          'Gợi ý nhỏ: Đạo hàm của x^n là n.x^(n-1)',
-                          textAlign: TextAlign.center,
-                          style: TextStyle(
-                            color: GrowMateColors.textSecondary,
-                            fontSize: 20,
-                            height: 1.45,
-                            fontWeight: FontWeight.w500,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 14,
+                            vertical: 10,
+                          ),
+                          decoration: BoxDecoration(
+                            color: GrowMateColors.secondaryContainer.withValues(
+                              alpha: 0.42,
+                            ),
+                            borderRadius: BorderRadius.circular(16),
+                            border: Border.all(
+                              color: GrowMateColors.primary.withValues(
+                                alpha: 0.08,
+                              ),
+                            ),
+                          ),
+                          child: Text(
+                            'Gợi ý nhỏ: Đạo hàm của x^n là n.x^(n-1)',
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: GrowMateColors.textSecondary,
+                              fontWeight: FontWeight.w600,
+                              height: 1.42,
+                            ),
                           ),
                         ),
                       ),
@@ -276,12 +352,11 @@ class _QuizPageState extends State<QuizPage> {
                       ),
                     ),
                     const SizedBox(height: 22),
-                    const Center(
+                    Center(
                       child: Text(
                         'CẦN TRỢ GIÚP TỪ AI TUTOR?',
-                        style: TextStyle(
-                          color: Color(0xFFB1B1B1),
-                          fontSize: 18,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: GrowMateColors.textSecondary,
                           letterSpacing: 0.6,
                           fontWeight: FontWeight.w600,
                         ),

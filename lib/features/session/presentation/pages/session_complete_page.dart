@@ -15,43 +15,63 @@ class SessionCompletePage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: GrowMateColors.background,
       body: ZenPageContainer(
         child: ListView(
           children: [
             const GrowMateTopAppBar(),
-            const SizedBox(height: 20),
-            Container(
-              height: 320,
-              decoration: BoxDecoration(
-                borderRadius: BorderRadius.circular(46),
+            const SizedBox(height: 14),
+            SizedBox(
+              height: 292,
+              child: ZenCard(
+                radius: 36,
                 gradient: const LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF0E2133), Color(0xFF102E39)],
+                  begin: Alignment.topLeft,
+                  end: Alignment.bottomRight,
+                  colors: [Color(0xFFEFF7ED), Color(0xFFE5F0EA)],
                 ),
-              ),
-              child: const Center(
-                child: Icon(
-                  Icons.energy_savings_leaf_rounded,
-                  size: 148,
-                  color: Color(0xFF9BD973),
+                child: Center(
+                  child: Container(
+                    width: 142,
+                    height: 142,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFD7E9CF), Color(0xFFC1DDC1)],
+                      ),
+                      boxShadow: const [
+                        BoxShadow(
+                          color: GrowMateColors.shadowSoft,
+                          blurRadius: 20,
+                          offset: Offset(0, 10),
+                        ),
+                      ],
+                    ),
+                    alignment: Alignment.center,
+                    child: const Icon(
+                      Icons.energy_savings_leaf_rounded,
+                      size: 78,
+                      color: GrowMateColors.success,
+                    ),
+                  ),
                 ),
               ),
             ),
-            const SizedBox(height: 20),
-            const Text(
+            const SizedBox(height: 18),
+            Text(
               'Hôm nay bạn học\nrất ổn ✨',
               textAlign: TextAlign.center,
-              style: TextStyle(
+              style: theme.textTheme.headlineLarge?.copyWith(
                 color: GrowMateColors.textPrimary,
-                fontSize: 62 / 2,
-                fontWeight: FontWeight.w800,
                 height: 1.2,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Align(
               child: Container(
                 padding: const EdgeInsets.symmetric(
@@ -61,6 +81,9 @@ class SessionCompletePage extends StatelessWidget {
                 decoration: BoxDecoration(
                   borderRadius: BorderRadius.circular(999),
                   color: GrowMateColors.tertiaryContainer,
+                  border: Border.all(
+                    color: GrowMateColors.success.withValues(alpha: 0.16),
+                  ),
                 ),
                 child: const Text(
                   '✧ HÀNH TRÌNH TUYỆT VỜI',
@@ -74,35 +97,33 @@ class SessionCompletePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 18),
-            const ZenCard(
+            ZenCard(
               radius: 30,
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _RoundedInfoIcon(
+                  const _RoundedInfoIcon(
                     icon: Icons.psychology_alt_rounded,
                     color: GrowMateColors.tertiaryContainer,
                   ),
-                  SizedBox(width: 14),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
                           'Bạn đã hiểu rõ hơn về\nĐạo hàm rồi đó!',
-                          style: TextStyle(
+                          style: theme.textTheme.bodyLarge?.copyWith(
                             color: GrowMateColors.textPrimary,
-                            fontSize: 20,
                             height: 1.35,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        SizedBox(height: 8),
+                        const SizedBox(height: 8),
                         Text(
                           'Ghi nhớ: Quy tắc đạo hàm hàm hợp',
-                          style: TextStyle(
+                          style: theme.textTheme.bodyMedium?.copyWith(
                             color: GrowMateColors.textSecondary,
-                            fontSize: 17,
                             height: 1.35,
                           ),
                         ),
@@ -113,24 +134,23 @@ class SessionCompletePage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 14),
-            const ZenCard(
+            ZenCard(
               radius: 30,
-              color: Color(0xFFEFEFF7),
+              color: const Color(0xFFEAF0EE),
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  _RoundedInfoIcon(
+                  const _RoundedInfoIcon(
                     icon: Icons.favorite_rounded,
-                    color: Color(0xFFD8DDFF),
+                    color: Color(0xFFD4E2DF),
                     iconColor: GrowMateColors.primary,
                   ),
-                  SizedBox(width: 14),
+                  const SizedBox(width: 14),
                   Expanded(
                     child: Text(
                       '"Cảm ơn bạn đã đồng hành cùng mình hôm nay nha!"',
-                      style: TextStyle(
+                      style: theme.textTheme.bodyLarge?.copyWith(
                         color: GrowMateColors.textSecondary,
-                        fontSize: 22 / 1.2,
                         height: 1.48,
                         fontStyle: FontStyle.italic,
                       ),
@@ -181,9 +201,13 @@ class _RoundedInfoIcon extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      width: 64,
-      height: 64,
-      decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      width: 60,
+      height: 60,
+      decoration: BoxDecoration(
+        color: color,
+        shape: BoxShape.circle,
+        border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+      ),
       child: Icon(icon, color: iconColor, size: 28),
     );
   }

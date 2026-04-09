@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
+import '../../../inspection/presentation/cubit/inspection_cubit.dart';
+import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
@@ -15,37 +18,41 @@ class TodayPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Scaffold(
       backgroundColor: GrowMateColors.background,
       body: ZenPageContainer(
         child: ListView(
           children: [
-            const GrowMateTopAppBar(),
-            const SizedBox(height: 20),
+            _buildTopAppBar(context),
+            const SizedBox(height: 18),
             Text(
               _vnDateLabel(DateTime.now()),
               style: const TextStyle(
                 color: GrowMateColors.textSecondary,
-                fontSize: 34 / 2,
+                fontSize: 15,
                 fontWeight: FontWeight.w600,
-                letterSpacing: 0.6,
+                letterSpacing: 0.45,
               ),
             ),
             const SizedBox(height: 8),
-            const Text(
+            Text(
               'Mọi thứ đã sẵn sàng cho\nmột ngày mới nhẹ\nnhàng.',
-              style: TextStyle(
-                color: GrowMateColors.textPrimary,
-                fontSize: 56 / 2,
-                height: 1.2,
-                fontWeight: FontWeight.w800,
-                letterSpacing: -0.4,
+              style: theme.textTheme.headlineLarge?.copyWith(
+                fontSize: 36,
+                height: 1.14,
+                letterSpacing: -0.55,
               ),
             ),
-            const SizedBox(height: 24),
+            const SizedBox(height: 20),
             ZenCard(
               radius: 34,
-              color: const Color(0xFFFEFEFD),
+              gradient: const LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [Color(0xFFFBFCFA), Color(0xFFF4F1EA)],
+              ),
               padding: const EdgeInsets.fromLTRB(24, 26, 24, 24),
               child: Column(
                 children: [
@@ -54,7 +61,11 @@ class TodayPage extends StatelessWidget {
                     height: 98,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      color: GrowMateColors.primaryContainer.withValues(alpha: 0.14),
+                      gradient: const LinearGradient(
+                        begin: Alignment.topCenter,
+                        end: Alignment.bottomCenter,
+                        colors: [Color(0xFFD9ECEF), Color(0xFFC2E0E6)],
+                      ),
                     ),
                     alignment: Alignment.center,
                     child: const Icon(
@@ -64,14 +75,12 @@ class TodayPage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: 24),
-                  const Text(
+                  Text(
                     'Hôm nay mình học nhẹ\nphần Đạo hàm nhé 😊',
                     textAlign: TextAlign.center,
-                    style: TextStyle(
-                      fontSize: 47 / 2,
-                      height: 1.33,
-                      color: GrowMateColors.textPrimary,
-                      fontWeight: FontWeight.w600,
+                    style: theme.textTheme.titleLarge?.copyWith(
+                      fontSize: 26,
+                      height: 1.26,
                     ),
                   ),
                   const SizedBox(height: 22),
@@ -93,10 +102,16 @@ class TodayPage extends StatelessWidget {
             const SizedBox(height: 16),
             Align(
               child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 8,
+                ),
                 decoration: BoxDecoration(
-                  color: GrowMateColors.surfaceContainerLow,
+                  color: Colors.white.withValues(alpha: 0.7),
                   borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: GrowMateColors.primary.withValues(alpha: 0.1),
+                  ),
                 ),
                 child: const Row(
                   mainAxisSize: MainAxisSize.min,
@@ -120,13 +135,12 @@ class TodayPage extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 28),
-            const Text(
+            Text(
               'GỢI Ý KHÁC',
-              style: TextStyle(
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: GrowMateColors.textSecondary,
                 fontWeight: FontWeight.w700,
-                letterSpacing: 0.7,
-                fontSize: 33 / 2,
+                letterSpacing: 0.65,
               ),
             ),
             const SizedBox(height: 14),
@@ -134,7 +148,10 @@ class TodayPage extends StatelessWidget {
               runSpacing: 12,
               spacing: 12,
               children: const [
-                _SoftChip(icon: Icons.psychology_alt_rounded, label: 'Luyện tập tư duy'),
+                _SoftChip(
+                  icon: Icons.psychology_alt_rounded,
+                  label: 'Luyện tập tư duy',
+                ),
                 _SoftChip(icon: Icons.eco_rounded, label: 'Nghỉ ngơi 5p'),
               ],
             ),
@@ -147,9 +164,9 @@ class TodayPage extends StatelessWidget {
                   begin: Alignment.topCenter,
                   end: Alignment.bottomCenter,
                   colors: [
-                    Color(0xFFC1D4D6),
-                    Color(0xFFD8E3E4),
-                    Color(0xFFECEFEA),
+                    Color(0xFFB8D5D9),
+                    Color(0xFFD2E3E4),
+                    Color(0xFFEDEFE9),
                   ],
                 ),
               ),
@@ -181,6 +198,36 @@ class TodayPage extends StatelessWidget {
         currentTab: GrowMateTab.today,
         onTabSelected: (tab) => handleTabNavigation(context, tab),
       ),
+    );
+  }
+
+  Widget _buildTopAppBar(BuildContext context) {
+    InspectionCubit? inspectionCubit;
+
+    try {
+      inspectionCubit = BlocProvider.of<InspectionCubit>(context);
+    } catch (_) {
+      inspectionCubit = null;
+    }
+
+    if (inspectionCubit == null) {
+      return const GrowMateTopAppBar();
+    }
+
+    return StreamBuilder<InspectionState>(
+      stream: inspectionCubit.stream,
+      initialData: inspectionCubit.state,
+      builder: (context, snapshot) {
+        final state = snapshot.data ?? inspectionCubit!.state;
+
+        return GrowMateTopAppBar(
+          onInspectionTap: state.canInspect
+              ? () {
+                  InspectionBottomSheet.show(context);
+                }
+              : null,
+        );
+      },
     );
   }
 

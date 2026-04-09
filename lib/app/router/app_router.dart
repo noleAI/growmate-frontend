@@ -4,6 +4,8 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'app_routes.dart';
+import '../../data/repositories/profile_repository.dart';
+import '../../presentation/screens/profile_screen.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -12,13 +14,14 @@ import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
 import '../../features/auth/presentation/pages/welcome_page.dart';
 import '../../features/diagnosis/data/repositories/diagnosis_repository.dart';
-import '../../features/diagnosis/presentation/pages/diagnosis_page.dart';
+import '../../features/diagnosis/presentation/pages/result_screen.dart';
 import '../../features/intervention/data/repositories/intervention_repository.dart';
 import '../../features/intervention/presentation/pages/intervention_page.dart';
-import '../../features/profile/presentation/pages/profile_page.dart';
+import '../../features/notification/presentation/pages/notification_page.dart';
 import '../../features/progress/presentation/pages/progress_page.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
+import '../../features/recovery/presentation/pages/recovery_screen.dart';
 import '../../features/session/presentation/pages/session_complete_page.dart';
 import '../../features/today/presentation/pages/today_page.dart';
 
@@ -26,11 +29,13 @@ class AppRouter {
   AppRouter({
     required AuthBloc authBloc,
     required AuthRepository authRepository,
+    required ProfileRepository profileRepository,
     required QuizRepository quizRepository,
     required DiagnosisRepository diagnosisRepository,
     required InterventionRepository interventionRepository,
   }) : _authBloc = authBloc,
        _authRepository = authRepository,
+       _profileRepository = profileRepository,
        _quizRepository = quizRepository,
        _diagnosisRepository = diagnosisRepository,
        _interventionRepository = interventionRepository;
@@ -45,8 +50,10 @@ class AppRouter {
   static const String todayPath = AppRoutes.today;
   static const String progressPath = AppRoutes.progress;
   static const String profilePath = AppRoutes.profile;
+  static const String notificationsPath = AppRoutes.notifications;
 
   static const String quizPath = AppRoutes.quiz;
+  static const String recoveryPath = AppRoutes.recovery;
   static const String diagnosisPath = AppRoutes.diagnosis;
   static const String interventionPath = AppRoutes.intervention;
   static const String sessionCompletePath = AppRoutes.sessionComplete;
@@ -60,6 +67,7 @@ class AppRouter {
 
   final AuthBloc _authBloc;
   final AuthRepository _authRepository;
+  final ProfileRepository _profileRepository;
   final QuizRepository _quizRepository;
   final DiagnosisRepository _diagnosisRepository;
   final InterventionRepository _interventionRepository;
@@ -141,13 +149,29 @@ class AppRouter {
       GoRoute(
         path: profilePath,
         builder: (context, state) {
-          return const ProfilePage();
+          return ProfileScreen(
+            profileRepository: _profileRepository,
+            appVersion: '1.0.0+1',
+          );
+        },
+      ),
+      GoRoute(
+        path: notificationsPath,
+        builder: (context, state) {
+          return const NotificationPage();
         },
       ),
       GoRoute(
         path: quizPath,
         builder: (context, state) {
           return QuizPage(quizRepository: _quizRepository);
+        },
+      ),
+      GoRoute(
+        path: recoveryPath,
+        builder: (context, state) {
+          final reason = state.uri.queryParameters['reason'];
+          return RecoveryScreen(reason: reason);
         },
       ),
       GoRoute(
@@ -162,7 +186,7 @@ class AppRouter {
             );
           }
 
-          return DiagnosisPage(
+          return ResultScreen(
             submissionId: submissionId,
             diagnosisRepository: _diagnosisRepository,
           );
