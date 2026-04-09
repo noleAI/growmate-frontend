@@ -14,7 +14,7 @@ class ZenButton extends StatefulWidget {
     this.leading,
     this.trailing,
     this.expanded = true,
-    this.padding = const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+    this.padding = const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
     this.backgroundColor,
     this.textColor,
     this.borderColor,
@@ -38,8 +38,9 @@ class ZenButton extends StatefulWidget {
 }
 
 class _ZenButtonState extends State<ZenButton> {
-  static const Duration _motionDuration = Duration(milliseconds: 180);
+  static const Duration _motionDuration = Duration(milliseconds: 200);
   bool _pressed = false;
+  bool _hovered = false;
 
   void _setPressed(bool value) {
     if (_pressed == value) {
@@ -68,10 +69,10 @@ class _ZenButtonState extends State<ZenButton> {
             overflow: TextOverflow.ellipsis,
             style: TextStyle(
               color: _textColor(disabled),
-              fontWeight: FontWeight.w700,
-              fontSize: 17,
+              fontWeight: FontWeight.w600,
+              fontSize: 16,
               height: 1.25,
-              letterSpacing: 0.05,
+              letterSpacing: 0.02,
             ),
             textAlign: TextAlign.center,
           ),
@@ -84,13 +85,14 @@ class _ZenButtonState extends State<ZenButton> {
     );
 
     final body = AnimatedScale(
-      scale: _pressed ? 0.97 : 1,
+      scale: _pressed ? 0.985 : (_hovered && !disabled ? 1.005 : 1),
       duration: _motionDuration,
       curve: Curves.easeOut,
       child: AnimatedContainer(
         duration: _motionDuration,
         curve: Curves.easeOut,
         width: widget.expanded ? double.infinity : null,
+        constraints: const BoxConstraints(minHeight: 52),
         padding: widget.padding,
         decoration: _decoration(disabled),
         child: baseChild,
@@ -103,7 +105,25 @@ class _ZenButtonState extends State<ZenButton> {
       onTapUp: disabled ? null : (_) => _setPressed(false),
       onTapCancel: disabled ? null : () => _setPressed(false),
       onTap: widget.onPressed,
-      child: body,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (disabled || _hovered) {
+            return;
+          }
+          setState(() {
+            _hovered = true;
+          });
+        },
+        onExit: (_) {
+          if (!_hovered) {
+            return;
+          }
+          setState(() {
+            _hovered = false;
+          });
+        },
+        child: body,
+      ),
     );
   }
 
@@ -112,20 +132,32 @@ class _ZenButtonState extends State<ZenButton> {
 
     switch (widget.variant) {
       case ZenButtonVariant.primary:
+        final defaultGradient = LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            GrowMateColors.primary.withValues(alpha: 0.94),
+            GrowMateColors.primaryDark,
+          ],
+        );
+
         return BoxDecoration(
           borderRadius: radius,
           color: disabled
               ? GrowMateColors.textSecondary.withValues(alpha: 0.35)
-              : (widget.backgroundColor ?? GrowMateColors.primary),
-          border: Border.all(color: widget.borderColor ?? Colors.transparent),
+              : widget.backgroundColor,
+          gradient: disabled || widget.backgroundColor != null
+              ? null
+              : defaultGradient,
+          border: Border.all(color: Colors.transparent),
           boxShadow: disabled
               ? const []
               : [
                   BoxShadow(
                     color: (widget.shadowColor ?? GrowMateColors.shadowButton)
-                        .withValues(alpha: 0.3),
-                    blurRadius: 14,
-                    offset: const Offset(0, 6),
+                        .withValues(alpha: _hovered ? 0.16 : 0.12),
+                    blurRadius: _hovered ? 24 : 20,
+                    offset: Offset(0, _hovered ? 10 : 8),
                   ),
                 ],
         );
@@ -133,21 +165,10 @@ class _ZenButtonState extends State<ZenButton> {
         return BoxDecoration(
           borderRadius: radius,
           color: disabled
-              ? GrowMateColors.surfaceContainerHigh.withValues(alpha: 0.65)
-              : (widget.backgroundColor ?? GrowMateColors.surface),
-          border: Border.all(
-            color:
-                widget.borderColor ??
-                GrowMateColors.primary.withValues(alpha: 0.2),
-          ),
-          boxShadow: [
-            BoxShadow(
-              color: (widget.shadowColor ?? GrowMateColors.shadowSoft)
-                  .withValues(alpha: 0.75),
-              blurRadius: 10,
-              offset: const Offset(0, 4),
-            ),
-          ],
+              ? GrowMateColors.surfaceContainerHigh.withValues(alpha: 0.55)
+              : (widget.backgroundColor ?? GrowMateColors.surfaceContainerHigh),
+          border: Border.all(color: widget.borderColor ?? Colors.transparent),
+          boxShadow: const [],
         );
       case ZenButtonVariant.text:
         return BoxDecoration(borderRadius: radius, color: Colors.transparent);
@@ -165,7 +186,7 @@ class _ZenButtonState extends State<ZenButton> {
       case ZenButtonVariant.secondary:
         return disabled
             ? GrowMateColors.textSecondary.withValues(alpha: 0.65)
-            : GrowMateColors.primaryDark;
+            : GrowMateColors.textPrimary;
       case ZenButtonVariant.text:
         return disabled
             ? GrowMateColors.textSecondary.withValues(alpha: 0.65)

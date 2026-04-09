@@ -1,16 +1,10 @@
-import 'dart:math' as math;
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/services/mood_state_service.dart';
 import '../../../../features/quiz/presentation/cubit/quiz_cubit.dart';
-import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/zen_button.dart';
-import '../../../../shared/widgets/zen_card.dart';
-import '../../../../shared/widgets/zen_page_container.dart';
 
 class RecoveryScreen extends StatefulWidget {
   const RecoveryScreen({super.key, this.reason});
@@ -23,30 +17,32 @@ class RecoveryScreen extends StatefulWidget {
 
 class _RecoveryScreenState extends State<RecoveryScreen>
     with SingleTickerProviderStateMixin {
-  static const Color _accentSoft = Color(0xFFF6C78E);
-  static const Color _accentStrong = Color(0xFFE9A35B);
-  static const Color _accentSurface = Color(0xFFFFF6E8);
-
-  late final AnimationController _breathingController;
-  late final Animation<double> _breathingScale;
+  late final AnimationController _controller;
+  late final Animation<double> _scale;
+  late final Animation<double> _opacity;
 
   @override
   void initState() {
     super.initState();
-
-    _breathingController = AnimationController(
+    _controller = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 2500),
+      duration: const Duration(milliseconds: 2600),
     )..repeat(reverse: true);
 
-    _breathingScale = Tween<double>(begin: 0.88, end: 1.07).animate(
-      CurvedAnimation(parent: _breathingController, curve: Curves.easeInOut),
-    );
+    _scale = Tween<double>(
+      begin: 0.9,
+      end: 1.08,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
+
+    _opacity = Tween<double>(
+      begin: 0.72,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut));
   }
 
   @override
   void dispose() {
-    _breathingController.dispose();
+    _controller.dispose();
     super.dispose();
   }
 
@@ -61,154 +57,106 @@ class _RecoveryScreenState extends State<RecoveryScreen>
     final theme = Theme.of(context);
 
     return Scaffold(
-      backgroundColor: GrowMateColors.background,
-      body: ZenPageContainer(
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            SectionHeader(
-              title: 'Chế độ phục hồi',
-              subtitle:
-                  'AI giảm nhịp để giúp bạn lấy lại tập trung và sự tự tin',
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 10,
-                  vertical: 6,
-                ),
-                decoration: BoxDecoration(
-                  color: _accentSurface,
-                  borderRadius: BorderRadius.circular(999),
-                ),
-                child: Text(
-                  'Nhịp hồi phục',
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: _accentStrong,
-                    fontWeight: FontWeight.w700,
+      body: Container(
+        decoration: const BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: [Color(0xFFFFF9EF), Color(0xFFFFF2DD), Color(0xFFFFECCC)],
+          ),
+        ),
+        child: SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
+            child: Column(
+              children: [
+                Text(
+                  'Chế độ phục hồi',
+                  style: theme.textTheme.headlineLarge?.copyWith(
+                    fontSize: 36,
+                    color: const Color(0xFF7C4A14),
                   ),
                 ),
-              ),
-              bottomSpacing: 12,
-            ),
-            ZenCard(
-              color: _accentSurface,
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Text(
-                'Dành 1 phút để hít thở có hướng dẫn. Sau nhịp hồi phục này, AI sẽ tiếp tục với lộ trình nhẹ nhàng hơn.',
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textSecondary,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
+                const SizedBox(height: 8),
+                Text(
+                  'Hít thở một nhịp ngắn. AI sẽ tự giảm nhịp học để bạn quay lại nhẹ nhàng hơn.',
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: const Color(0xFF8B5E2F),
+                    height: 1.45,
+                  ),
                 ),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Expanded(
-              child: Center(
-                child: AnimatedBuilder(
-                  animation: _breathingScale,
+                const Spacer(),
+                AnimatedBuilder(
+                  animation: _controller,
                   builder: (context, child) {
-                    final glow = 16 + ((_breathingScale.value - 0.88) * 76);
+                    final message = _controller.value > 0.5
+                        ? 'Hít vào thật sâu'
+                        : 'Thở ra chậm rãi';
 
-                    return Transform.scale(
-                      scale: _breathingScale.value,
-                      child: Container(
-                        width: 186,
-                        height: 186,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: RadialGradient(
-                            colors: [_accentSoft, const Color(0xFFFFE6B9)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: _accentStrong.withValues(alpha: 0.42),
-                              blurRadius: glow,
-                              spreadRadius: 2,
+                    return Opacity(
+                      opacity: _opacity.value,
+                      child: Transform.scale(
+                        scale: _scale.value,
+                        child: Container(
+                          width: 228,
+                          height: 228,
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            gradient: const RadialGradient(
+                              colors: [Color(0xFFFFD7A5), Color(0xFFF5B971)],
                             ),
-                          ],
-                        ),
-                        alignment: Alignment.center,
-                        child: Text(
-                          _breathingScale.value > 0.98 ? 'Hít vào' : 'Thở ra',
-                          style: theme.textTheme.titleLarge?.copyWith(
-                            color: const Color(0xFF8A5418),
-                            fontWeight: FontWeight.w700,
+                            boxShadow: [
+                              BoxShadow(
+                                color: const Color(
+                                  0xFFF59E0B,
+                                ).withValues(alpha: 0.28),
+                                blurRadius: 28,
+                                spreadRadius: 6,
+                              ),
+                            ],
+                          ),
+                          alignment: Alignment.center,
+                          child: Text(
+                            message,
+                            textAlign: TextAlign.center,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              color: const Color(0xFF7C4A14),
+                              fontSize: 27,
+                              fontWeight: FontWeight.w700,
+                              height: 1.2,
+                            ),
                           ),
                         ),
                       ),
                     );
                   },
                 ),
-              ),
-            ),
-            ZenCard(
-              color: Colors.white.withValues(alpha: 0.9),
-              padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 28,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: _accentSurface,
-                          borderRadius: BorderRadius.circular(10),
-                        ),
-                        child: Icon(
-                          Icons.style_rounded,
-                          color: _accentStrong,
-                          size: 18,
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Flashcard lúc này',
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: GrowMateColors.textPrimary,
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
+                const SizedBox(height: 26),
+                if (widget.reason != null && widget.reason!.isNotEmpty)
                   Text(
-                    'Nhắc nhanh: Đạo hàm của x^n là n.x^(n-1). Chốt chắc quy tắc này trước, rồi quay lại các câu tính giờ.',
+                    'Tín hiệu phát hiện: ${_humanizeReason(widget.reason!)}',
+                    textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textSecondary,
-                      height: 1.42,
+                      color: const Color(0xFF9A6634),
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  if (widget.reason != null && widget.reason!.isNotEmpty) ...[
-                    const SizedBox(height: 8),
-                    Text(
-                      'Tín hiệu ghi nhận: ${_humanizeReason(widget.reason!)}',
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: _accentStrong,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            ZenButton(
-              label: 'Mình đã sẵn sàng quay lại',
-              onPressed: _finishRecovery,
-              backgroundColor: _accentStrong,
-              textColor: Colors.white,
-              shadowColor: _accentStrong,
-              trailing: Transform.rotate(
-                angle: math.pi / 14,
-                child: const Icon(
-                  Icons.waving_hand_rounded,
-                  color: Colors.white,
+                const Spacer(),
+                ZenButton(
+                  label: 'Mình sẵn sàng quay lại',
+                  onPressed: _finishRecovery,
+                  backgroundColor: const Color(0xFFF59E0B),
+                  shadowColor: const Color(0xFFF59E0B),
+                  textColor: Colors.white,
+                  trailing: const Icon(
+                    Icons.arrow_forward_rounded,
+                    color: Colors.white,
+                  ),
                 ),
-              ),
+              ],
             ),
-          ],
+          ),
         ),
       ),
     );
@@ -217,9 +165,9 @@ class _RecoveryScreenState extends State<RecoveryScreen>
   String _humanizeReason(String reason) {
     switch (reason) {
       case 'idle_time_high':
-        return 'Mức tập trung giảm (idle_time cao)';
+        return 'Mức tập trung giảm trong phiên vừa qua';
       case 'three_wrong_answers':
-        return 'Bạn vừa gặp 3 câu khó liên tiếp';
+        return 'Bạn vừa gặp chuỗi câu khó liên tiếp';
       default:
         return reason;
     }

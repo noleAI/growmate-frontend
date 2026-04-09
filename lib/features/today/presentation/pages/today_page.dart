@@ -6,9 +6,10 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
-import '../../../../shared/widgets/ai_components.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
@@ -28,11 +29,10 @@ class _TodayPageState extends State<TodayPage> {
   @override
   void initState() {
     super.initState();
-    _thinkingTimer = Timer(const Duration(milliseconds: 980), () {
+    _thinkingTimer = Timer(const Duration(milliseconds: 880), () {
       if (!mounted) {
         return;
       }
-
       setState(() {
         _aiReady = true;
       });
@@ -55,70 +55,48 @@ class _TodayPageState extends State<TodayPage> {
         child: ListView(
           children: [
             _buildTopAppBar(context),
-            const SizedBox(height: 20),
-            SectionHeader(
-              title: 'Hệ thống AI học tập đang hoạt động',
-              subtitle:
-                  '${_vnDateLabel(DateTime.now())} · Quan sát -> quyết định -> dẫn dắt',
-              bottomSpacing: 0,
-            ),
-            const SizedBox(height: 16),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 440),
-              switchInCurve: Curves.easeOutCubic,
-              switchOutCurve: Curves.easeOutCubic,
-              transitionBuilder: (child, animation) {
-                final slide = Tween<Offset>(
-                  begin: const Offset(0, 0.05),
-                  end: Offset.zero,
-                ).animate(animation);
-                return FadeTransition(
-                  opacity: animation,
-                  child: SlideTransition(position: slide, child: child),
-                );
-              },
-              child: _aiReady
-                  ? AiRecommendationCard(
-                      key: const ValueKey<String>('ai-recommendation-ready'),
-                      topic: 'Ứng dụng đạo hàm theo tốc độ',
-                      reason:
-                          'Bạn giảm độ chính xác ở 2 câu tính giờ gần nhất.',
-                      confidence: 0.87,
-                      ctaLabel: 'Bắt đầu phiên tăng tốc cùng AI',
-                      onStart: () => context.push(AppRoutes.quiz),
-                    )
-                  : const AiThinkingStateCard(
-                      key: ValueKey<String>('ai-thinking'),
-                      message: 'AI đang phân tích tiến độ của bạn...',
-                    ),
-            ),
-            const SizedBox(height: 16),
-            const FadeSlideIn(delayMs: 80, child: _ProgressSnapshot()),
-            const SizedBox(height: 14),
-            const _AiFeedbackTimeline(),
-            const SizedBox(height: 14),
-            AiInsightCard(
-              title: 'Trạng thái học tập hiện tại',
-              subtitle: 'Tín hiệu AI trước phiên học tiếp theo',
-              delayMs: 120,
-              child: const _MentalStateRow(),
-            ),
-            const SizedBox(height: 14),
-            AiInsightCard(
-              title: 'Bước tiếp theo',
-              subtitle: 'Mục tiêu: hoàn thành trong 20 phút',
-              delayMs: 160,
-              child: const _NextActions(),
-            ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GrowMateLayout.sectionGap),
             Text(
-              'Mẹo: Hoàn tất phiên này để AI cập nhật lộ trình can thiệp chính xác hơn.',
-              style: theme.textTheme.bodySmall?.copyWith(
+              _vnDateLabel(DateTime.now()),
+              style: theme.textTheme.bodyMedium?.copyWith(
                 color: GrowMateColors.textSecondary,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w500,
               ),
             ),
-            const SizedBox(height: 8),
+            const SizedBox(height: GrowMateLayout.contentGap),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 240),
+              switchInCurve: Curves.easeOut,
+              switchOutCurve: Curves.easeOut,
+              child: _aiReady
+                  ? AIHero(
+                      key: const ValueKey<String>('ai-hero-ready'),
+                      title: 'Bắt đầu phiên mới với',
+                      topic: 'Ứng dụng đạo hàm',
+                      reason:
+                          'AI ghi nhận độ chính xác câu tính giờ đang giảm trong 2 phiên gần nhất.',
+                      confidence: 0.87,
+                      ctaLabel: 'Bắt đầu phiên AI gợi ý',
+                      onPressed: () => context.push(AppRoutes.quiz),
+                    )
+                  : _ThinkingHero(theme: theme),
+            ),
+            const SizedBox(height: GrowMateLayout.sectionGapLg),
+            const Section(
+              title: 'Tóm tắt',
+              subtitle: 'Nhịp học hôm nay',
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [_CompactStats()],
+              ),
+            ),
+            const SizedBox(height: GrowMateLayout.sectionGapLg),
+            const Section(
+              title: 'Phân tích AI hoàn tất',
+              subtitle: 'Độ tự tin 74% · Rủi ro TRUNG BÌNH',
+              child: _AiSystemPanel(),
+            ),
+            const SizedBox(height: GrowMateLayout.sectionGap),
           ],
         ),
       ),
@@ -174,183 +152,155 @@ class _TodayPageState extends State<TodayPage> {
   }
 }
 
-class _ProgressSnapshot extends StatelessWidget {
-  const _ProgressSnapshot();
+class _ThinkingHero extends StatelessWidget {
+  const _ThinkingHero({required this.theme});
+
+  final ThemeData theme;
 
   @override
   Widget build(BuildContext context) {
+    return Container(
+      key: const ValueKey<String>('ai-hero-thinking'),
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: GrowMateLayout.contentGap,
+        vertical: GrowMateLayout.contentGap,
+      ),
+      decoration: BoxDecoration(
+        color: GrowMateColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: const [
+          BoxShadow(
+            color: Color(0x0A0F172A),
+            blurRadius: 24,
+            offset: Offset(0, 9),
+          ),
+        ],
+      ),
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 24,
+            height: 24,
+            child: CircularProgressIndicator(strokeWidth: 2.6),
+          ),
+          const SizedBox(width: GrowMateLayout.space12),
+          Expanded(
+            child: Text(
+              'AI đang phân tích tiến độ của bạn...',
+              style: theme.textTheme.bodyLarge?.copyWith(
+                color: GrowMateColors.textSecondary,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _CompactStats extends StatelessWidget {
+  const _CompactStats();
+
+  @override
+  Widget build(BuildContext context) {
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      child: Row(
+        children: const [
+          StatItem(
+            label: 'ngày',
+            value: '6',
+            icon: Icons.local_fire_department_rounded,
+            accent: Color(0xFFEA580C),
+          ),
+          SizedBox(width: GrowMateLayout.space12),
+          StatItem(
+            label: 'hoàn thành',
+            value: '4/5',
+            icon: Icons.task_alt_rounded,
+            accent: GrowMateColors.success,
+          ),
+          SizedBox(width: GrowMateLayout.space12),
+          StatItem(
+            label: 'Tập trung',
+            value: 'Tốt',
+            icon: Icons.bolt_rounded,
+            accent: GrowMateColors.primary,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiSystemPanel extends StatelessWidget {
+  const _AiSystemPanel();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SectionHeader(
-          title: 'Tổng quan nhanh',
-          subtitle: 'Tín hiệu hệ thống trong 24 giờ qua',
-          bottomSpacing: 10,
+        ClipRRect(
+          borderRadius: BorderRadius.circular(999),
+          child: const LinearProgressIndicator(
+            minHeight: 6,
+            value: 0.74,
+            backgroundColor: GrowMateColors.surfaceContainerHigh,
+            valueColor: AlwaysStoppedAnimation<Color>(Color(0xFF2DA5A8)),
+          ),
         ),
-        Row(
-          children: const [
-            Expanded(
-              child: _MiniMetricCard(
-                label: 'Chuỗi ngày',
-                value: '6 ngày',
-                icon: Icons.local_fire_department_rounded,
-              ),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _MiniMetricCard(
-                label: 'Hoàn thành',
-                value: '4/5',
-                icon: Icons.task_alt_rounded,
-              ),
-            ),
-            SizedBox(width: 10),
-            Expanded(
-              child: _MiniMetricCard(
-                label: 'Tập trung',
-                value: 'Tốt',
-                icon: Icons.bolt_rounded,
-              ),
-            ),
-          ],
+        const SizedBox(height: GrowMateLayout.contentGap),
+        const _InsightTile(
+          icon: Icons.check_circle_rounded,
+          iconColor: GrowMateColors.success,
+          title: 'Bạn làm tốt ở điểm nào',
+          subtitle: 'Quy tắc đạo hàm cơ bản',
         ),
-      ],
-    );
-  }
-}
-
-class _MiniMetricCard extends StatelessWidget {
-  const _MiniMetricCard({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final String value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-      decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.9),
-        borderRadius: BorderRadius.circular(16),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x120F172A),
-            blurRadius: 10,
-            offset: Offset(0, 4),
-          ),
-        ],
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Icon(icon, color: GrowMateColors.primary, size: 18),
-          const SizedBox(height: 8),
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(fontSize: 18),
-          ),
-          const SizedBox(height: 2),
-          Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _AiFeedbackTimeline extends StatelessWidget {
-  const _AiFeedbackTimeline();
-
-  @override
-  Widget build(BuildContext context) {
-    return const AiInsightCard(
-      title: 'Lớp phản hồi hệ thống AI',
-      subtitle: 'Vòng lặp mô hình theo thời gian thực',
-      delayMs: 108,
-      child: Column(
-        children: [
-          _SystemStep(
-            icon: Icons.visibility_rounded,
-            label: 'Đã quan sát',
-            detail:
-                'Mô hình hành vi phát hiện tốc độ xử lý phần ứng dụng đạo hàm đang giảm.',
-          ),
-          SizedBox(height: 10),
-          _SystemStep(
-            icon: Icons.psychology_alt_rounded,
-            label: 'Đã quyết định',
-            detail:
-                'Ưu tiên một phiên tăng tốc có hướng dẫn trước khi tăng độ khó.',
-          ),
-          SizedBox(height: 10),
-          _SystemStep(
-            icon: Icons.update_rounded,
-            label: 'Đã cập nhật kế hoạch',
-            detail: 'Chèn một vòng ôn ngắn + luyện tính giờ cho hôm nay.',
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _SystemStep extends StatelessWidget {
-  const _SystemStep({
-    required this.icon,
-    required this.label,
-    required this.detail,
-  });
-
-  final IconData icon;
-  final String label;
-  final String detail;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
+        const SizedBox(height: GrowMateLayout.space12),
+        const _InsightTile(
+          icon: Icons.warning_amber_rounded,
+          iconColor: GrowMateColors.warningSoft,
+          title: 'Điểm cần cải thiện',
+          subtitle: 'Đạo hàm hàm số hợp',
+        ),
+        const SizedBox(height: GrowMateLayout.space12),
+        const _InsightTile(
+          icon: Icons.lightbulb_outline_rounded,
+          iconColor: GrowMateColors.primary,
+          title: 'Bước tiếp theo AI gợi ý',
+          subtitle: 'Review đạo hàm',
+        ),
+        const SizedBox(height: GrowMateLayout.contentGap),
         Container(
-          width: 28,
-          height: 28,
-          decoration: BoxDecoration(
-            color: GrowMateColors.primaryContainer,
-            borderRadius: BorderRadius.circular(9),
+          width: double.infinity,
+          padding: const EdgeInsets.symmetric(
+            horizontal: GrowMateLayout.contentGap,
+            vertical: GrowMateLayout.space12,
           ),
-          child: Icon(icon, color: GrowMateColors.primaryDark, size: 17),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+          decoration: BoxDecoration(
+            color: GrowMateColors.backgroundSoft,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: Row(
             children: [
-              Text(
-                label,
-                style: theme.textTheme.bodyLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  'Giữ lộ trình hiện tại',
+                  style: theme.textTheme.bodyLarge?.copyWith(
+                    color: GrowMateColors.textPrimary,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
               ),
-              const SizedBox(height: 2),
-              Text(
-                detail,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textSecondary,
-                  height: 1.32,
-                ),
+              const Icon(
+                Icons.chevron_right_rounded,
+                color: GrowMateColors.textSecondary,
+                size: 20,
               ),
             ],
           ),
@@ -360,94 +310,59 @@ class _SystemStep extends StatelessWidget {
   }
 }
 
-class _MentalStateRow extends StatelessWidget {
-  const _MentalStateRow();
+class _InsightTile extends StatelessWidget {
+  const _InsightTile({
+    required this.icon,
+    required this.iconColor,
+    required this.title,
+    required this.subtitle,
+  });
+
+  final IconData icon;
+  final Color iconColor;
+  final String title;
+  final String subtitle;
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-
-    return Row(
-      children: [
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: GrowMateColors.tertiaryContainer,
-            borderRadius: BorderRadius.circular(999),
-          ),
-          child: const Text(
-            'Tập trung ổn định',
-            style: TextStyle(
-              color: GrowMateColors.success,
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Text(
-            'AI gợi ý tăng độ khó nhẹ. Hiện tại chưa cần kích hoạt chế độ phục hồi.',
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: GrowMateColors.textSecondary,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _NextActions extends StatelessWidget {
-  const _NextActions();
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final actions = <String>[
-      'Làm 3 câu ứng dụng đạo hàm có gợi ý.',
-      'Rà lại bước biến đổi nơi lỗi lặp lại nhiều nhất.',
-      'Kết thúc bằng 1 câu tự luận ngắn để AI chấm nhanh.',
-    ];
-
-    return Column(
-      children: actions
-          .asMap()
-          .entries
-          .map(
-            (entry) => Padding(
-              padding: EdgeInsets.only(
-                bottom: entry.key == actions.length - 1 ? 0 : 10,
-              ),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    width: 20,
-                    height: 20,
-                    alignment: Alignment.center,
-                    decoration: BoxDecoration(
-                      color: GrowMateColors.primary,
-                      borderRadius: BorderRadius.circular(999),
-                    ),
-                    child: Text(
-                      '${entry.key + 1}',
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 11,
-                      ),
-                    ),
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(
+        horizontal: GrowMateLayout.space12,
+        vertical: GrowMateLayout.space12,
+      ),
+      decoration: BoxDecoration(
+        color: GrowMateColors.backgroundSoft,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Icon(icon, size: 18, color: iconColor),
+          const SizedBox(width: GrowMateLayout.space8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                    color: GrowMateColors.textPrimary,
+                    fontWeight: FontWeight.w600,
                   ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Text(entry.value, style: theme.textTheme.bodyMedium),
+                ),
+                const SizedBox(height: GrowMateLayout.space8),
+                Text(
+                  subtitle,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: GrowMateColors.textSecondary,
                   ),
-                ],
-              ),
+                ),
+              ],
             ),
-          )
-          .toList(growable: false),
+          ),
+        ],
+      ),
     );
   }
 }

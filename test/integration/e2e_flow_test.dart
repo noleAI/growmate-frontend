@@ -87,8 +87,8 @@ void main() {
       await tester.pump(const Duration(seconds: 2));
       await tester.pumpAndSettle();
 
-      expect(find.textContaining('Mọi thứ đã sẵn sàng'), findsOneWidget);
-      final startButtonLabel = find.text('Bắt đầu');
+      expect(find.textContaining('Hệ điều phối học tập AI'), findsOneWidget);
+      final startButtonLabel = find.text('Bắt đầu phiên AI gợi ý');
       await tester.ensureVisible(startButtonLabel);
       final startButtonTapTarget = find.ancestor(
         of: startButtonLabel,
@@ -120,19 +120,15 @@ void main() {
         find.text('Có vẻ bạn đang hơi yếu phần Đạo hàm nè'),
         findsOneWidget,
       );
-      await tester.scrollUntilVisible(
-        find.textContaining('PHÂN TÍCH LỖ HỔNG'),
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
-      expect(find.textContaining('PHÂN TÍCH LỖ HỔNG'), findsOneWidget);
-
-      await tester.scrollUntilVisible(
-        find.text('Đồng ý'),
-        180,
-        scrollable: find.byType(Scrollable).first,
-      );
-      await tester.tap(find.text('Đồng ý'));
+      final approveButton = find.text('Áp dụng lộ trình mới');
+      for (var attempt = 0; attempt < 12; attempt++) {
+        if (approveButton.evaluate().isNotEmpty) {
+          break;
+        }
+        await tester.pump(const Duration(milliseconds: 250));
+      }
+      expect(approveButton, findsOneWidget);
+      await tester.tap(approveButton.first, warnIfMissed: false);
       await tester.pump();
       await tester.pump(const Duration(seconds: 2));
       await tester.pump(const Duration(seconds: 2));

@@ -27,8 +27,8 @@ class AppTheme {
         surfaceContainerLowest: Colors.white,
         surfaceContainerLow: GrowMateColors.surfaceContainerLow,
         surfaceContainerHigh: GrowMateColors.surfaceContainerHigh,
-        outline: const Color(0xFFD1D5DB),
-        outlineVariant: const Color(0xFFE5E7EB),
+        outline: const Color(0xFFD8DEE9),
+        outlineVariant: const Color(0xFFECEFF5),
         shadow: const Color(0x330F172A),
         surfaceTint: Colors.transparent,
       );
@@ -42,42 +42,53 @@ class AppTheme {
         )
         .copyWith(
           displayLarge: GoogleFonts.spaceGrotesk(
-            fontSize: 48,
+            fontSize: 40,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.6,
-            height: 1.08,
+            letterSpacing: -0.42,
+            height: 1.06,
           ),
           headlineLarge: GoogleFonts.spaceGrotesk(
-            fontSize: 34,
+            fontSize: 32,
             fontWeight: FontWeight.w700,
-            letterSpacing: -0.3,
-            height: 1.12,
+            letterSpacing: -0.28,
+            height: 1.08,
+          ),
+          headlineMedium: GoogleFonts.spaceGrotesk(
+            fontSize: 28,
+            fontWeight: FontWeight.w700,
+            letterSpacing: -0.22,
+            height: 1.1,
           ),
           titleLarge: GoogleFonts.spaceGrotesk(
             fontSize: 22,
-            fontWeight: FontWeight.w700,
-            letterSpacing: -0.2,
-            height: 1.18,
-          ),
-          titleMedium: GoogleFonts.spaceGrotesk(
-            fontSize: 17,
-            fontWeight: FontWeight.w700,
-            letterSpacing: 0,
+            fontWeight: FontWeight.w600,
+            letterSpacing: -0.14,
             height: 1.2,
           ),
-          bodyLarge: GoogleFonts.plusJakartaSans(
-            fontSize: 17,
+          titleMedium: GoogleFonts.spaceGrotesk(
+            fontSize: 18,
             fontWeight: FontWeight.w600,
-            height: 1.4,
+            letterSpacing: -0.04,
+            height: 1.24,
+          ),
+          bodyLarge: GoogleFonts.plusJakartaSans(
+            fontSize: 16,
+            fontWeight: FontWeight.w400,
+            height: 1.6,
           ),
           bodyMedium: GoogleFonts.plusJakartaSans(
-            fontSize: 15,
-            fontWeight: FontWeight.w500,
-            height: 1.4,
+            fontSize: 14,
+            fontWeight: FontWeight.w400,
+            height: 1.6,
+          ),
+          bodySmall: GoogleFonts.plusJakartaSans(
+            fontSize: 12,
+            fontWeight: FontWeight.w400,
+            height: 1.5,
           ),
           labelLarge: GoogleFonts.spaceGrotesk(
             fontSize: 14,
-            fontWeight: FontWeight.w700,
+            fontWeight: FontWeight.w600,
             letterSpacing: 0,
             height: 1.2,
           ),
@@ -114,26 +125,25 @@ class AppTheme {
         color: colorScheme.surfaceContainerLow,
         margin: EdgeInsets.zero,
         elevation: 0,
-        shadowColor: const Color(0x220F172A),
+        shadowColor: const Color(0x0D0F172A),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
-          side: BorderSide(color: colorScheme.outlineVariant),
         ),
       ),
       elevatedButtonTheme: ElevatedButtonThemeData(
         style:
             ElevatedButton.styleFrom(
               elevation: 0,
-              minimumSize: const Size.fromHeight(56),
+              minimumSize: const Size.fromHeight(52),
               backgroundColor: GrowMateColors.primary,
               foregroundColor: colorScheme.onPrimary,
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
               shape: RoundedRectangleBorder(
                 borderRadius: BorderRadius.circular(
                   GrowMateLayout.buttonRadius,
                 ),
               ),
-              textStyle: textTheme.titleMedium?.copyWith(
+              textStyle: textTheme.labelLarge?.copyWith(
                 fontWeight: FontWeight.w700,
                 height: 1.25,
               ),
@@ -156,7 +166,7 @@ class AppTheme {
       ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
-        fillColor: GrowMateColors.surface,
+        fillColor: GrowMateColors.surfaceContainerLow,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 14,
@@ -181,10 +191,10 @@ class AppTheme {
         backgroundColor: colorScheme.surfaceContainerLow,
         selectedColor: colorScheme.tertiaryContainer,
         disabledColor: colorScheme.surfaceContainerLow.withValues(alpha: 0.6),
-        side: BorderSide(color: colorScheme.outlineVariant),
+        side: BorderSide.none,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(999)),
         labelStyle: textTheme.labelLarge ?? const TextStyle(),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       ),
       snackBarTheme: SnackBarThemeData(
         backgroundColor: GrowMateColors.textPrimary,
@@ -196,7 +206,7 @@ class AppTheme {
       ),
       navigationBarTheme: NavigationBarThemeData(
         backgroundColor: GrowMateColors.surface,
-        indicatorColor: GrowMateColors.primary.withValues(alpha: 0.12),
+        indicatorColor: GrowMateColors.primary.withValues(alpha: 0.1),
         labelTextStyle: WidgetStatePropertyAll(
           textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
         ),

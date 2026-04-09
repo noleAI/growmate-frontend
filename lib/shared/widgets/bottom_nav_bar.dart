@@ -17,37 +17,34 @@ class GrowMateBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.fromLTRB(16, 10, 16, 14),
+      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       decoration: BoxDecoration(
-        color: GrowMateColors.surface,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(20)),
-        border: Border(
-          top: BorderSide(color: GrowMateColors.surfaceContainerHigh),
-        ),
+        color: GrowMateColors.surfaceContainerLow.withValues(alpha: 0.96),
+        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x120F172A),
-            blurRadius: 14,
-            offset: Offset(0, -4),
+            color: Color(0x0A0F172A),
+            blurRadius: 26,
+            offset: Offset(0, -8),
           ),
         ],
       ),
       child: Row(
         children: [
           _NavItem(
-            label: 'HÔM NAY',
-            icon: Icons.calendar_month_rounded,
+            label: 'Hôm nay',
+            icon: Icons.home_rounded,
             selected: currentTab == GrowMateTab.today,
             onTap: () => onTabSelected(GrowMateTab.today),
           ),
           _NavItem(
-            label: 'TIẾN TRÌNH',
+            label: 'Tiến trình',
             icon: Icons.bar_chart_rounded,
             selected: currentTab == GrowMateTab.progress,
             onTap: () => onTabSelected(GrowMateTab.progress),
           ),
           _NavItem(
-            label: 'HỒ SƠ',
+            label: 'Hồ sơ',
             icon: Icons.person_rounded,
             selected: currentTab == GrowMateTab.profile,
             onTap: () => onTabSelected(GrowMateTab.profile),
@@ -77,34 +74,38 @@ class _NavItem extends StatelessWidget {
     final baseColor = GrowMateColors.textSecondary;
 
     return Expanded(
-      child: GestureDetector(
+      child: InkWell(
+        borderRadius: BorderRadius.circular(14),
         onTap: onTap,
-        child: AnimatedContainer(
-          duration: const Duration(milliseconds: 220),
-          curve: Curves.easeOut,
-          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-          decoration: BoxDecoration(
-            color: selected
-                ? GrowMateColors.primary.withValues(alpha: 0.1)
-                : Colors.transparent,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: selected
-                  ? GrowMateColors.primary.withValues(alpha: 0.2)
-                  : Colors.transparent,
-            ),
-          ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(icon, color: selected ? selectedColor : baseColor, size: 22),
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 220),
+                curve: Curves.easeOut,
+                width: 30,
+                height: 24,
+                decoration: BoxDecoration(
+                  color: selected
+                      ? GrowMateColors.primary.withValues(alpha: 0.18)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Icon(
+                  icon,
+                  color: selected ? selectedColor : baseColor,
+                  size: 18,
+                ),
+              ),
               const SizedBox(height: 4),
               Text(
                 label,
                 style: TextStyle(
                   color: selected ? selectedColor : baseColor,
                   fontSize: 12,
-                  letterSpacing: 0.25,
+                  letterSpacing: 0,
                   fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
                 ),
                 textAlign: TextAlign.center,

@@ -91,35 +91,34 @@ class _TopAppBarBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
-        color: GrowMateColors.surface,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
+        color: GrowMateColors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(20),
         boxShadow: const [
           BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 12,
-            offset: Offset(0, 5),
+            color: Color(0x0A0F172A),
+            blurRadius: 24,
+            offset: Offset(0, 8),
           ),
         ],
       ),
       child: Row(
         children: [
           Container(
-            width: 42,
-            height: 42,
+            width: 36,
+            height: 36,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: GrowMateColors.primaryContainer,
+              color: GrowMateColors.primary.withValues(alpha: 0.12),
             ),
             child: const Icon(
               Icons.psychology_alt_rounded,
               color: GrowMateColors.primary,
-              size: 22,
+              size: 19,
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 10),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -129,44 +128,99 @@ class _TopAppBarBody extends StatelessWidget {
                   style: TextStyle(
                     color: GrowMateColors.textSecondary,
                     fontSize: 12,
-                    fontWeight: FontWeight.w700,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 1),
                 Text(
                   'Chào $userName',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: const TextStyle(
                     color: GrowMateColors.textPrimary,
-                    fontSize: 17,
-                    fontWeight: FontWeight.w700,
-                    height: 1.2,
+                    fontSize: 21,
+                    fontWeight: FontWeight.w600,
+                    height: 1,
                   ),
                 ),
               ],
             ),
           ),
           if (onInspectionTap != null)
-            IconButton(
+            _AppBarIconButton(
               onPressed: onInspectionTap,
-              icon: const Icon(
-                Icons.insights_rounded,
-                color: GrowMateColors.primary,
-                size: 22,
-              ),
+              icon: Icons.insights_rounded,
             ),
-          IconButton(
+          _AppBarIconButton(
             onPressed:
                 onNotificationTap ??
                 () {
                   context.push(AppRoutes.notifications);
                 },
-            icon: const Icon(
-              Icons.notifications_none_rounded,
-              color: GrowMateColors.primary,
-              size: 24,
-            ),
+            icon: Icons.notifications_none_rounded,
+            showBadge: true,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _AppBarIconButton extends StatelessWidget {
+  const _AppBarIconButton({
+    required this.onPressed,
+    required this.icon,
+    this.showBadge = false,
+  });
+
+  final VoidCallback? onPressed;
+  final IconData icon;
+  final bool showBadge;
+
+  @override
+  Widget build(BuildContext context) {
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
+        onTap: onPressed,
+        borderRadius: BorderRadius.circular(12),
+        child: SizedBox(
+          width: 34,
+          height: 34,
+          child: Stack(
+            clipBehavior: Clip.none,
+            alignment: Alignment.center,
+            children: [
+              Container(
+                width: 30,
+                height: 30,
+                decoration: BoxDecoration(
+                  color: GrowMateColors.backgroundSoft,
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                alignment: Alignment.center,
+                child: Icon(icon, color: GrowMateColors.primary, size: 19),
+              ),
+              if (showBadge)
+                Positioned(
+                  top: 6,
+                  right: 4,
+                  child: Container(
+                    width: 7,
+                    height: 7,
+                    decoration: BoxDecoration(
+                      color: GrowMateColors.primary,
+                      shape: BoxShape.circle,
+                      border: Border.all(
+                        color: GrowMateColors.surfaceContainerLow,
+                        width: 1,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
       ),
     );
   }

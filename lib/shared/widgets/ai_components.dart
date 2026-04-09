@@ -688,27 +688,27 @@ class AiResultModal extends StatelessWidget {
               icon: Icons.alt_route_rounded,
             ),
             const SizedBox(height: 14),
-            Row(
-              children: [
-                Expanded(
-                  child: TextButton(
-                    onPressed: () {
-                      Navigator.of(context).pop(AiResultAction.keepCurrent);
-                    },
-                    child: Text(
-                      secondaryLabel,
-                      textAlign: TextAlign.center,
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: GrowMateColors.textSecondary,
-                        fontWeight: FontWeight.w700,
-                      ),
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final compactLayout = constraints.maxWidth < 340;
+
+                final secondaryAction = TextButton(
+                  onPressed: () {
+                    Navigator.of(context).pop(AiResultAction.keepCurrent);
+                  },
+                  child: Text(
+                    secondaryLabel,
+                    textAlign: TextAlign.center,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: GrowMateColors.textSecondary,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                ZenButton(
+                );
+
+                final primaryAction = ZenButton(
                   label: primaryLabel,
-                  expanded: false,
+                  expanded: !compactLayout,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,
                     vertical: 14,
@@ -716,8 +716,27 @@ class AiResultModal extends StatelessWidget {
                   onPressed: () {
                     Navigator.of(context).pop(AiResultAction.applyPlan);
                   },
-                ),
-              ],
+                );
+
+                if (compactLayout) {
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      secondaryAction,
+                      const SizedBox(height: 8),
+                      primaryAction,
+                    ],
+                  );
+                }
+
+                return Row(
+                  children: [
+                    Expanded(child: secondaryAction),
+                    const SizedBox(width: 8),
+                    Expanded(child: primaryAction),
+                  ],
+                );
+              },
             ),
           ],
         ),
@@ -757,11 +776,15 @@ class _AiResultSection extends StatelessWidget {
             children: [
               Icon(icon, size: 18, color: color),
               const SizedBox(width: 7),
-              Text(
-                title,
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textPrimary,
-                  fontWeight: FontWeight.w700,
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: GrowMateColors.textPrimary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
                 ),
               ),
             ],

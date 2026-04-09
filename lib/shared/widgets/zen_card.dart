@@ -7,11 +7,12 @@ class AIGlassCard extends StatelessWidget {
   const AIGlassCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(22),
+    this.padding = const EdgeInsets.all(20),
     this.radius = GrowMateLayout.cardRadius,
     this.color,
     this.gradient,
     this.margin,
+    this.showShadow = true,
   });
 
   final Widget child;
@@ -20,6 +21,7 @@ class AIGlassCard extends StatelessWidget {
   final Color? color;
   final Gradient? gradient;
   final EdgeInsetsGeometry? margin;
+  final bool showShadow;
 
   @override
   Widget build(BuildContext context) {
@@ -29,14 +31,15 @@ class AIGlassCard extends StatelessWidget {
         color: color ?? GrowMateColors.surface,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
-        border: Border.all(color: const Color(0xFFE5E7EB)),
-        boxShadow: const [
-          BoxShadow(
-            color: Color(0x140F172A),
-            blurRadius: 14,
-            offset: Offset(0, 6),
-          ),
-        ],
+        boxShadow: showShadow
+            ? const [
+                BoxShadow(
+                  color: Color(0x120F172A),
+                  blurRadius: 12,
+                  offset: Offset(0, 4),
+                ),
+              ]
+            : const [],
       ),
       child: child,
     );
@@ -53,10 +56,11 @@ class ZenCard extends AIGlassCard {
   const ZenCard({
     super.key,
     required super.child,
-    super.padding = const EdgeInsets.all(22),
+    super.padding = const EdgeInsets.all(20),
     super.radius = GrowMateLayout.cardRadius,
     super.color,
     super.gradient,
     super.margin,
+    super.showShadow,
   });
 }
