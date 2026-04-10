@@ -1,8 +1,12 @@
+import 'dart:convert';
+
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../core/services/mood_state_service.dart';
+import '../../domain/entities/quiz_question_template.dart';
+import '../../domain/usecases/thpt_math_2026_scoring.dart';
 import '../../data/repositories/quiz_repository.dart';
 
 sealed class QuizCubitState extends Equatable {
@@ -167,6 +171,103 @@ class QuizCubit extends Cubit<QuizCubitState> {
     }
   }
 
+  Future<void> submitTypedAnswer({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer userAnswer,
+  }) async {
+    final visibleAnswer = _visibleAnswer(userAnswer).trim();
+
+    if (visibleAnswer.isEmpty) {
+      emit(
+        QuizSubmitFailureState(
+          message: 'Vui lòng hoàn thành câu trả lời trước khi gửi.',
+          answer: visibleAnswer,
+        ),
+      );
+      return;
+    }
+
+    emit(QuizSubmittingState(answer: visibleAnswer));
+
+    try {
+      final evaluation = ThptMath2026Scoring.evaluate(
+        question: question,
+        answer: userAnswer,
+      );
+
+      await _quizRepository.recordEvaluatedAttempt(
+        question: question,
+        userAnswer: userAnswer,
+        evaluation: evaluation,
+      );
+
+      final response = await _quizRepository.submitAnswer(
+        questionId: question.id,
+        answer: jsonEncode(userAnswer.toJson()),
+        context: <String, dynamic>{
+          'questionText': question.content,
+          'questionType': question.questionType.storageValue,
+          'partNo': question.partNo,
+          'difficultyLevel': question.difficultyLevel,
+          'localEvaluation': evaluation.toJson(),
+        },
+      );
+
+      final responseData = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+
+      final submissionId =
+          responseData['submissionId']?.toString() ??
+          responseData['answerId']?.toString() ??
+          '';
+
+      if (submissionId.isEmpty) {
+        throw Exception('Backend response missing submissionId/answerId.');
+      }
+
+      final responseIsCorrect = responseData['isCorrect'] == true;
+      final isCorrect = evaluation.isCorrect || responseIsCorrect;
+
+      if (isCorrect) {
+        _wrongAnswersInRow = 0;
+      } else {
+        _wrongAnswersInRow += 1;
+      }
+
+      final highIdleDetected = _signalService.hasHighIdleTime();
+      final wrongStreakDetected = _wrongAnswersInRow >= 3;
+
+      if (highIdleDetected || wrongStreakDetected) {
+        _moodStateService.setMood('Recovery');
+
+        emit(
+          QuizRecoveryTriggeredState(
+            answer: visibleAnswer,
+            submissionId: submissionId,
+            wrongStreak: _wrongAnswersInRow,
+            reason: highIdleDetected ? 'idle_time_high' : 'three_wrong_answers',
+          ),
+        );
+        return;
+      }
+
+      emit(
+        QuizSubmitSuccessState(
+          submissionId: submissionId,
+          answer: visibleAnswer,
+        ),
+      );
+    } catch (_) {
+      emit(
+        QuizSubmitFailureState(
+          message: 'Không thể gửi bài lúc này. Vui lòng thử lại.',
+          answer: visibleAnswer,
+        ),
+      );
+    }
+  }
+
   static bool _resolveIsCorrect(
     Map<String, dynamic> responseData,
     String submittedAnswer,
@@ -201,5 +302,28 @@ class QuizCubit extends Cubit<QuizCubitState> {
     };
 
     return acceptedForms.contains(normalized);
+  }
+
+  static String _visibleAnswer(QuizQuestionUserAnswer answer) {
+    if (answer is MultipleChoiceUserAnswer) {
+      return answer.selectedOptionId;
+    }
+
+    if (answer is ShortAnswerUserAnswer) {
+      return answer.answerText;
+    }
+
+    if (answer is TrueFalseClusterUserAnswer) {
+      if (answer.subAnswers.isEmpty) {
+        return '';
+      }
+
+      final entries = answer.subAnswers.entries.toList(growable: false)
+        ..sort((a, b) => a.key.compareTo(b.key));
+
+      return entries.map((item) => '${item.key}:${item.value}').join('|');
+    }
+
+    return '';
   }
 }

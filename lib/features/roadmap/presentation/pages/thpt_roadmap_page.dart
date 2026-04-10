@@ -17,93 +17,96 @@ class ThptRoadmapPage extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
-        child: ListView(
-          children: [
-            Text(
-              context.t(vi: 'Roadmap THPT', en: 'THPT Roadmap'),
-              style: theme.textTheme.titleLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            const SizedBox(height: GrowMateLayout.space8),
-            Text(
-              context.t(
-                vi: 'Tổng hợp cơ cấu môn thi, dạng đề, dạng bài và lộ trình học theo từng môn cho kỳ thi THPT.',
-                en: 'Overview of exam structure, formats, question types, and subject-by-subject study roadmap for the THPT exam.',
-              ),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-                height: 1.45,
-              ),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colors.primaryContainer.withValues(alpha: 0.55),
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(
-                  color: colors.outlineVariant.withValues(alpha: 0.6),
+        child: ScrollConfiguration(
+          behavior: const MaterialScrollBehavior().copyWith(scrollbars: false),
+          child: ListView(
+            children: [
+              Text(
+                context.t(vi: 'Roadmap THPT', en: 'THPT Roadmap'),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w700,
                 ),
               ),
-              child: Text(
+              const SizedBox(height: GrowMateLayout.space8),
+              Text(
                 context.t(
-                  vi: 'Cập nhật 04/2026: Nội dung bám theo quy chế thi tốt nghiệp THPT hiện hành (ổn định từ kỳ thi 2025) và thông tin tổ chức kỳ thi THPT 2026 của Bộ GDĐT.',
-                  en: 'Updated 04/2026: Content aligns with the current graduation-exam regulation (stable since 2025) and MoET updates for the 2026 THPT exam.',
+                  vi: 'Tổng hợp cơ cấu môn thi, dạng đề, dạng bài và lộ trình học theo từng môn cho kỳ thi THPT.',
+                  en: 'Overview of exam structure, formats, question types, and subject-by-subject study roadmap for the THPT exam.',
                 ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurface,
-                  height: 1.4,
-                  fontWeight: FontWeight.w600,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  height: 1.45,
                 ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            _OverviewPanel(),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            _SectionTitle(
-              title: context.t(
-                vi: '1) Cơ cấu môn thi THPT (cập nhật 2026)',
-                en: '1) THPT exam structure (2026 update)',
+              const SizedBox(height: GrowMateLayout.space12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.55),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: colors.outlineVariant.withValues(alpha: 0.6),
+                  ),
+                ),
+                child: Text(
+                  context.t(
+                    vi: 'Cập nhật 04/2026: Nội dung bám theo quy chế thi tốt nghiệp THPT hiện hành (ổn định từ kỳ thi 2025) và thông tin tổ chức kỳ thi THPT 2026 của Bộ GDĐT.',
+                    en: 'Updated 04/2026: Content aligns with the current graduation-exam regulation (stable since 2025) and MoET updates for the 2026 THPT exam.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurface,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            ..._clusterData.map(
-              (cluster) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ClusterCard(data: cluster),
+              const SizedBox(height: GrowMateLayout.sectionGap),
+              _OverviewPanel(),
+              const SizedBox(height: GrowMateLayout.sectionGap),
+              _SectionTitle(
+                title: context.t(
+                  vi: '1) Cơ cấu môn thi THPT (cập nhật 2026)',
+                  en: '1) THPT exam structure (2026 update)',
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            _SectionTitle(
-              title: context.t(
-                vi: '2) Dạng đề và dạng bài trọng tâm',
-                en: '2) Core exam formats and question types',
+              const SizedBox(height: GrowMateLayout.space12),
+              ..._clusterData.map(
+                (cluster) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ClusterCard(data: cluster),
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            ..._examPatternData.map(
-              (pattern) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _ExamPatternCard(data: pattern),
+              const SizedBox(height: GrowMateLayout.sectionGap),
+              _SectionTitle(
+                title: context.t(
+                  vi: '2) Dạng đề và dạng bài trọng tâm',
+                  en: '2) Core exam formats and question types',
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            _SectionTitle(
-              title: context.t(
-                vi: '3) Roadmap học theo từng môn',
-                en: '3) Subject-by-subject study roadmap',
+              const SizedBox(height: GrowMateLayout.space12),
+              ..._examPatternData.map(
+                (pattern) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _ExamPatternCard(data: pattern),
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            ..._subjectRoadmapData.map(
-              (subject) => Padding(
-                padding: const EdgeInsets.only(bottom: 12),
-                child: _SubjectRoadmapCard(data: subject),
+              const SizedBox(height: GrowMateLayout.sectionGap),
+              _SectionTitle(
+                title: context.t(
+                  vi: '3) Roadmap học theo từng môn',
+                  en: '3) Subject-by-subject study roadmap',
+                ),
               ),
-            ),
-            const SizedBox(height: GrowMateLayout.space24),
-          ],
+              const SizedBox(height: GrowMateLayout.space12),
+              ..._subjectRoadmapData.map(
+                (subject) => Padding(
+                  padding: const EdgeInsets.only(bottom: 12),
+                  child: _SubjectRoadmapCard(data: subject),
+                ),
+              ),
+              const SizedBox(height: GrowMateLayout.space24),
+            ],
+          ),
         ),
       ),
       bottomNavigationBar: GrowMateBottomNavBar(
@@ -470,9 +473,7 @@ class _SubjectRoadmapCard extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 6),
-          ...data.priorityTypes
-              .map((item) => _DotLine(text: item.of(context)))
-              .toList(growable: false),
+          ...data.priorityTypes.map((item) => _DotLine(text: item.of(context))),
           const SizedBox(height: 10),
           _MiniTitle(
             title: context.t(vi: 'Lộ trình 4 chặng', en: '4-stage roadmap'),
