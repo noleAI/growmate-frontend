@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
@@ -39,11 +40,21 @@ class InterventionPage extends StatefulWidget {
 
 class _InterventionPageState extends State<InterventionPage> {
   late final InterventionBloc _interventionBloc;
+  bool _blocInitialized = false;
 
   @override
   void initState() {
     super.initState();
+  }
 
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_blocInitialized) {
+      return;
+    }
+
+    _blocInitialized = true;
     _interventionBloc = InterventionBloc(
       interventionRepository: widget.interventionRepository,
       submissionId: widget.submissionId,
@@ -51,12 +62,15 @@ class _InterventionPageState extends State<InterventionPage> {
       finalMode: widget.finalMode,
       backendInterventionPlan: widget.interventionPlan,
       uncertaintyHigh: widget.uncertaintyHigh,
+      isEnglish: context.isEnglish,
     )..add(const InterventionStarted());
   }
 
   @override
   void dispose() {
-    _interventionBloc.close();
+    if (_blocInitialized) {
+      _interventionBloc.close();
+    }
     super.dispose();
   }
 
@@ -66,9 +80,14 @@ class _InterventionPageState extends State<InterventionPage> {
       barrierDismissible: false,
       builder: (dialogContext) {
         return AlertDialog(
-          title: const Text('Một chút xác nhận nha'),
-          content: const Text(
-            'Mình không chắc bạn đang mệt hay bối rối. Bạn muốn nghỉ hay xem gợi ý?',
+          title: Text(
+            context.t(vi: 'Một chút xác nhận nha', en: 'Quick confirmation'),
+          ),
+          content: Text(
+            context.t(
+              vi: 'Mình không chắc bạn đang mệt hay bối rối. Bạn muốn nghỉ hay xem gợi ý?',
+              en: 'I\'m not sure whether you are tired or confused. Do you want a break or guidance?',
+            ),
           ),
           actions: [
             TextButton(
@@ -78,7 +97,9 @@ class _InterventionPageState extends State<InterventionPage> {
                 );
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Nghỉ chút nha'),
+              child: Text(
+                context.t(vi: 'Nghỉ chút nha', en: 'Take a short break'),
+              ),
             ),
             ElevatedButton(
               onPressed: () {
@@ -87,7 +108,7 @@ class _InterventionPageState extends State<InterventionPage> {
                 );
                 Navigator.of(dialogContext).pop();
               },
-              child: const Text('Xem gợi ý'),
+              child: Text(context.t(vi: 'Xem gợi ý', en: 'Show guidance')),
             ),
           ],
         );
@@ -146,6 +167,24 @@ class _InterventionPageState extends State<InterventionPage> {
                   child: ListView(
                     children: [
                       const GrowMateTopAppBar(),
+                      const SizedBox(height: 6),
+                      Align(
+                        alignment: Alignment.centerLeft,
+                        child: IconButton(
+                          tooltip: context.t(vi: 'Quay lại', en: 'Back'),
+                          onPressed: () {
+                            if (context.canPop()) {
+                              context.pop();
+                              return;
+                            }
+                            context.go(AppRoutes.home);
+                          },
+                          icon: Icon(
+                            Icons.arrow_back_rounded,
+                            color: theme.colorScheme.primary,
+                          ),
+                        ),
+                      ),
                       if (state.mode == InterventionMode.recovery) ...[
                         const SizedBox(height: 14),
                         SizedBox(
@@ -184,9 +223,12 @@ class _InterventionPageState extends State<InterventionPage> {
                                       ),
                                     ),
                                   ),
-                                  child: const Text(
-                                    'THỜI GIAN HỒI PHỤC',
-                                    style: TextStyle(
+                                  child: Text(
+                                    context.t(
+                                      vi: 'THỜI GIAN HỒI PHỤC',
+                                      en: 'RECOVERY TIME',
+                                    ),
+                                    style: const TextStyle(
                                       color: GrowMateColors.textSecondary,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
@@ -215,18 +257,21 @@ class _InterventionPageState extends State<InterventionPage> {
                               ),
                             ),
                           ),
-                          child: const Row(
+                          child: Row(
                             mainAxisSize: MainAxisSize.min,
-                            children: [
+                            children: <Widget>[
                               Icon(
                                 Icons.eco_rounded,
                                 color: GrowMateColors.success,
                                 size: 18,
                               ),
-                              SizedBox(width: 10),
+                              const SizedBox(width: 10),
                               Text(
-                                'MOOD CHECK',
-                                style: TextStyle(
+                                context.t(
+                                  vi: 'KIỂM TRA TÂM TRẠNG',
+                                  en: 'MOOD CHECK',
+                                ),
+                                style: const TextStyle(
                                   color: GrowMateColors.success,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
@@ -239,7 +284,10 @@ class _InterventionPageState extends State<InterventionPage> {
                       ),
                       const SizedBox(height: 18),
                       Text(
-                        'Mình chọn cách học nhẹ\nnhàng hơn nha?',
+                        context.t(
+                          vi: 'Mình chọn cách học nhẹ\nnhàng hơn nha?',
+                          en: 'Shall we switch to a\ngentler study flow?',
+                        ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineLarge?.copyWith(
                           color: GrowMateColors.primary,
@@ -249,7 +297,10 @@ class _InterventionPageState extends State<InterventionPage> {
                       ),
                       const SizedBox(height: 10),
                       Text(
-                        'Học tập là một hành trình dài, mình đi\nchậm lại một chút cũng được nha. 🌿',
+                        context.t(
+                          vi: 'Học tập là một hành trình dài, mình đi\nchậm lại một chút cũng được nha. 🌿',
+                          en: 'Learning is a long journey, and it is okay\nto slow down a little. 🌿',
+                        ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: GrowMateColors.textSecondary,
@@ -273,9 +324,14 @@ class _InterventionPageState extends State<InterventionPage> {
                       }),
                       const SizedBox(height: 2),
                       ZenButton(
-                        label:
-                            skipOption?.label ??
-                            'Bỏ qua lần này cũng không sao',
+                        label: _localizedOptionLabel(
+                          context,
+                          skipOption,
+                          fallback: context.t(
+                            vi: 'Bỏ qua lần này cũng không sao',
+                            en: 'Skip this time',
+                          ),
+                        ),
                         variant: ZenButtonVariant.text,
                         onPressed: state.isSubmitting || skipOption == null
                             ? null
@@ -303,7 +359,10 @@ class _InterventionPageState extends State<InterventionPage> {
                               ],
                             ),
                             Text(
-                              'Gợi ý từ GrowMate',
+                              context.t(
+                                vi: 'Gợi ý từ GrowMate',
+                                en: 'Suggestion from GrowMate',
+                              ),
                               style: theme.textTheme.titleMedium?.copyWith(
                                 color: GrowMateColors.textSecondary,
                                 fontStyle: FontStyle.italic,
@@ -312,7 +371,10 @@ class _InterventionPageState extends State<InterventionPage> {
                             ),
                             const SizedBox(height: 6),
                             Text(
-                              '"Hôm nay có vẻ bạn đang hơi mệt.\nHãy dành 5 phút nghe một bản nhạc\nkhông lời trước khi bắt đầu nhé."',
+                              context.t(
+                                vi: '"Hôm nay có vẻ bạn đang hơi mệt.\nHãy dành 5 phút nghe một bản nhạc\nkhông lời trước khi bắt đầu nhé."',
+                                en: '"You seem a bit tired today.\nTake 5 minutes to listen to instrumental music\nbefore starting."',
+                              ),
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyLarge?.copyWith(
                                 color: GrowMateColors.textPrimary,
@@ -326,10 +388,27 @@ class _InterventionPageState extends State<InterventionPage> {
                       const SizedBox(height: 18),
                       ZenButton(
                         label: state.feedbackRecorded
-                            ? 'Kết thúc phiên học'
-                            : 'Tiếp tục học ngay',
+                            ? context.t(
+                                vi: 'Kết thúc phiên học',
+                                en: 'Finish this session',
+                              )
+                            : context.t(
+                                vi: 'Tiếp tục học ngay',
+                                en: 'Continue studying now',
+                              ),
                         onPressed: () {
                           if (state.feedbackRecorded) {
+                            final selectedOption = state.options
+                                .where(
+                                  (option) =>
+                                      option.id == state.selectedOptionId,
+                                )
+                                .firstOrNull;
+                            final selectedLabel = _localizedOptionLabel(
+                              context,
+                              selectedOption,
+                              fallback: state.selectedOptionLabel,
+                            );
                             final location = Uri(
                               path: AppRoutes.sessionComplete,
                               queryParameters: <String, String>{
@@ -338,12 +417,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                 'mode': state.mode == InterventionMode.recovery
                                     ? 'recovery'
                                     : 'academic',
-                                'topic':
-                                    state.selectedOptionLabel ??
-                                    'Review Đạo hàm',
-                                'nextAction':
-                                    state.selectedOptionLabel ??
-                                    'Ôn 3 câu nhẹ trước khi vào bài mới',
+                                'topic': selectedLabel,
+                                'nextAction': selectedLabel,
                               },
                             ).toString();
                             context.push(location);
@@ -366,6 +441,44 @@ class _InterventionPageState extends State<InterventionPage> {
         ),
       ),
     );
+  }
+
+  String _localizedOptionLabel(
+    BuildContext context,
+    InterventionOption? option, {
+    String? fallback,
+  }) {
+    if (option == null) {
+      return fallback ??
+          context.t(vi: 'Bỏ qua lần này cũng không sao', en: 'Skip this time');
+    }
+
+    if (!context.isEnglish) {
+      return option.label;
+    }
+
+    final id = option.id.toLowerCase();
+    final type = option.type.toLowerCase();
+
+    if (id == 'skip_once') {
+      return 'Skip this time';
+    }
+
+    if (type.contains('breath') ||
+        type.contains('ground') ||
+        type.contains('recovery')) {
+      return 'Take a short mindful break';
+    }
+
+    if (type.contains('practice')) {
+      return 'Do a lighter practice set';
+    }
+
+    if (type.contains('review') || type.contains('academic')) {
+      return 'Review core concepts gently';
+    }
+
+    return option.label;
   }
 
   String _formatDuration(int totalSeconds) {
@@ -409,7 +522,7 @@ class _InterventionOptionCard extends StatelessWidget {
                 borderRadius: BorderRadius.circular(18),
               ),
               alignment: Alignment.center,
-              child: Icon(icon, color: GrowMateColors.primary, size: 30),
+              child: Icon(icon, color: theme.colorScheme.primary, size: 30),
             ),
             const SizedBox(width: 12),
             Expanded(
@@ -417,7 +530,7 @@ class _InterventionOptionCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
-                    option.label,
+                    _labelByType(context, option),
                     style: theme.textTheme.titleMedium?.copyWith(
                       color: GrowMateColors.textPrimary,
                       fontWeight: FontWeight.w700,
@@ -426,7 +539,7 @@ class _InterventionOptionCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    _descriptionByType(option.type),
+                    _descriptionByType(context, option.type),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: GrowMateColors.textSecondary,
                       height: 1.4,
@@ -471,16 +584,49 @@ class _InterventionOptionCard extends StatelessWidget {
     return const Color(0xFFE4E7FA);
   }
 
-  static String _descriptionByType(String type) {
-    if (type.contains('practice')) {
-      return 'Các câu hỏi vừa sức để bạn lấy lại tự tin.';
+  static String _labelByType(BuildContext context, InterventionOption option) {
+    if (!context.isEnglish) {
+      return option.label;
+    }
+
+    final id = option.id.toLowerCase();
+    final type = option.type.toLowerCase();
+    if (id == 'skip_once') {
+      return 'Skip this time';
     }
     if (type.contains('breath') ||
         type.contains('ground') ||
         type.contains('recovery')) {
-      return 'Thả lỏng vài phút để lấy lại nhịp học nhẹ nhàng.';
+      return 'Take a mindful break';
     }
-    return 'Xem lại các kiến thức cũ nhẹ nhàng.';
+    if (type.contains('practice')) {
+      return 'Do a lighter practice set';
+    }
+    if (type.contains('review') || type.contains('academic')) {
+      return 'Review core concepts';
+    }
+    return option.label;
+  }
+
+  static String _descriptionByType(BuildContext context, String type) {
+    if (type.contains('practice')) {
+      return context.t(
+        vi: 'Các câu hỏi vừa sức để bạn lấy lại tự tin.',
+        en: 'Gentle questions to help you regain confidence.',
+      );
+    }
+    if (type.contains('breath') ||
+        type.contains('ground') ||
+        type.contains('recovery')) {
+      return context.t(
+        vi: 'Thả lỏng vài phút để lấy lại nhịp học nhẹ nhàng.',
+        en: 'Relax for a few minutes to recover a gentle study rhythm.',
+      );
+    }
+    return context.t(
+      vi: 'Xem lại các kiến thức cũ nhẹ nhàng.',
+      en: 'Review previous concepts in a gentle way.',
+    );
   }
 }
 

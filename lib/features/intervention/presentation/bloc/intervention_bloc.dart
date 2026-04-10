@@ -16,6 +16,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     required this.finalMode,
     required List<Map<String, dynamic>> backendInterventionPlan,
     required this.uncertaintyHigh,
+    required this.isEnglish,
     InspectionRuntimeStore? inspectionRuntimeStore,
     NotificationRepository? notificationRepository,
   }) : _interventionRepository = interventionRepository,
@@ -49,6 +50,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
   final String finalMode;
   final List<Map<String, dynamic>> _backendInterventionPlan;
   final bool uncertaintyHigh;
+  final bool isEnglish;
   final InspectionRuntimeStore _inspectionRuntimeStore;
   final NotificationRepository _notificationRepository;
 
@@ -132,12 +134,13 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
       final qValues = data['updatedQValues'] is Map<String, dynamic>
           ? data['updatedQValues'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final backendMessage = response['message']?.toString();
 
       _inspectionRuntimeStore.updateQValues(qValues);
       _inspectionRuntimeStore.addDecision(
         action: 'Intervention Selected: ${event.option.label}',
         reason:
-            response['message']?.toString() ??
+            backendMessage ??
             'Đã ghi nhận phản hồi intervention từ người dùng.',
         source: 'intervention',
       );
@@ -149,16 +152,19 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
           updatedQValues: qValues,
           selectedOptionLabel: event.option.label,
           selectedOptionId: event.option.id,
-          toastMessage:
-              response['message']?.toString() ??
-              'Đã ghi nhận lựa chọn của bạn.',
+          toastMessage: _selectionToastMessage(
+            option: event.option,
+            backendMessage: backendMessage,
+          ),
         ),
       );
     } catch (_) {
       emit(
         state.copyWith(
           isSubmitting: false,
-          toastMessage: 'Mình chưa lưu được phản hồi, thử lại giúp mình nhé.',
+          toastMessage: isEnglish
+              ? 'Unable to save feedback. Please try again.'
+              : 'Mình chưa lưu được phản hồi, thử lại giúp mình nhé.',
         ),
       );
     }
@@ -184,8 +190,12 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
         remainingRestSeconds: nextRestSeconds,
         showUncertaintyPrompt: false,
         toastMessage: event.chooseRecovery
-            ? 'Mình để bạn nghỉ một chút nhé.'
-            : 'Okie, mình đưa gợi ý học nhẹ nhàng luôn nè.',
+            ? (isEnglish
+                  ? 'Take a short break first.'
+                  : 'Mình để bạn nghỉ một chút nhé.')
+            : (isEnglish
+                  ? 'Got it. Let\'s continue with gentle guidance.'
+                  : 'Okie, mình đưa gợi ý học nhẹ nhàng luôn nè.'),
       ),
     );
 
@@ -237,7 +247,9 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
       _stopRecoveryTimer();
       emit(
         state.copyWith(
-          toastMessage: 'Bạn nghỉ đủ rồi, mình quay lại học nhẹ nhàng nha.',
+          toastMessage: isEnglish
+              ? 'Break complete. Let\'s return to a gentle learning flow.'
+              : 'Bạn nghỉ đủ rồi, mình quay lại học nhẹ nhàng nha.',
         ),
       );
     }
@@ -257,7 +269,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
 
           return InterventionOption(
             id: id,
-            label: title,
+            label: _resolveOptionLabel(id: id, title: title, type: type),
             type: type,
             fromBackend: true,
           );
@@ -266,20 +278,32 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
         .toList();
 
     if (mapped.isEmpty) {
-      return const <InterventionOption>[
+      return <InterventionOption>[
         InterventionOption(
           id: 'review_theory',
-          label: 'Ôn lại lý thuyết mượt mà',
+          label: _resolveOptionLabel(
+            id: 'review_theory',
+            title: 'Ôn lại lý thuyết mượt mà',
+            type: 'academic',
+          ),
           type: 'academic',
         ),
         InterventionOption(
           id: 'easier_practice',
-          label: 'Làm bài dễ hơn chút nè',
+          label: _resolveOptionLabel(
+            id: 'easier_practice',
+            title: 'Làm bài dễ hơn chút nè',
+            type: 'academic',
+          ),
           type: 'academic',
         ),
         InterventionOption(
           id: 'skip_once',
-          label: 'Bỏ qua lần này cũng không sao',
+          label: _resolveOptionLabel(
+            id: 'skip_once',
+            title: 'Bỏ qua lần này cũng không sao',
+            type: 'recovery',
+          ),
           type: 'recovery',
         ),
       ];
@@ -288,15 +312,98 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     final withSkip = <InterventionOption>[...mapped];
     if (!withSkip.any((option) => option.id == 'skip_once')) {
       withSkip.add(
-        const InterventionOption(
+        InterventionOption(
           id: 'skip_once',
-          label: 'Bỏ qua lần này cũng không sao',
+          label: _resolveOptionLabel(
+            id: 'skip_once',
+            title: 'Bỏ qua lần này cũng không sao',
+            type: 'recovery',
+          ),
           type: 'recovery',
         ),
       );
     }
 
     return withSkip;
+  }
+
+  String _resolveOptionLabel({
+    required String id,
+    required String title,
+    required String type,
+  }) {
+    if (!isEnglish) {
+      return title;
+    }
+
+    final lowerId = id.toLowerCase();
+    final lowerType = type.toLowerCase();
+
+    if (lowerId == 'skip_once') {
+      return 'Skip this time';
+    }
+    if (lowerType.contains('breath') ||
+        lowerType.contains('ground') ||
+        lowerType.contains('recovery')) {
+      return 'Take a short mindful break';
+    }
+    if (lowerType.contains('practice')) {
+      return 'Do a lighter practice set';
+    }
+    if (lowerType.contains('review') || lowerType.contains('academic')) {
+      return 'Review core concepts gently';
+    }
+
+    return title;
+  }
+
+  String _selectionToastMessage({
+    required InterventionOption option,
+    required String? backendMessage,
+  }) {
+    final normalizedBackend = backendMessage?.trim();
+
+    if (isEnglish) {
+      if (normalizedBackend != null &&
+          normalizedBackend.isNotEmpty &&
+          !_containsVietnameseChars(normalizedBackend)) {
+        return normalizedBackend;
+      }
+
+      if (option.id.toLowerCase() == 'skip_once') {
+        return 'Recorded: skip this round.';
+      }
+      return 'Your choice has been recorded.';
+    }
+
+    if (normalizedBackend != null &&
+        normalizedBackend.isNotEmpty &&
+        _containsVietnameseChars(normalizedBackend)) {
+      return normalizedBackend;
+    }
+
+    final lowerId = option.id.toLowerCase();
+    final lowerType = option.type.toLowerCase();
+
+    if (lowerId == 'skip_once') {
+      return 'Đã ghi nhận bỏ qua lần này.';
+    }
+    if (lowerType.contains('breath') ||
+        lowerType.contains('ground') ||
+        lowerType.contains('recovery')) {
+      return 'Đã ghi nhận lựa chọn nghỉ ngắn để hồi phục.';
+    }
+    if (lowerType.contains('practice')) {
+      return 'Đã ghi nhận lựa chọn làm bài nhẹ hơn.';
+    }
+
+    return 'Đã ghi nhận lựa chọn của bạn.';
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
   }
 
   void _syncRecoveryTimer(InterventionMode mode, int remainingSeconds) {

@@ -24,6 +24,8 @@ void handleTabNavigation(BuildContext context, GrowMateTab tab) {
       context.go(AppRoutes.home);
     case GrowMateTab.progress:
       context.go(AppRoutes.progress);
+    case GrowMateTab.roadmap:
+      context.go(AppRoutes.thptRoadmap);
     case GrowMateTab.profile:
       context.go(AppRoutes.profile);
     case GrowMateTab.settings:

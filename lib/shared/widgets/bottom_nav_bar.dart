@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 
-enum GrowMateTab { today, progress, profile, settings }
+import '../../app/i18n/app_strings.dart';
+
+enum GrowMateTab { today, progress, roadmap, profile, settings }
 
 class GrowMateBottomNavBar extends StatelessWidget {
   const GrowMateBottomNavBar({
@@ -15,6 +17,7 @@ class GrowMateBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final strings = AppStrings.of(context);
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
@@ -32,25 +35,31 @@ class GrowMateBottomNavBar extends StatelessWidget {
       child: Row(
         children: [
           _NavItem(
-            label: 'Trang chủ',
+            label: strings.tabHome,
             icon: Icons.home_rounded,
             selected: currentTab == GrowMateTab.today,
             onTap: () => onTabSelected(GrowMateTab.today),
           ),
           _NavItem(
-            label: 'Tiến trình',
+            label: strings.tabProgress,
             icon: Icons.bar_chart_rounded,
             selected: currentTab == GrowMateTab.progress,
             onTap: () => onTabSelected(GrowMateTab.progress),
           ),
           _NavItem(
-            label: 'Hồ sơ',
+            label: strings.tabRoadmap,
+            icon: Icons.route_rounded,
+            selected: currentTab == GrowMateTab.roadmap,
+            onTap: () => onTabSelected(GrowMateTab.roadmap),
+          ),
+          _NavItem(
+            label: strings.tabProfile,
             icon: Icons.person_rounded,
             selected: currentTab == GrowMateTab.profile,
             onTap: () => onTabSelected(GrowMateTab.profile),
           ),
           _NavItem(
-            label: 'Cài đặt',
+            label: strings.tabSettings,
             icon: Icons.settings_rounded,
             selected: currentTab == GrowMateTab.settings,
             onTap: () => onTabSelected(GrowMateTab.settings),

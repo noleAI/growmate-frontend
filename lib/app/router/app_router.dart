@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../i18n/build_context_i18n.dart';
 import 'app_routes.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../presentation/screens/profile_screen.dart';
@@ -27,6 +28,7 @@ import '../../features/progress/presentation/pages/progress_page.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
+import '../../features/roadmap/presentation/pages/thpt_roadmap_page.dart';
 import '../../features/schedule/presentation/pages/smart_schedule_page.dart';
 import '../../features/session/data/repositories/session_history_repository.dart';
 import '../../features/session/presentation/pages/session_complete_page.dart';
@@ -70,6 +72,7 @@ class AppRouter {
   static const String termsOfServicePath = AppRoutes.termsOfService;
   static const String privacyPolicyPath = AppRoutes.privacyPolicy;
   static const String schedulePath = AppRoutes.schedule;
+  static const String thptRoadmapPath = AppRoutes.thptRoadmap;
   static const String mindfulBreakPath = AppRoutes.mindfulBreak;
 
   static const String quizPath = AppRoutes.quiz;
@@ -228,6 +231,12 @@ class AppRouter {
         path: schedulePath,
         builder: (context, state) {
           return const SmartSchedulePage();
+        },
+      ),
+      GoRoute(
+        path: thptRoadmapPath,
+        builder: (context, state) {
+          return const ThptRoadmapPage();
         },
       ),
       GoRoute(
@@ -411,7 +420,9 @@ class _RouteDataErrorPage extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Điều hướng')),
+      appBar: AppBar(
+        title: Text(context.t(vi: 'Điều hướng', en: 'Navigation')),
+      ),
       body: Center(
         child: Padding(
           padding: const EdgeInsets.all(24),

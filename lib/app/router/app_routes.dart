@@ -17,6 +17,7 @@ class AppRoutes {
   static const String termsOfService = '/legal/terms';
   static const String privacyPolicy = '/legal/privacy';
   static const String schedule = '/schedule';
+  static const String thptRoadmap = '/thpt-roadmap';
   static const String mindfulBreak = '/mindful-break';
 
   static const String quiz = '/quiz';

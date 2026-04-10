@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
@@ -33,24 +34,33 @@ class SessionCompletePage extends StatefulWidget {
 }
 
 class _SessionCompletePageState extends State<SessionCompletePage> {
-  late final Future<_CompletionPayload> _payloadFuture;
+  late Future<_CompletionPayload> _payloadFuture;
+  bool _completionStarted = false;
 
   @override
-  void initState() {
-    super.initState();
-    _payloadFuture = _recordCompletion();
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_completionStarted) {
+      return;
+    }
+    _completionStarted = true;
+    _payloadFuture = _recordCompletion(isEnglish: context.isEnglish);
   }
 
-  Future<_CompletionPayload> _recordCompletion() async {
+  Future<_CompletionPayload> _recordCompletion({
+    required bool isEnglish,
+  }) async {
     final params = widget.queryParameters;
     final submissionId = params['submissionId']?.trim() ?? '';
     final diagnosisId = params['diagnosisId']?.trim() ?? '';
     final topic = (params['topic']?.trim().isNotEmpty ?? false)
         ? params['topic']!.trim()
-        : 'Review Đạo hàm';
+        : (isEnglish ? 'Review derivatives' : 'Review đạo hàm');
     final nextAction = (params['nextAction']?.trim().isNotEmpty ?? false)
         ? params['nextAction']!.trim()
-        : 'Ôn 3 câu nhẹ trước khi vào bài mới';
+        : (isEnglish
+              ? 'Review 3 quick questions before the next session.'
+              : 'Ôn 3 câu nhẹ trước khi vào bài mới');
 
     final sourceKey = (submissionId.isEmpty && diagnosisId.isEmpty)
         ? 'manual_${DateTime.now().millisecondsSinceEpoch}'
@@ -89,7 +99,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
     if (mode == 'recovery' || entry.focusScore < 3.0) {
       await widget.notificationRepository.pushMindfulBreakEvent(
         sourceKey: sourceKey,
-        reason: mode == 'recovery' ? 'mệt mỏi' : 'focus giảm',
+        reason: mode == 'recovery'
+            ? (isEnglish ? 'fatigue' : 'mệt mỏi')
+            : (isEnglish ? 'focus drop' : 'focus giảm'),
       );
     }
 
@@ -123,7 +135,22 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
             return ListView(
               children: [
                 const GrowMateTopAppBar(),
-                const SizedBox(height: 14),
+                const SizedBox(height: 8),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton(
+                    tooltip: context.t(vi: 'Quay lại', en: 'Back'),
+                    onPressed: () {
+                      if (context.canPop()) {
+                        context.pop();
+                        return;
+                      }
+                      context.go(AppRoutes.home);
+                    },
+                    icon: const Icon(Icons.arrow_back_rounded),
+                  ),
+                ),
+                const SizedBox(height: 6),
                 SizedBox(
                   height: 292,
                   child: ZenCard(
@@ -164,7 +191,10 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                 ),
                 const SizedBox(height: 18),
                 Text(
-                  'Hôm nay bạn học\nrất ổn ✨',
+                  context.t(
+                    vi: 'Hôm nay bạn học\nrất ổn ✨',
+                    en: 'You studied\nvery well today ✨',
+                  ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineLarge?.copyWith(
                     color: GrowMateColors.textPrimary,
@@ -187,8 +217,14 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     ),
                     child: Text(
                       entry == null
-                          ? 'ĐANG LƯU KẾT QUẢ...'
-                          : 'ĐÃ LƯU TIMELINE PHIÊN HỌC',
+                          ? context.t(
+                              vi: 'ĐANG LƯU KẾT QUẢ...',
+                              en: 'SAVING RESULTS...',
+                            )
+                          : context.t(
+                              vi: 'ĐÃ LƯU TIMELINE PHIÊN HỌC',
+                              en: 'SESSION TIMELINE SAVED',
+                            ),
                       style: const TextStyle(
                         color: GrowMateColors.success,
                         fontSize: 16,
@@ -219,7 +255,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    'Bạn vừa hoàn thành:\n${entry?.topic ?? 'Review Đạo hàm'}',
+                                    _completionTopicText(context, entry?.topic),
                                     style: theme.textTheme.bodyLarge?.copyWith(
                                       color: GrowMateColors.textPrimary,
                                       height: 1.35,
@@ -228,7 +264,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                                   ),
                                   const SizedBox(height: 8),
                                   Text(
-                                    'Gợi ý ngày mai: ${entry?.nextAction ?? 'Ôn 3 câu nhẹ trước khi vào bài mới'}',
+                                    _suggestionText(context, entry?.nextAction),
                                     style: theme.textTheme.bodyMedium?.copyWith(
                                       color: GrowMateColors.textSecondary,
                                       height: 1.35,
@@ -247,15 +283,18 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _RoundedInfoIcon(
+                      _RoundedInfoIcon(
                         icon: Icons.favorite_rounded,
                         color: Color(0xFFD4E2DF),
-                        iconColor: GrowMateColors.primary,
+                        iconColor: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
                         child: Text(
-                          '"Cảm ơn bạn đã đồng hành cùng mình hôm nay nha!"',
+                          context.t(
+                            vi: '"Cảm ơn bạn đã đồng hành cùng mình hôm nay nha!"',
+                            en: '"Thank you for learning with me today!"',
+                          ),
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: GrowMateColors.textSecondary,
                             height: 1.48,
@@ -274,7 +313,10 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Text(
-                          'Huy hiệu mới mở khóa',
+                          context.t(
+                            vi: 'Huy hiệu mới mở khóa',
+                            en: 'Newly unlocked badges',
+                          ),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -285,9 +327,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                             padding: const EdgeInsets.only(bottom: 8),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.workspace_premium_rounded,
-                                  color: GrowMateColors.primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                   size: 18,
                                 ),
                                 const SizedBox(width: 8),
@@ -307,12 +349,18 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                 ],
                 const SizedBox(height: 20),
                 ZenButton(
-                  label: 'Kết thúc phiên học',
+                  label: context.t(
+                    vi: 'Kết thúc phiên học',
+                    en: 'Finish session',
+                  ),
                   onPressed: () => context.go(AppRoutes.home),
                 ),
                 const SizedBox(height: 14),
                 ZenButton(
-                  label: 'Mindful Break 90 giây',
+                  label: context.t(
+                    vi: 'Nghỉ thở 90 giây',
+                    en: 'Mindful Break 90s',
+                  ),
                   variant: ZenButtonVariant.secondary,
                   onPressed: () {
                     context.go(AppRoutes.mindfulBreak);
@@ -320,7 +368,10 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                 ),
                 const SizedBox(height: 14),
                 ZenButton(
-                  label: 'Xem timeline tuần',
+                  label: context.t(
+                    vi: 'Xem timeline tuần',
+                    en: 'View weekly timeline',
+                  ),
                   variant: ZenButtonVariant.secondary,
                   onPressed: () {
                     context.go('${AppRoutes.progress}?focus=timeline');
@@ -336,6 +387,42 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
         onTabSelected: (tab) => handleTabNavigation(context, tab),
       ),
     );
+  }
+
+  String _completionTopicText(BuildContext context, String? topic) {
+    final trimmed = topic?.trim() ?? '';
+    if (context.isEnglish) {
+      if (trimmed.isEmpty || _containsVietnameseChars(trimmed)) {
+        return 'You just completed:\nReview derivatives';
+      }
+      return 'You just completed:\n$trimmed';
+    }
+
+    if (trimmed.isEmpty || !_containsVietnameseChars(trimmed)) {
+      return 'Bạn vừa hoàn thành:\nÔn đạo hàm';
+    }
+    return 'Bạn vừa hoàn thành:\n$trimmed';
+  }
+
+  String _suggestionText(BuildContext context, String? nextAction) {
+    final trimmed = nextAction?.trim() ?? '';
+    if (context.isEnglish) {
+      if (trimmed.isEmpty || _containsVietnameseChars(trimmed)) {
+        return 'Suggestion for tomorrow: Review 3 quick questions before the next session.';
+      }
+      return 'Suggestion for tomorrow: $trimmed';
+    }
+
+    if (trimmed.isEmpty || !_containsVietnameseChars(trimmed)) {
+      return 'Gợi ý ngày mai: Ôn 3 câu nhẹ trước khi vào bài mới';
+    }
+    return 'Gợi ý ngày mai: $trimmed';
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
   }
 }
 

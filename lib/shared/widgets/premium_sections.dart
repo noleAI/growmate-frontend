@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/i18n/build_context_i18n.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import 'zen_button.dart';
@@ -337,18 +338,21 @@ class AIHero extends StatelessWidget {
                       color: Colors.white.withValues(alpha: 0.22),
                       borderRadius: BorderRadius.circular(999),
                     ),
-                    child: const Row(
+                    child: Row(
                       mainAxisSize: MainAxisSize.min,
                       children: [
-                        Icon(
+                        const Icon(
                           Icons.auto_awesome_rounded,
                           size: 14,
                           color: Color(0xFFE5EDFF),
                         ),
-                        SizedBox(width: 6),
+                        const SizedBox(width: 6),
                         Text(
-                          'AI gợi ý phiên mới',
-                          style: TextStyle(
+                          context.t(
+                            vi: 'AI gợi ý phiên mới',
+                            en: 'AI-suggested session',
+                          ),
+                          style: const TextStyle(
                             color: Color(0xFFF4F8FF),
                             fontWeight: FontWeight.w500,
                             fontSize: 12,

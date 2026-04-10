@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../cubit/inspection_cubit.dart';
@@ -77,20 +78,28 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                     ),
                     const SizedBox(height: 12),
                     SectionHeader(
-                      title: 'AI Insight Panel',
-                      subtitle:
-                          'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
+                      title: context.t(
+                        vi: 'Bảng phân tích AI',
+                        en: 'AI insight panel',
+                      ),
+                      subtitle: context.t(
+                        vi: 'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
+                        en: 'AI insights · Updated ${_formatTimestamp(state.updatedAt)}',
+                      ),
                       trailing: IconButton(
                         onPressed: cubit.refreshNow,
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.refresh_rounded,
-                          color: GrowMateColors.primary,
+                          color: theme.colorScheme.primary,
                         ),
                       ),
                     ),
                     InsightCard(
-                      title: 'AI nhận định',
-                      subtitle: 'Belief distribution theo chủ đề',
+                      title: context.t(vi: 'AI nhận định', en: 'AI beliefs'),
+                      subtitle: context.t(
+                        vi: 'Phân bố niềm tin theo chủ đề',
+                        en: 'Belief distribution by topic',
+                      ),
                       delayMs: 40,
                       child: Column(
                         children: state.beliefs
@@ -98,9 +107,13 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                             .entries
                             .map(
                               (entry) => ProgressBarItem(
-                                label: entry.value.topic,
+                                label: _localizedDynamicText(
+                                  context,
+                                  entry.value.topic,
+                                  fallbackEn: 'Topic ${entry.key + 1}',
+                                ),
                                 value: entry.value.ratio,
-                                color: GrowMateColors.primary,
+                                color: theme.colorScheme.primary,
                                 delayMs: 60 + entry.key * 25,
                               ),
                             )
@@ -109,8 +122,14 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                     ),
                     const SizedBox(height: 12),
                     InsightCard(
-                      title: 'Kế hoạch hành động',
-                      subtitle: 'Plan tree rút gọn cho phiên hiện tại',
+                      title: context.t(
+                        vi: 'Kế hoạch hành động',
+                        en: 'Action plan',
+                      ),
+                      subtitle: context.t(
+                        vi: 'Cây kế hoạch rút gọn cho phiên hiện tại',
+                        en: 'Compact plan tree for the current session',
+                      ),
                       delayMs: 70,
                       child: Column(
                         children: state.planSteps
@@ -132,15 +151,16 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       height: 20,
                                       alignment: Alignment.center,
                                       decoration: BoxDecoration(
-                                        color: GrowMateColors.primaryContainer,
+                                        color:
+                                            theme.colorScheme.primaryContainer,
                                         borderRadius: BorderRadius.circular(
                                           999,
                                         ),
                                       ),
                                       child: Text(
                                         '${entry.key + 1}',
-                                        style: const TextStyle(
-                                          color: GrowMateColors.primary,
+                                        style: TextStyle(
+                                          color: theme.colorScheme.primary,
                                           fontWeight: FontWeight.w700,
                                           fontSize: 11,
                                         ),
@@ -149,7 +169,12 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                     const SizedBox(width: 10),
                                     Expanded(
                                       child: Text(
-                                        entry.value,
+                                        _localizedDynamicText(
+                                          context,
+                                          entry.value,
+                                          fallbackEn:
+                                              'Step ${entry.key + 1} in the current plan',
+                                        ),
                                         style: theme.textTheme.bodyMedium,
                                       ),
                                     ),
@@ -162,8 +187,14 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                     ),
                     const SizedBox(height: 12),
                     InsightCard(
-                      title: 'Mental state',
-                      subtitle: 'Trạng thái hiện tại của người học',
+                      title: context.t(
+                        vi: 'Trạng thái tinh thần',
+                        en: 'Mental state',
+                      ),
+                      subtitle: context.t(
+                        vi: 'Trạng thái hiện tại của người học',
+                        en: 'Current learner state',
+                      ),
                       delayMs: 100,
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -178,7 +209,11 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                               borderRadius: BorderRadius.circular(999),
                             ),
                             child: Text(
-                              state.mentalStateLabel,
+                              _localizedDynamicText(
+                                context,
+                                state.mentalStateLabel,
+                                fallbackEn: 'Stable',
+                              ),
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: GrowMateColors.success,
                                 fontWeight: FontWeight.w700,
@@ -188,7 +223,12 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                           const SizedBox(width: 10),
                           Expanded(
                             child: Text(
-                              state.mentalStateHint,
+                              _localizedDynamicText(
+                                context,
+                                state.mentalStateHint,
+                                fallbackEn:
+                                    'Current learning state inferred from recent AI signals.',
+                              ),
                               style: theme.textTheme.bodyMedium?.copyWith(
                                 color: GrowMateColors.textSecondary,
                               ),
@@ -199,19 +239,31 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                     ),
                     const SizedBox(height: 12),
                     InsightCard(
-                      title: 'Độ tin cậy',
-                      subtitle: 'Model confidence và uncertainty',
+                      title: context.t(
+                        vi: 'Độ tin cậy',
+                        en: 'Confidence metrics',
+                      ),
+                      subtitle: context.t(
+                        vi: 'Độ tin cậy mô hình và độ bất định',
+                        en: 'Model confidence and uncertainty',
+                      ),
                       delayMs: 130,
                       child: Column(
                         children: [
                           ProgressBarItem(
-                            label: 'Model confidence',
+                            label: context.t(
+                              vi: 'Độ tin cậy mô hình',
+                              en: 'Model confidence',
+                            ),
                             value: state.confidenceScore,
                             color: GrowMateColors.success,
                             delayMs: 150,
                           ),
                           ProgressBarItem(
-                            label: 'Aggregate uncertainty',
+                            label: context.t(
+                              vi: 'Độ bất định tổng hợp',
+                              en: 'Aggregate uncertainty',
+                            ),
                             value: state.uncertaintyScore,
                             color: GrowMateColors.warningSoft,
                             delayMs: 180,
@@ -221,15 +273,27 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                     ),
                     const SizedBox(height: 12),
                     InsightCard(
-                      title: 'Q-Value ưu tiên',
-                      subtitle: 'Giá trị chiến lược đang được model ưu tiên',
+                      title: context.t(
+                        vi: 'Q-Value ưu tiên',
+                        en: 'Priority Q-values',
+                      ),
+                      subtitle: context.t(
+                        vi: 'Giá trị chiến lược đang được mô hình ưu tiên',
+                        en: 'Strategy values currently prioritized by the model',
+                      ),
                       delayMs: 160,
                       child: _QValueList(qValues: state.qValues),
                     ),
                     const SizedBox(height: 12),
                     InsightCard(
-                      title: 'Decision log',
-                      subtitle: 'Các quyết định gần nhất',
+                      title: context.t(
+                        vi: 'Nhật ký quyết định',
+                        en: 'Decision log',
+                      ),
+                      subtitle: context.t(
+                        vi: 'Các quyết định gần nhất',
+                        en: 'Most recent decisions',
+                      ),
                       delayMs: 190,
                       child: _DecisionList(entries: state.decisionLogs),
                     ),
@@ -260,8 +324,11 @@ class _QValueList extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (qValues.isEmpty) {
-      return const Text(
-        'Chưa có Q-value mới trong phiên hiện tại.',
+      return Text(
+        context.t(
+          vi: 'Chưa có Q-value mới trong phiên hiện tại.',
+          en: 'No new Q-values in the current session.',
+        ),
         style: TextStyle(
           color: GrowMateColors.textSecondary,
           fontWeight: FontWeight.w600,
@@ -300,7 +367,10 @@ class _DecisionList extends StatelessWidget {
 
     if (entries.isEmpty) {
       return Text(
-        'Chưa có quyết định mới được ghi nhận.',
+        context.t(
+          vi: 'Chưa có quyết định mới được ghi nhận.',
+          en: 'No recent decisions recorded.',
+        ),
         style: theme.textTheme.bodyMedium?.copyWith(
           color: GrowMateColors.textSecondary,
           fontWeight: FontWeight.w600,
@@ -326,7 +396,11 @@ class _DecisionList extends StatelessWidget {
                     children: [
                       Expanded(
                         child: Text(
-                          entry.action,
+                          _localizedDynamicText(
+                            context,
+                            entry.action,
+                            fallbackEn: 'Model decision update',
+                          ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -343,14 +417,22 @@ class _DecisionList extends StatelessWidget {
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    entry.reason,
+                    _localizedDynamicText(
+                      context,
+                      entry.reason,
+                      fallbackEn:
+                          'Decision rationale was updated from current runtime signals.',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: GrowMateColors.textSecondary,
                     ),
                   ),
                   const SizedBox(height: 4),
                   Text(
-                    'Nguồn: ${entry.source}',
+                    context.t(
+                      vi: 'Nguồn: ${entry.source}',
+                      en: 'Source: ${_localizedDynamicText(context, entry.source, fallbackEn: 'runtime')}',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: GrowMateColors.textSecondary,
                     ),
@@ -369,4 +451,29 @@ class _DecisionList extends StatelessWidget {
     final ss = time.second.toString().padLeft(2, '0');
     return '$hh:$mm:$ss';
   }
+}
+
+String _localizedDynamicText(
+  BuildContext context,
+  String value, {
+  required String fallbackEn,
+}) {
+  final trimmed = value.trim();
+  if (!context.isEnglish) {
+    return trimmed;
+  }
+
+  if (trimmed.isEmpty) {
+    return fallbackEn;
+  }
+
+  final hasVietnameseChars = RegExp(
+    r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+  ).hasMatch(trimmed);
+
+  if (hasVietnameseChars) {
+    return fallbackEn;
+  }
+
+  return trimmed;
 }

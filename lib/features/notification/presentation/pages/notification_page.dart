@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_card.dart';
@@ -123,7 +124,7 @@ class _NotificationPageState extends State<NotificationPage> {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Thông báo',
+                  context.t(vi: 'Thông báo', en: 'Notifications'),
                   style: theme.textTheme.headlineSmall?.copyWith(
                     color: GrowMateColors.textPrimary,
                     fontWeight: FontWeight.w800,
@@ -133,7 +134,10 @@ class _NotificationPageState extends State<NotificationPage> {
             ),
             const SizedBox(height: 10),
             Text(
-              'Nhắc học theo lịch và sự kiện can thiệp sẽ xuất hiện tại đây.',
+              context.t(
+                vi: 'Nhắc học theo lịch và sự kiện can thiệp sẽ xuất hiện tại đây.',
+                en: 'Study reminders and intervention events will appear here.',
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: GrowMateColors.textSecondary,
               ),
@@ -156,7 +160,7 @@ class _NotificationPageState extends State<NotificationPage> {
                     Row(
                       children: [
                         Text(
-                          'Hộp thư của bạn',
+                          context.t(vi: 'Hộp thư của bạn', en: 'Your inbox'),
                           style: theme.textTheme.titleMedium?.copyWith(
                             fontWeight: FontWeight.w700,
                           ),
@@ -167,7 +171,12 @@ class _NotificationPageState extends State<NotificationPage> {
                             onPressed: () {
                               widget.notificationRepository.markAllAsRead();
                             },
-                            child: Text('Đánh dấu đã đọc ($unreadCount)'),
+                            child: Text(
+                              context.t(
+                                vi: 'Đánh dấu đã đọc ($unreadCount)',
+                                en: 'Mark all as read ($unreadCount)',
+                              ),
+                            ),
                           ),
                       ],
                     ),
@@ -177,7 +186,10 @@ class _NotificationPageState extends State<NotificationPage> {
                         radius: 18,
                         color: theme.colorScheme.surfaceContainerLow,
                         child: Text(
-                          'Chưa có thông báo mới. GrowMate sẽ nhắc khi tới lịch học hoặc khi có can thiệp quan trọng.',
+                          context.t(
+                            vi: 'Chưa có thông báo mới. GrowMate sẽ nhắc khi tới lịch học hoặc khi có can thiệp quan trọng.',
+                            en: 'No new notifications. GrowMate will remind you when it is study time or when an important intervention is needed.',
+                          ),
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: GrowMateColors.textSecondary,
                             height: 1.4,
@@ -230,7 +242,10 @@ class _NotificationPageState extends State<NotificationPage> {
                                           children: [
                                             Expanded(
                                               child: Text(
-                                                item.title,
+                                                _notificationTitle(
+                                                  context,
+                                                  item,
+                                                ),
                                                 style: theme
                                                     .textTheme
                                                     .titleMedium
@@ -255,7 +270,7 @@ class _NotificationPageState extends State<NotificationPage> {
                                         ),
                                         const SizedBox(height: 6),
                                         Text(
-                                          item.message,
+                                          _notificationMessage(context, item),
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
                                                 color: GrowMateColors
@@ -265,7 +280,10 @@ class _NotificationPageState extends State<NotificationPage> {
                                         ),
                                         const SizedBox(height: 8),
                                         Text(
-                                          _timeAgoLabel(item.createdAt),
+                                          _timeAgoLabel(
+                                            context,
+                                            item.createdAt,
+                                          ),
                                           style: theme.textTheme.bodySmall
                                               ?.copyWith(
                                                 color: GrowMateColors
@@ -311,7 +329,7 @@ class _NotificationPageState extends State<NotificationPage> {
               ),
               const SizedBox(width: 8),
               Text(
-                'Nhắc học theo lịch',
+                context.t(vi: 'Nhắc học theo lịch', en: 'Scheduled reminder'),
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
@@ -325,7 +343,10 @@ class _NotificationPageState extends State<NotificationPage> {
           ),
           const SizedBox(height: 4),
           Text(
-            'Khi tới giờ, GrowMate sẽ tạo nhắc học và deep-link vào phiên luyện tập.',
+            context.t(
+              vi: 'Khi tới giờ, GrowMate sẽ tạo nhắc học và deep-link vào phiên luyện tập.',
+              en: 'At the set time, GrowMate creates a reminder and deep-links to your study session.',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: GrowMateColors.textSecondary,
               height: 1.4,
@@ -356,13 +377,72 @@ class _NotificationPageState extends State<NotificationPage> {
               const SizedBox(width: 10),
               TextButton(
                 onPressed: loading ? null : _pickReminderTime,
-                child: const Text('Đổi giờ nhắc'),
+                child: Text(
+                  context.t(vi: 'Đổi giờ nhắc', en: 'Change reminder time'),
+                ),
               ),
             ],
           ),
         ],
       ),
     );
+  }
+
+  String _notificationTitle(BuildContext context, AppNotification item) {
+    if (!context.isEnglish) {
+      return item.title;
+    }
+
+    switch (item.category) {
+      case 'study_reminder':
+        return 'Today\'s study reminder';
+      case 'intervention':
+        return 'New study intervention';
+      case 'session':
+        return 'Progress updated';
+      case 'wellness':
+        return '90-second mindful break';
+      case 'achievement':
+        return 'New badge unlocked';
+      case 'review':
+        return 'Today\'s review plan is ready';
+      default:
+        return _containsVietnameseChars(item.title)
+            ? 'New notification'
+            : item.title;
+    }
+  }
+
+  String _notificationMessage(BuildContext context, AppNotification item) {
+    if (!context.isEnglish) {
+      return item.message;
+    }
+
+    switch (item.category) {
+      case 'study_reminder':
+        return 'It is review time. Spend 10-15 minutes to maintain your study rhythm.';
+      case 'intervention':
+        return item.targetQuery['mode'] == 'recovery'
+            ? 'AI suggests Recovery Mode to help you regain energy.'
+            : 'AI suggests a short intervention to keep your learning rhythm steady.';
+      case 'session':
+        return 'Your recent session was saved. Check Progress for the next suggested action.';
+      case 'wellness':
+        return 'Take a short mindful break to recover focus and continue gently.';
+      case 'achievement':
+        return 'A new achievement badge has been unlocked.';
+      case 'review':
+        final countMatch = RegExp(r'(\d+)').firstMatch(item.message);
+        final count = countMatch?.group(1);
+        if (count == null) {
+          return 'Topics are due for spaced-repetition review.';
+        }
+        return '$count topic(s) are due for spaced-repetition review.';
+      default:
+        return _containsVietnameseChars(item.message)
+            ? 'Open this notification for more details.'
+            : item.message;
+    }
   }
 
   static IconData _iconForCategory(String category) {
@@ -384,19 +464,34 @@ class _NotificationPageState extends State<NotificationPage> {
     }
   }
 
-  static String _timeAgoLabel(DateTime createdAtUtc) {
+  String _timeAgoLabel(BuildContext context, DateTime createdAtUtc) {
     final now = DateTime.now().toUtc();
     final diff = now.difference(createdAtUtc);
 
     if (diff.inSeconds < 60) {
-      return 'Vừa xong';
+      return context.t(vi: 'Vừa xong', en: 'Just now');
     }
     if (diff.inMinutes < 60) {
-      return '${diff.inMinutes} phút trước';
+      return context.t(
+        vi: '${diff.inMinutes} phút trước',
+        en: '${diff.inMinutes} min ago',
+      );
     }
     if (diff.inHours < 24) {
-      return '${diff.inHours} giờ trước';
+      return context.t(
+        vi: '${diff.inHours} giờ trước',
+        en: '${diff.inHours} hr ago',
+      );
     }
-    return '${diff.inDays} ngày trước';
+    return context.t(
+      vi: '${diff.inDays} ngày trước',
+      en: '${diff.inDays} day(s) ago',
+    );
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
   }
 }

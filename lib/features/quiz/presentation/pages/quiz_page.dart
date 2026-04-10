@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/models/signal_batch.dart';
@@ -28,8 +29,7 @@ class _QuizPageState extends State<QuizPage> {
   static const Duration _totalQuizDuration = Duration(minutes: 12, seconds: 45);
   static const String _questionId = 'math_derivative_001';
   static const int _questionNumber = 4;
-  static const String _questionText =
-      'Tính đạo hàm của hàm số y = 4x³ + 2x² - 5';
+  static const String _questionText = 'Differentiate y = 4x^3 + 2x^2 - 5';
 
   final BehavioralSignalService _signalService =
       BehavioralSignalService.instance;
@@ -191,7 +191,7 @@ class _QuizPageState extends State<QuizPage> {
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
-                            'Giải tích 12',
+                            context.t(vi: 'Giải tích 12', en: 'Calculus 12'),
                             style: theme.textTheme.titleMedium?.copyWith(
                               color: GrowMateColors.primary,
                               fontWeight: FontWeight.w700,
@@ -249,7 +249,10 @@ class _QuizPageState extends State<QuizPage> {
                       child: Column(
                         children: [
                           Text(
-                            'CÂU HỎI SỐ $_questionNumber',
+                            context.t(
+                              vi: 'CÂU HỎI SỐ $_questionNumber',
+                              en: 'QUESTION $_questionNumber',
+                            ),
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: GrowMateColors.textSecondary,
                               fontWeight: FontWeight.w700,
@@ -258,7 +261,10 @@ class _QuizPageState extends State<QuizPage> {
                           ),
                           const SizedBox(height: 10),
                           Text(
-                            'Tính đạo hàm của hàm\nsố',
+                            context.t(
+                              vi: 'Tính đạo hàm của hàm\nsố',
+                              en: 'Differentiate the\nfunction',
+                            ),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.headlineLarge?.copyWith(
                               color: GrowMateColors.textPrimary,
@@ -299,7 +305,10 @@ class _QuizPageState extends State<QuizPage> {
                           onChanged: _onAnswerChanged,
                           textAlign: TextAlign.center,
                           enabled: !isLoading,
-                          hintText: 'Nhập kết quả của bạn…',
+                          hintText: context.t(
+                            vi: 'Nhập kết quả của bạn…',
+                            en: 'Enter your answer…',
+                          ),
                         ),
                       ),
                     ),
@@ -330,7 +339,10 @@ class _QuizPageState extends State<QuizPage> {
                             ),
                           ),
                           child: Text(
-                            'Gợi ý nhỏ: Đạo hàm của x^n là n.x^(n-1)',
+                            context.t(
+                              vi: 'Gợi ý nhỏ: Đạo hàm của x^n là n.x^(n-1)',
+                              en: 'Hint: Derivative of x^n is n.x^(n-1)',
+                            ),
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               color: GrowMateColors.textSecondary,
@@ -343,7 +355,9 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                     const Spacer(),
                     ZenButton(
-                      label: isLoading ? 'Đang gửi...' : 'Gửi bài',
+                      label: isLoading
+                          ? context.t(vi: 'Đang gửi...', en: 'Submitting...')
+                          : context.t(vi: 'Gửi bài', en: 'Submit'),
                       onPressed: isLoading ? null : _submitCurrentAnswer,
                       trailing: const Icon(
                         Icons.arrow_forward_rounded,
@@ -354,7 +368,10 @@ class _QuizPageState extends State<QuizPage> {
                     const SizedBox(height: 22),
                     Center(
                       child: Text(
-                        'CẦN TRỢ GIÚP TỪ AI TUTOR?',
+                        context.t(
+                          vi: 'CẦN TRỢ GIÚP TỪ AI TUTOR?',
+                          en: 'NEED HELP FROM AI TUTOR?',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: GrowMateColors.textSecondary,
                           letterSpacing: 0.6,

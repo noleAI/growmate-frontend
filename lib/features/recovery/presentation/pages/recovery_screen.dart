@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/mood_state_service.dart';
 import '../../../../features/quiz/presentation/cubit/quiz_cubit.dart';
@@ -71,7 +72,7 @@ class _RecoveryScreenState extends State<RecoveryScreen>
             child: Column(
               children: [
                 Text(
-                  'Chế độ phục hồi',
+                  context.t(vi: 'Chế độ phục hồi', en: 'Recovery mode'),
                   style: theme.textTheme.headlineLarge?.copyWith(
                     fontSize: 36,
                     color: const Color(0xFF7C4A14),
@@ -79,7 +80,10 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Hít thở một nhịp ngắn. AI sẽ tự giảm nhịp học để bạn quay lại nhẹ nhàng hơn.',
+                  context.t(
+                    vi: 'Hít thở một nhịp ngắn. AI sẽ tự giảm nhịp học để bạn quay lại nhẹ nhàng hơn.',
+                    en: 'Take a short breathing pause. AI will gently reduce study intensity to help you return smoothly.',
+                  ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: const Color(0xFF8B5E2F),
@@ -91,8 +95,14 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                   animation: _controller,
                   builder: (context, child) {
                     final message = _controller.value > 0.5
-                        ? 'Hít vào thật sâu'
-                        : 'Thở ra chậm rãi';
+                        ? context.t(
+                            vi: 'Hít vào thật sâu',
+                            en: 'Breathe in deeply',
+                          )
+                        : context.t(
+                            vi: 'Thở ra chậm rãi',
+                            en: 'Breathe out slowly',
+                          );
 
                     return Opacity(
                       opacity: _opacity.value,
@@ -135,7 +145,10 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                 const SizedBox(height: 26),
                 if (widget.reason != null && widget.reason!.isNotEmpty)
                   Text(
-                    'Tín hiệu phát hiện: ${_humanizeReason(widget.reason!)}',
+                    context.t(
+                      vi: 'Tín hiệu phát hiện: ${_humanizeReason(context, widget.reason!)}',
+                      en: 'Detected signal: ${_humanizeReason(context, widget.reason!)}',
+                    ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: const Color(0xFF9A6634),
@@ -144,7 +157,10 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                   ),
                 const Spacer(),
                 ZenButton(
-                  label: 'Mình sẵn sàng quay lại',
+                  label: context.t(
+                    vi: 'Mình sẵn sàng quay lại',
+                    en: 'I am ready to return',
+                  ),
                   onPressed: _finishRecovery,
                   backgroundColor: const Color(0xFFF59E0B),
                   shadowColor: const Color(0xFFF59E0B),
@@ -162,12 +178,18 @@ class _RecoveryScreenState extends State<RecoveryScreen>
     );
   }
 
-  String _humanizeReason(String reason) {
+  String _humanizeReason(BuildContext context, String reason) {
     switch (reason) {
       case 'idle_time_high':
-        return 'Mức tập trung giảm trong phiên vừa qua';
+        return context.t(
+          vi: 'Mức tập trung giảm trong phiên vừa qua',
+          en: 'Focus level dropped in the recent session',
+        );
       case 'three_wrong_answers':
-        return 'Bạn vừa gặp chuỗi câu khó liên tiếp';
+        return context.t(
+          vi: 'Bạn vừa gặp chuỗi câu khó liên tiếp',
+          en: 'You hit a sequence of difficult questions',
+        );
       default:
         return reason;
     }

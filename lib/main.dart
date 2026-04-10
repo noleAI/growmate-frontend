@@ -3,10 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
+import 'app/i18n/app_language_cubit.dart';
 import 'app/router/app_router.dart';
 import 'app/theme/app_theme.dart';
+import 'app/theme/color_palette_cubit.dart';
 import 'app/theme/theme_mode_cubit.dart';
 import 'core/network/api_service.dart';
 import 'core/network/mock_api_service.dart';
@@ -76,6 +79,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
   InspectionCubit? _inspectionCubit;
   late final AuthBloc _authBloc;
   ThemeModeCubit? _themeModeCubit;
+  ColorPaletteCubit? _colorPaletteCubit;
+  AppLanguageCubit? _appLanguageCubit;
 
   late final QuizRepository _quizRepository;
   late final DiagnosisRepository _diagnosisRepository;
@@ -102,6 +107,12 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
   ThemeModeCubit get _resolvedThemeModeCubit =>
       _themeModeCubit ??= ThemeModeCubit()..loadThemeMode();
+
+  ColorPaletteCubit get _resolvedColorPaletteCubit =>
+      _colorPaletteCubit ??= ColorPaletteCubit()..loadPalette();
+
+  AppLanguageCubit get _resolvedAppLanguageCubit =>
+      _appLanguageCubit ??= AppLanguageCubit()..loadLanguage();
 
   @override
   void initState() {
@@ -180,6 +191,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
     _inspectionCubit?.close();
     _authBloc.close();
     _themeModeCubit?.close();
+    _colorPaletteCubit?.close();
+    _appLanguageCubit?.close();
     super.dispose();
   }
 
@@ -190,16 +203,35 @@ class _GrowMateAppState extends State<GrowMateApp> {
         BlocProvider<AuthBloc>.value(value: _authBloc),
         BlocProvider<InspectionCubit>.value(value: _resolvedInspectionCubit),
         BlocProvider<ThemeModeCubit>.value(value: _resolvedThemeModeCubit),
+        BlocProvider<ColorPaletteCubit>.value(
+          value: _resolvedColorPaletteCubit,
+        ),
+        BlocProvider<AppLanguageCubit>.value(value: _resolvedAppLanguageCubit),
       ],
       child: BlocBuilder<ThemeModeCubit, ThemeMode>(
         builder: (context, themeMode) {
-          return MaterialApp.router(
-            debugShowCheckedModeBanner: false,
-            title: 'GrowMate',
-            theme: AppTheme.lightTheme,
-            darkTheme: AppTheme.darkTheme,
-            themeMode: themeMode,
-            routerConfig: _appRouter.router,
+          return BlocBuilder<ColorPaletteCubit, AppColorPalette>(
+            builder: (context, palette) {
+              return BlocBuilder<AppLanguageCubit, AppLanguage>(
+                builder: (context, language) {
+                  return MaterialApp.router(
+                    debugShowCheckedModeBanner: false,
+                    title: 'GrowMate',
+                    locale: language.locale,
+                    supportedLocales: const [Locale('vi'), Locale('en')],
+                    localizationsDelegates: const [
+                      GlobalMaterialLocalizations.delegate,
+                      GlobalWidgetsLocalizations.delegate,
+                      GlobalCupertinoLocalizations.delegate,
+                    ],
+                    theme: AppTheme.lightThemeFor(palette),
+                    darkTheme: AppTheme.darkThemeFor(palette),
+                    themeMode: themeMode,
+                    routerConfig: _appRouter.router,
+                  );
+                },
+              );
+            },
           );
         },
       ),

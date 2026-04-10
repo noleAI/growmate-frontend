@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -78,7 +79,10 @@ class _DataExportPageState extends State<DataExportPage> {
                     ),
                     const SizedBox(width: 4),
                     Text(
-                      'Xuất dữ liệu cá nhân',
+                      context.t(
+                        vi: 'Xuất dữ liệu cá nhân',
+                        en: 'Export personal data',
+                      ),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
@@ -87,7 +91,10 @@ class _DataExportPageState extends State<DataExportPage> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  'Tập JSON này bao gồm hồ sơ, lịch sử phiên học và notification của bạn.',
+                  context.t(
+                    vi: 'Tập JSON này bao gồm hồ sơ, lịch sử phiên học và notification của bạn.',
+                    en: 'This JSON payload includes your profile, session history, and notifications.',
+                  ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: GrowMateColors.textSecondary,
                   ),
@@ -108,7 +115,10 @@ class _DataExportPageState extends State<DataExportPage> {
                       borderRadius: BorderRadius.circular(16),
                     ),
                     child: Text(
-                      'Chưa xuất được dữ liệu lúc này. Bạn thử lại sau nhé.',
+                      context.t(
+                        vi: 'Chưa xuất được dữ liệu lúc này. Bạn thử lại sau nhé.',
+                        en: 'Unable to export data right now. Please try again later.',
+                      ),
                       style: theme.textTheme.bodyMedium,
                     ),
                   )
@@ -126,13 +136,20 @@ class _DataExportPageState extends State<DataExportPage> {
                         ScaffoldMessenger.of(context)
                           ..hideCurrentSnackBar()
                           ..showSnackBar(
-                            const SnackBar(
-                              content: Text('Đã sao chép dữ liệu JSON.'),
+                            SnackBar(
+                              content: Text(
+                                context.t(
+                                  vi: 'Đã sao chép dữ liệu JSON.',
+                                  en: 'JSON data copied to clipboard.',
+                                ),
+                              ),
                             ),
                           );
                       },
                       icon: const Icon(Icons.copy_rounded),
-                      label: const Text('Sao chép JSON'),
+                      label: Text(
+                        context.t(vi: 'Sao chép JSON', en: 'Copy JSON'),
+                      ),
                     ),
                   ),
                   const SizedBox(height: 8),

@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/i18n/build_context_i18n.dart';
 import '../../app/router/app_routes.dart';
-import '../../core/constants/colors.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/notification/data/models/app_notification.dart';
@@ -66,13 +66,13 @@ class GrowMateTopAppBar extends StatelessWidget {
   static String _normalizeDisplayName(String? value) {
     final normalized = value?.trim();
     if (normalized == null || normalized.isEmpty) {
-      return 'Bạn';
+      return 'User';
     }
 
     final compact = normalized.replaceAll(RegExp(r'\s+'), ' ');
     final parts = compact.split(' ');
     if (parts.isEmpty) {
-      return 'Bạn';
+      return 'User';
     }
 
     return parts.last;
@@ -99,7 +99,10 @@ class _TopAppBarBody extends StatelessWidget {
       ..showSnackBar(
         SnackBar(
           content: Text(
-            'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
+            context.t(
+              vi: 'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
+              en: 'Avatar customization will be available in a future release.',
+            ),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurface,
               fontWeight: FontWeight.w600,
@@ -166,7 +169,7 @@ class _TopAppBarBody extends StatelessWidget {
                 ),
                 const SizedBox(height: 1),
                 Text(
-                  'Chào $userName',
+                  context.t(vi: 'Chào $userName', en: 'Hi $userName'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
@@ -252,7 +255,7 @@ class _AppBarIconButton extends StatelessWidget {
                     width: 7,
                     height: 7,
                     decoration: BoxDecoration(
-                      color: GrowMateColors.primary,
+                      color: colors.primary,
                       shape: BoxShape.circle,
                       border: Border.all(
                         color: colors.surfaceContainerLow,

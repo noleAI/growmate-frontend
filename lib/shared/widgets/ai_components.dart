@@ -2,6 +2,7 @@ import 'dart:ui';
 
 import 'package:flutter/material.dart';
 
+import '../../app/i18n/build_context_i18n.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import 'zen_button.dart';
@@ -103,13 +104,9 @@ class FadeSlideIn extends StatelessWidget {
 }
 
 class AiThinkingStateCard extends StatelessWidget {
-  const AiThinkingStateCard({
-    super.key,
-    this.message = 'AI đang phân tích tiến độ của bạn...',
-    this.delayMs = 0,
-  });
+  const AiThinkingStateCard({super.key, this.message, this.delayMs = 0});
 
-  final String message;
+  final String? message;
   final int delayMs;
 
   @override
@@ -132,7 +129,11 @@ class AiThinkingStateCard extends StatelessWidget {
             const SizedBox(width: 12),
             Expanded(
               child: Text(
-                message,
+                message ??
+                    context.t(
+                      vi: 'AI đang phân tích tiến độ của bạn...',
+                      en: 'AI is analyzing your progress...',
+                    ),
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: GrowMateColors.textSecondary,
                   fontWeight: FontWeight.w600,
@@ -345,9 +346,9 @@ class AiRecommendationCard extends StatelessWidget {
     required this.reason,
     required this.confidence,
     required this.onStart,
-    this.ctaLabel = 'Bắt đầu phiên gợi ý',
-    this.badgeLabel = 'AI HOẠT ĐỘNG',
-    this.whyLabel = 'Vì sao AI gợi ý?',
+    this.ctaLabel,
+    this.badgeLabel,
+    this.whyLabel,
     this.delayMs = 40,
   });
 
@@ -355,15 +356,23 @@ class AiRecommendationCard extends StatelessWidget {
   final String reason;
   final double confidence;
   final VoidCallback? onStart;
-  final String ctaLabel;
-  final String badgeLabel;
-  final String whyLabel;
+  final String? ctaLabel;
+  final String? badgeLabel;
+  final String? whyLabel;
   final int delayMs;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final safeConfidence = confidence.clamp(0.0, 1.0).toDouble();
+    final resolvedBadgeLabel =
+        badgeLabel ?? context.t(vi: 'AI HOẠT ĐỘNG', en: 'AI ACTIVE');
+    final resolvedWhyLabel =
+        whyLabel ??
+        context.t(vi: 'Vì sao AI gợi ý?', en: 'Why this AI suggestion?');
+    final resolvedCtaLabel =
+        ctaLabel ??
+        context.t(vi: 'Bắt đầu phiên gợi ý', en: 'Start suggested session');
 
     return FadeSlideIn(
       delayMs: delayMs,
@@ -399,7 +408,7 @@ class AiRecommendationCard extends StatelessWidget {
                       ),
                       const SizedBox(width: 5),
                       Text(
-                        badgeLabel,
+                        resolvedBadgeLabel,
                         style: const TextStyle(
                           color: Colors.white,
                           fontWeight: FontWeight.w700,
@@ -420,7 +429,10 @@ class AiRecommendationCard extends StatelessWidget {
                     borderRadius: BorderRadius.circular(999),
                   ),
                   child: Text(
-                    '${(safeConfidence * 100).toStringAsFixed(0)}% độ tin cậy',
+                    context.t(
+                      vi: '${(safeConfidence * 100).toStringAsFixed(0)}% độ tin cậy',
+                      en: '${(safeConfidence * 100).toStringAsFixed(0)}% confidence',
+                    ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: Colors.white,
                       fontWeight: FontWeight.w700,
@@ -431,7 +443,10 @@ class AiRecommendationCard extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              'AI đã chọn bước học tiếp theo',
+              context.t(
+                vi: 'AI đã chọn bước học tiếp theo',
+                en: 'AI selected your next study step',
+              ),
               style: theme.textTheme.titleLarge?.copyWith(
                 color: Colors.white,
                 fontSize: 24,
@@ -449,7 +464,7 @@ class AiRecommendationCard extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              whyLabel,
+              resolvedWhyLabel,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: Colors.white.withValues(alpha: 0.82),
                 fontWeight: FontWeight.w700,
@@ -473,7 +488,7 @@ class AiRecommendationCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        'Độ tự tin',
+                        context.t(vi: 'Độ tự tin', en: 'Confidence'),
                         style: theme.textTheme.bodySmall?.copyWith(
                           color: Colors.white.withValues(alpha: 0.8),
                         ),
@@ -505,7 +520,7 @@ class AiRecommendationCard extends StatelessWidget {
             ),
             const SizedBox(height: 16),
             ZenButton(
-              label: ctaLabel,
+              label: resolvedCtaLabel,
               onPressed: onStart,
               variant: ZenButtonVariant.primary,
               trailing: const Icon(
@@ -529,34 +544,44 @@ class AiResultModal extends StatelessWidget {
     required this.didWell,
     required this.needsImprovement,
     required this.nextStep,
-    this.title = 'Phân tích AI hoàn tất',
+    this.title,
     this.subtitle,
-    this.primaryLabel = 'Áp dụng lộ trình mới',
-    this.secondaryLabel = 'Giữ lộ trình hiện tại',
+    this.primaryLabel,
+    this.secondaryLabel,
   });
 
   final List<String> didWell;
   final List<String> needsImprovement;
   final String nextStep;
-  final String title;
+  final String? title;
   final String? subtitle;
-  final String primaryLabel;
-  final String secondaryLabel;
+  final String? primaryLabel;
+  final String? secondaryLabel;
 
   static Future<AiResultAction?> show(
     BuildContext context, {
     required List<String> didWell,
     required List<String> needsImprovement,
     required String nextStep,
-    String title = 'Phân tích AI hoàn tất',
+    String? title,
     String? subtitle,
-    String primaryLabel = 'Áp dụng lộ trình mới',
-    String secondaryLabel = 'Giữ lộ trình hiện tại',
+    String? primaryLabel,
+    String? secondaryLabel,
   }) {
+    final resolvedTitle =
+        title ??
+        context.t(vi: 'Phân tích AI hoàn tất', en: 'AI analysis complete');
+    final resolvedPrimaryLabel =
+        primaryLabel ??
+        context.t(vi: 'Áp dụng lộ trình mới', en: 'Apply new roadmap');
+    final resolvedSecondaryLabel =
+        secondaryLabel ??
+        context.t(vi: 'Giữ lộ trình hiện tại', en: 'Keep current roadmap');
+
     return showGeneralDialog<AiResultAction>(
       context: context,
       barrierDismissible: false,
-      barrierLabel: 'Kết quả AI',
+      barrierLabel: context.t(vi: 'Kết quả AI', en: 'AI result'),
       barrierColor: Colors.black.withValues(alpha: 0.16),
       transitionDuration: const Duration(milliseconds: 320),
       pageBuilder: (dialogContext, _, _) {
@@ -570,10 +595,10 @@ class AiResultModal extends StatelessWidget {
                   didWell: didWell,
                   needsImprovement: needsImprovement,
                   nextStep: nextStep,
-                  title: title,
+                  title: resolvedTitle,
                   subtitle: subtitle,
-                  primaryLabel: primaryLabel,
-                  secondaryLabel: secondaryLabel,
+                  primaryLabel: resolvedPrimaryLabel,
+                  secondaryLabel: resolvedSecondaryLabel,
                 ),
               ),
             ),
@@ -605,14 +630,29 @@ class AiResultModal extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final resolvedTitle =
+        title ??
+        context.t(vi: 'Phân tích AI hoàn tất', en: 'AI analysis complete');
+    final resolvedPrimaryLabel =
+        primaryLabel ??
+        context.t(vi: 'Áp dụng lộ trình mới', en: 'Apply new roadmap');
+    final resolvedSecondaryLabel =
+        secondaryLabel ??
+        context.t(vi: 'Giữ lộ trình hiện tại', en: 'Keep current roadmap');
     final safeDidWell = didWell.isEmpty
-        ? const <String>[
-            'Bạn giữ được nhịp tập trung ổn định trong bài vừa rồi.',
+        ? <String>[
+            context.t(
+              vi: 'Bạn giữ được nhịp tập trung ổn định trong bài vừa rồi.',
+              en: 'You maintained a stable focus rhythm in the last quiz.',
+            ),
           ]
         : didWell;
     final safeNeedsImprovement = needsImprovement.isEmpty
-        ? const <String>[
-            'Ôn lại một khái niệm cốt lõi trước khi vào bài tiếp theo.',
+        ? <String>[
+            context.t(
+              vi: 'Ôn lại một khái niệm cốt lõi trước khi vào bài tiếp theo.',
+              en: 'Review one core concept before starting the next quiz.',
+            ),
           ]
         : needsImprovement;
 
@@ -648,7 +688,7 @@ class AiResultModal extends StatelessWidget {
                 const SizedBox(width: 12),
                 Expanded(
                   child: Text(
-                    title,
+                    resolvedTitle,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
                       color: GrowMateColors.textPrimary,
@@ -668,21 +708,30 @@ class AiResultModal extends StatelessWidget {
             ],
             const SizedBox(height: 14),
             _AiResultSection(
-              title: 'Bạn làm tốt ở điểm nào',
+              title: context.t(
+                vi: 'Bạn làm tốt ở điểm nào',
+                en: 'What you did well',
+              ),
               lines: safeDidWell,
               color: GrowMateColors.success,
               icon: Icons.check_circle_rounded,
             ),
             const SizedBox(height: 10),
             _AiResultSection(
-              title: 'Điểm cần cải thiện',
+              title: context.t(
+                vi: 'Điểm cần cải thiện',
+                en: 'Needs improvement',
+              ),
               lines: safeNeedsImprovement,
               color: GrowMateColors.warningSoft,
               icon: Icons.tune_rounded,
             ),
             const SizedBox(height: 10),
             _AiResultSection(
-              title: 'Bước tiếp theo AI gợi ý',
+              title: context.t(
+                vi: 'Bước tiếp theo AI gợi ý',
+                en: 'AI suggested next step',
+              ),
               lines: <String>[nextStep],
               color: GrowMateColors.primary,
               icon: Icons.alt_route_rounded,
@@ -697,7 +746,7 @@ class AiResultModal extends StatelessWidget {
                     Navigator.of(context).pop(AiResultAction.keepCurrent);
                   },
                   child: Text(
-                    secondaryLabel,
+                    resolvedSecondaryLabel,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: GrowMateColors.textSecondary,
@@ -707,7 +756,7 @@ class AiResultModal extends StatelessWidget {
                 );
 
                 final primaryAction = ZenButton(
-                  label: primaryLabel,
+                  label: resolvedPrimaryLabel,
                   expanded: !compactLayout,
                   padding: const EdgeInsets.symmetric(
                     horizontal: 18,

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
@@ -40,10 +41,11 @@ class ProfilePage extends StatelessWidget {
           child: BlocBuilder<AuthBloc, AuthState>(
             builder: (context, state) {
               final theme = Theme.of(context);
+              final colors = theme.colorScheme;
               final isLoading = state is AuthLoading;
               final displayName = state is AuthAuthenticated
                   ? state.session.displayName
-                  : 'Bạn';
+                  : context.t(vi: 'Bạn', en: 'You');
               final email = state is AuthAuthenticated
                   ? state.session.email
                   : '';
@@ -52,7 +54,10 @@ class ProfilePage extends StatelessWidget {
                 children: [
                   GrowMateTopAppBar(userName: displayName),
                   const SizedBox(height: GrowMateLayout.sectionGap),
-                  Text('Hồ sơ học tập', style: theme.textTheme.headlineLarge),
+                  Text(
+                    context.t(vi: 'Hồ sơ học tập', en: 'Study profile'),
+                    style: theme.textTheme.headlineLarge,
+                  ),
                   const SizedBox(height: GrowMateLayout.sectionGap),
                   _ProfileBlock(
                     child: Row(
@@ -61,14 +66,12 @@ class ProfilePage extends StatelessWidget {
                           width: 42,
                           height: 42,
                           decoration: BoxDecoration(
-                            color: GrowMateColors.primary.withValues(
-                              alpha: 0.12,
-                            ),
+                            color: colors.primary.withValues(alpha: 0.12),
                             borderRadius: BorderRadius.circular(13),
                           ),
-                          child: const Icon(
+                          child: Icon(
                             Icons.camera_alt_rounded,
-                            color: GrowMateColors.primary,
+                            color: colors.primary,
                             size: 21,
                           ),
                         ),
@@ -103,7 +106,7 @@ class ProfilePage extends StatelessWidget {
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGapLg),
                   _ProfileBlock(
-                    title: 'Năm học / Lớp',
+                    title: context.t(vi: 'Năm học / Lớp', en: 'Grade / level'),
                     child: Container(
                       width: double.infinity,
                       padding: const EdgeInsets.symmetric(
@@ -117,7 +120,10 @@ class ProfilePage extends StatelessWidget {
                       child: Row(
                         children: [
                           Text(
-                            'Đại học năm 1',
+                            context.t(
+                              vi: 'Đại học năm 1',
+                              en: 'University year 1',
+                            ),
                             style: theme.textTheme.bodyLarge?.copyWith(
                               fontWeight: FontWeight.w500,
                             ),
@@ -132,24 +138,45 @@ class ProfilePage extends StatelessWidget {
                     ),
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGapLg),
-                  const _ProfileBlock(
-                    title: 'Lĩnh vực học tập',
+                  _ProfileBlock(
+                    title: context.t(
+                      vi: 'Lĩnh vực học tập',
+                      en: 'Learning subjects',
+                    ),
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,
                       children: [
-                        _SubjectChip(label: 'Toán', selected: true),
-                        _SubjectChip(label: 'Vật lý'),
-                        _SubjectChip(label: 'Hóa học'),
-                        _SubjectChip(label: 'Ngữ văn'),
-                        _SubjectChip(label: 'Tiếng Anh'),
-                        _SubjectChip(label: 'Sinh học'),
+                        _SubjectChip(
+                          label: context.t(vi: 'Toán', en: 'Mathematics'),
+                          selected: true,
+                        ),
+                        _SubjectChip(
+                          label: context.t(vi: 'Vật lý', en: 'Physics'),
+                        ),
+                        _SubjectChip(
+                          label: context.t(vi: 'Hóa học', en: 'Chemistry'),
+                        ),
+                        _SubjectChip(
+                          label: context.t(vi: 'Ngữ văn', en: 'Literature'),
+                        ),
+                        _SubjectChip(
+                          label: context.t(vi: 'Tiếng Anh', en: 'English'),
+                        ),
+                        _SubjectChip(
+                          label: context.t(vi: 'Sinh học', en: 'Biology'),
+                        ),
                       ],
                     ),
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGapLg),
                   ZenButton(
-                    label: isLoading ? 'Đang đăng xuất...' : 'Đăng xuất',
+                    label: isLoading
+                        ? context.t(
+                            vi: 'Đang đăng xuất...',
+                            en: 'Signing out...',
+                          )
+                        : context.t(vi: 'Đăng xuất', en: 'Log out'),
                     variant: ZenButtonVariant.secondary,
                     backgroundColor: GrowMateColors.surfaceContainerLow,
                     onPressed: isLoading
@@ -166,7 +193,7 @@ class ProfilePage extends StatelessWidget {
                             child: CircularProgressIndicator(
                               strokeWidth: 2,
                               valueColor: AlwaysStoppedAnimation<Color>(
-                                GrowMateColors.primary,
+                                Colors.white,
                               ),
                             ),
                           )
@@ -240,6 +267,8 @@ class _SubjectChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
     return Container(
       padding: const EdgeInsets.symmetric(
         horizontal: GrowMateLayout.space12,
@@ -247,16 +276,14 @@ class _SubjectChip extends StatelessWidget {
       ),
       decoration: BoxDecoration(
         color: selected
-            ? GrowMateColors.primary.withValues(alpha: 0.15)
+            ? colors.primary.withValues(alpha: 0.15)
             : GrowMateColors.backgroundSoft,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: selected
-              ? GrowMateColors.primaryDark
-              : GrowMateColors.textPrimary,
+          color: selected ? colors.primary : GrowMateColors.textPrimary,
           fontWeight: FontWeight.w500,
         ),
       ),

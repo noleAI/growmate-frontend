@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -34,7 +35,7 @@ class TermsOfServicePage extends StatelessWidget {
                 ),
                 const SizedBox(width: 4),
                 Text(
-                  'Điều khoản sử dụng',
+                  context.t(vi: 'Điều khoản sử dụng', en: 'Terms of service'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                     color: GrowMateColors.textPrimary,
@@ -44,29 +45,54 @@ class TermsOfServicePage extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             _TermSection(
-              title: '1. Phạm vi dịch vụ',
-              content:
-                  'GrowMate cung cấp công cụ hỗ trợ học tập bằng AI và không thay thế hoàn toàn giáo viên hoặc chuyên gia tư vấn.',
+              title: context.t(
+                vi: '1. Phạm vi dịch vụ',
+                en: '1. Service scope',
+              ),
+              content: context.t(
+                vi: 'GrowMate cung cấp công cụ hỗ trợ học tập bằng AI và không thay thế hoàn toàn giáo viên hoặc chuyên gia tư vấn.',
+                en: 'GrowMate provides AI-assisted learning tools and does not fully replace teachers or professional advisors.',
+              ),
             ),
             _TermSection(
-              title: '2. Trách nhiệm người dùng',
-              content:
-                  'Bạn chịu trách nhiệm bảo mật thông tin đăng nhập và cung cấp dữ liệu trung thực để hệ thống đưa gợi ý phù hợp.',
+              title: context.t(
+                vi: '2. Trách nhiệm người dùng',
+                en: '2. User responsibilities',
+              ),
+              content: context.t(
+                vi: 'Bạn chịu trách nhiệm bảo mật thông tin đăng nhập và cung cấp dữ liệu trung thực để hệ thống đưa gợi ý phù hợp.',
+                en: 'You are responsible for securing login credentials and providing truthful data so the system can deliver relevant guidance.',
+              ),
             ),
             _TermSection(
-              title: '3. Hành vi không được phép',
-              content:
-                  'Không được sử dụng ứng dụng vào mục đích vi phạm pháp luật, gây hại hoặc cố ý làm sai lệch hệ thống đánh giá.',
+              title: context.t(
+                vi: '3. Hành vi không được phép',
+                en: '3. Prohibited behavior',
+              ),
+              content: context.t(
+                vi: 'Không được sử dụng ứng dụng vào mục đích vi phạm pháp luật, gây hại hoặc cố ý làm sai lệch hệ thống đánh giá.',
+                en: 'Do not use the app for unlawful purposes, harmful actions, or intentionally manipulating the evaluation system.',
+              ),
             ),
             _TermSection(
-              title: '4. Giới hạn trách nhiệm',
-              content:
-                  'GrowMate nỗ lực đảm bảo độ chính xác cao nhưng không cam kết tuyệt đối cho mọi tình huống học tập.',
+              title: context.t(
+                vi: '4. Giới hạn trách nhiệm',
+                en: '4. Limitation of liability',
+              ),
+              content: context.t(
+                vi: 'GrowMate nỗ lực đảm bảo độ chính xác cao nhưng không cam kết tuyệt đối cho mọi tình huống học tập.',
+                en: 'GrowMate strives for high accuracy but does not guarantee absolute correctness for every learning scenario.',
+              ),
             ),
             _TermSection(
-              title: '5. Cập nhật điều khoản',
-              content:
-                  'Điều khoản có thể được cập nhật để phù hợp với thay đổi sản phẩm hoặc pháp lý. Phiên bản mới sẽ được thông báo trong ứng dụng.',
+              title: context.t(
+                vi: '5. Cập nhật điều khoản',
+                en: '5. Terms updates',
+              ),
+              content: context.t(
+                vi: 'Điều khoản có thể được cập nhật để phù hợp với thay đổi sản phẩm hoặc pháp lý. Phiên bản mới sẽ được thông báo trong ứng dụng.',
+                en: 'These terms may be updated to reflect product or legal changes. New versions will be announced in the app.',
+              ),
             ),
           ],
         ),

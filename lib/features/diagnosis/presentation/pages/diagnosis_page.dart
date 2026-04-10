@@ -158,9 +158,9 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               ],
                             ),
                             alignment: Alignment.center,
-                            child: const Icon(
+                            child: Icon(
                               Icons.psychology_alt_rounded,
-                              color: GrowMateColors.primary,
+                              color: theme.colorScheme.primary,
                               size: 56,
                             ),
                           ),
@@ -204,9 +204,9 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                                       .withValues(alpha: 0.6),
                                 ),
                                 alignment: Alignment.center,
-                                child: const Icon(
+                                child: Icon(
                                   Icons.analytics_rounded,
-                                  color: GrowMateColors.primary,
+                                  color: theme.colorScheme.primary,
                                 ),
                               ),
                               const SizedBox(width: 12),
@@ -490,6 +490,7 @@ class _TipBento extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
 
     return ZenCard(
       radius: 24,
@@ -497,7 +498,7 @@ class _TipBento extends StatelessWidget {
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Icon(icon, color: GrowMateColors.primary, size: 22),
+          Icon(icon, color: colors.primary, size: 22),
           const SizedBox(width: 10),
           Expanded(
             child: Text.rich(

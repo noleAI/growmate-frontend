@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/ai_components.dart';
@@ -81,8 +82,13 @@ class _ResultScreenState extends State<ResultScreen> {
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
                   ..showSnackBar(
-                    const SnackBar(
-                      content: Text('Mình chuyển bạn sang bước can thiệp nhé.'),
+                    SnackBar(
+                      content: Text(
+                        context.t(
+                          vi: 'Mình chuyển bạn sang bước can thiệp nhé.',
+                          en: 'Moving you to the intervention step.',
+                        ),
+                      ),
                     ),
                   );
 
@@ -140,8 +146,14 @@ class _ResultScreenState extends State<ResultScreen> {
               final showOverlay =
                   readyState.isAnalyzingFeedback || _showDecisionAnalyzing;
               final overlayMessage = _showDecisionAnalyzing
-                  ? 'Đang phân tích hiệu suất của bạn...'
-                  : 'AI đang xử lý phản hồi của bạn...';
+                  ? context.t(
+                      vi: 'Đang phân tích hiệu suất của bạn...',
+                      en: 'Analyzing your performance...',
+                    )
+                  : context.t(
+                      vi: 'AI đang xử lý phản hồi của bạn...',
+                      en: 'AI is processing your feedback...',
+                    );
 
               return Stack(
                 children: [
@@ -234,11 +246,35 @@ class _ResultScreenState extends State<ResultScreen> {
 
       final action = await AiResultModal.show(
         context,
-        didWell: result.strengths.take(2).toList(growable: false),
-        needsImprovement: result.needsReview.take(2).toList(growable: false),
-        nextStep: result.nextSuggestedTopic,
-        subtitle:
-            'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(result.riskLevel)}',
+        didWell: result.strengths
+            .take(2)
+            .map(
+              (item) => _localizedDynamicText(
+                context,
+                item,
+                fallbackEn: 'You maintained a stable study rhythm.',
+              ),
+            )
+            .toList(growable: false),
+        needsImprovement: result.needsReview
+            .take(2)
+            .map(
+              (item) => _localizedDynamicText(
+                context,
+                item,
+                fallbackEn: 'Review one core concept before moving forward.',
+              ),
+            )
+            .toList(growable: false),
+        nextStep: _localizedDynamicText(
+          context,
+          result.nextSuggestedTopic,
+          fallbackEn: 'Continue with one focused review topic.',
+        ),
+        subtitle: context.t(
+          vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(context, result.riskLevel)}',
+          en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabel(context, result.riskLevel)}',
+        ),
       );
 
       if (!mounted || action == null) {
@@ -260,14 +296,14 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
-  String _riskLabel(String riskLevel) {
+  String _riskLabel(BuildContext context, String riskLevel) {
     switch (riskLevel.toLowerCase()) {
       case 'high':
-        return 'CAO';
+        return context.t(vi: 'CAO', en: 'HIGH');
       case 'medium':
-        return 'TRUNG BÌNH';
+        return context.t(vi: 'TRUNG BÌNH', en: 'MEDIUM');
       case 'low':
-        return 'THẤP';
+        return context.t(vi: 'THẤP', en: 'LOW');
       default:
         return riskLevel.toUpperCase();
     }
@@ -290,6 +326,31 @@ class _ResultScreenState extends State<ResultScreen> {
   }
 }
 
+String _localizedDynamicText(
+  BuildContext context,
+  String value, {
+  required String fallbackEn,
+}) {
+  final trimmed = value.trim();
+  if (!context.isEnglish) {
+    return trimmed;
+  }
+
+  if (trimmed.isEmpty) {
+    return fallbackEn;
+  }
+
+  final hasVietnameseChars = RegExp(
+    r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+  ).hasMatch(trimmed);
+
+  if (hasVietnameseChars) {
+    return fallbackEn;
+  }
+
+  return trimmed;
+}
+
 class _ResultContent extends StatelessWidget {
   const _ResultContent({required this.state});
 
@@ -306,7 +367,7 @@ class _ResultContent extends StatelessWidget {
           const GrowMateTopAppBar(),
           const SizedBox(height: 32),
           Text(
-            'Kết quả phân tích AI',
+            context.t(vi: 'Kết quả phân tích AI', en: 'AI analysis result'),
             style: theme.textTheme.headlineLarge?.copyWith(
               fontSize: 40,
               height: 1.05,
@@ -314,7 +375,10 @@ class _ResultContent extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'AI vừa hoàn tất quyết định và cập nhật lộ trình tiếp theo.',
+            context.t(
+              vi: 'AI vừa hoàn tất quyết định và cập nhật lộ trình tiếp theo.',
+              en: 'AI has completed the decision and updated your next roadmap.',
+            ),
             style: theme.textTheme.bodyLarge?.copyWith(
               color: GrowMateColors.textSecondary,
               height: 1.45,
@@ -348,9 +412,9 @@ class _ResultContent extends StatelessWidget {
                     color: Colors.white,
                     borderRadius: BorderRadius.circular(16),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.psychology_alt_rounded,
-                    color: GrowMateColors.primary,
+                    color: theme.colorScheme.primary,
                     size: 30,
                   ),
                 ),
@@ -360,7 +424,11 @@ class _ResultContent extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(
-                        result.headline,
+                        _localizedDynamicText(
+                          context,
+                          result.headline,
+                          fallbackEn: 'Learning snapshot',
+                        ),
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: GrowMateColors.primaryDark,
                           fontSize: 30,
@@ -369,7 +437,10 @@ class _ResultContent extends StatelessWidget {
                       ),
                       const SizedBox(height: 6),
                       Text(
-                        'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(result.riskLevel)}',
+                        context.t(
+                          vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(context, result.riskLevel)}',
+                          en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabel(context, result.riskLevel)}',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: GrowMateColors.textSecondary,
                           fontWeight: FontWeight.w700,
@@ -383,60 +454,99 @@ class _ResultContent extends StatelessWidget {
           ),
           const SizedBox(height: 24),
           Section(
-            title: 'Tóm tắt chẩn đoán',
-            subtitle: 'Điều gì đang diễn ra và AI đề xuất gì ngay bây giờ',
+            title: context.t(vi: 'Tóm tắt chẩn đoán', en: 'Diagnosis summary'),
+            subtitle: context.t(
+              vi: 'Điều gì đang diễn ra và AI đề xuất gì ngay bây giờ',
+              en: 'What is happening now and what AI suggests next',
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  result.gapAnalysis,
+                  _localizedDynamicText(
+                    context,
+                    result.gapAnalysis,
+                    fallbackEn:
+                        'AI identified a key gap and prepared a focused next step for your upcoming session.',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
                 ),
                 const SizedBox(height: 14),
                 _PointRow(
                   icon: Icons.check_circle_rounded,
                   color: GrowMateColors.success,
-                  label: 'Đã vững',
-                  value: result.strengths.first,
+                  label: context.t(vi: 'Đã vững', en: 'Strong area'),
+                  value: _localizedDynamicText(
+                    context,
+                    result.strengths.first,
+                    fallbackEn: 'Fundamental rules and stability',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _PointRow(
                   icon: Icons.warning_rounded,
                   color: GrowMateColors.warningSoft,
-                  label: 'Cần củng cố',
-                  value: result.needsReview.first,
+                  label: context.t(
+                    vi: 'Cần củng cố',
+                    en: 'Needs reinforcement',
+                  ),
+                  value: _localizedDynamicText(
+                    context,
+                    result.needsReview.first,
+                    fallbackEn: 'Apply concepts in timed questions',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _PointRow(
                   icon: Icons.alt_route_rounded,
-                  color: GrowMateColors.primary,
-                  label: 'Bước tiếp theo',
-                  value: result.nextSuggestedTopic,
+                  color: theme.colorScheme.primary,
+                  label: context.t(vi: 'Bước tiếp theo', en: 'Next step'),
+                  value: _localizedDynamicText(
+                    context,
+                    result.nextSuggestedTopic,
+                    fallbackEn: 'A focused review topic for the next session',
+                  ),
                 ),
               ],
             ),
           ),
           const SizedBox(height: 24),
           Section(
-            title: 'Minh bạch quyết định AI',
-            subtitle: 'Vì sao AI đưa ra lộ trình này',
+            title: context.t(
+              vi: 'Minh bạch quyết định AI',
+              en: 'AI decision transparency',
+            ),
+            subtitle: context.t(
+              vi: 'Vì sao AI đưa ra lộ trình này',
+              en: 'Why AI chose this roadmap',
+            ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _HintLine(
                   icon: Icons.visibility_rounded,
-                  text: result.diagnosisReason,
+                  text: _localizedDynamicText(
+                    context,
+                    result.diagnosisReason,
+                    fallbackEn:
+                        'The recommendation is based on confidence, review gaps, and recent learning behavior signals.',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _HintLine(
                   icon: Icons.flag_rounded,
-                  text: 'Lỗ hổng ưu tiên: ${result.needsReview.first}',
+                  text: context.t(
+                    vi: 'Lỗ hổng ưu tiên: ${_localizedDynamicText(context, result.needsReview.first, fallbackEn: 'Vận dụng khái niệm vào câu hỏi tính giờ')}',
+                    en: 'Priority gap: ${_localizedDynamicText(context, result.needsReview.first, fallbackEn: 'Applying concepts in timed questions')}',
+                  ),
                 ),
                 const SizedBox(height: 10),
                 _HintLine(
                   icon: Icons.update_rounded,
-                  text:
-                      'Khoảnh khắc quyết định AI được kích hoạt sau mỗi bài hoàn thành.',
+                  text: context.t(
+                    vi: 'Khoảnh khắc quyết định AI được kích hoạt sau mỗi bài hoàn thành.',
+                    en: 'The AI decision moment is triggered after each completed quiz.',
+                  ),
                 ),
               ],
             ),
@@ -447,14 +557,14 @@ class _ResultContent extends StatelessWidget {
     );
   }
 
-  String _riskLabel(String riskLevel) {
+  String _riskLabel(BuildContext context, String riskLevel) {
     switch (riskLevel.toLowerCase()) {
       case 'high':
-        return 'CAO';
+        return context.t(vi: 'CAO', en: 'HIGH');
       case 'medium':
-        return 'TRUNG BÌNH';
+        return context.t(vi: 'TRUNG BÌNH', en: 'MEDIUM');
       case 'low':
-        return 'THẤP';
+        return context.t(vi: 'THẤP', en: 'LOW');
       default:
         return riskLevel.toUpperCase();
     }
@@ -522,7 +632,7 @@ class _HintLine extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: GrowMateColors.primary),
+        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
@@ -545,13 +655,19 @@ class _ResultLoadingView extends StatelessWidget {
   Widget build(BuildContext context) {
     return ZenPageContainer(
       child: Column(
-        children: const [
-          GrowMateTopAppBar(),
-          Spacer(),
+        children: [
+          const GrowMateTopAppBar(),
+          const Spacer(),
           Section(
-            title: 'Đang tổng hợp kết quả',
-            subtitle: 'AI đang phân tích hiệu suất của bạn...',
-            child: Center(
+            title: context.t(
+              vi: 'Đang tổng hợp kết quả',
+              en: 'Compiling result',
+            ),
+            subtitle: context.t(
+              vi: 'AI đang phân tích hiệu suất của bạn...',
+              en: 'AI is analyzing your performance...',
+            ),
+            child: const Center(
               child: SizedBox(
                 width: 30,
                 height: 30,
@@ -559,7 +675,7 @@ class _ResultLoadingView extends StatelessWidget {
               ),
             ),
           ),
-          Spacer(),
+          const Spacer(),
         ],
       ),
     );
@@ -580,9 +696,15 @@ class _ResultErrorView extends StatelessWidget {
           const GrowMateTopAppBar(),
           const SizedBox(height: 20),
           Section(
-            title: 'Không tải được kết quả',
+            title: context.t(
+              vi: 'Không tải được kết quả',
+              en: 'Unable to load result',
+            ),
             subtitle: message,
-            child: ZenButton(label: 'Thử lại', onPressed: onRetry),
+            child: ZenButton(
+              label: context.t(vi: 'Thử lại', en: 'Retry'),
+              onPressed: onRetry,
+            ),
           ),
         ],
       ),

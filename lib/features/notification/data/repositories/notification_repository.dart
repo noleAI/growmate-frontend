@@ -15,6 +15,7 @@ class NotificationRepository {
   static const String _notificationsKey = 'notifications_v1';
   static const String _reminderSettingsKey = 'study_reminder_settings_v1';
   static const String _lastReminderDayKey = 'study_reminder_last_day_v1';
+  static const String _appLanguageKey = 'app_language';
 
   final StreamController<List<AppNotification>> _controller =
       StreamController<List<AppNotification>>.broadcast();
@@ -194,11 +195,20 @@ class NotificationRepository {
       return;
     }
 
+    final isEnglish = _isEnglishLanguage(prefs);
+
     await addNotification(
       category: 'study_reminder',
-      title: 'Nhắc học theo lịch hôm nay',
-      message:
-          'Đến giờ ôn tập rồi nè. Dành 10-15 phút để giữ nhịp học đều nhé.',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Nhắc học theo lịch hôm nay',
+        en: 'Today\'s study reminder',
+      ),
+      message: _pick(
+        isEnglish: isEnglish,
+        vi: 'Đến giờ ôn tập rồi nè. Dành 10-15 phút để giữ nhịp học đều nhé.',
+        en: 'It is review time. Spend 10-15 minutes to maintain your study rhythm.',
+      ),
       targetRoute: AppRoutes.quiz,
       dedupeKey: 'study-reminder-$dayKey',
     );
@@ -210,13 +220,28 @@ class NotificationRepository {
     required String submissionId,
     required String diagnosisId,
     required String mode,
-  }) {
-    return addNotification(
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isEnglish = _isEnglishLanguage(prefs);
+
+    await addNotification(
       category: 'intervention',
-      title: 'Can thiệp học tập mới',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Can thiệp học tập mới',
+        en: 'New study intervention',
+      ),
       message: mode == 'recovery'
-          ? 'AI đề xuất Recovery Mode để bạn lấy lại năng lượng.'
-          : 'AI đề xuất một can thiệp ngắn để giữ nhịp học.',
+          ? _pick(
+              isEnglish: isEnglish,
+              vi: 'AI đề xuất chế độ phục hồi để bạn lấy lại năng lượng.',
+              en: 'AI suggests Recovery Mode to help you regain energy.',
+            )
+          : _pick(
+              isEnglish: isEnglish,
+              vi: 'AI đề xuất một can thiệp ngắn để giữ nhịp học.',
+              en: 'AI suggests a short intervention to keep your learning rhythm steady.',
+            ),
       targetRoute: AppRoutes.intervention,
       targetQuery: <String, String>{
         'submissionId': submissionId,
@@ -232,11 +257,30 @@ class NotificationRepository {
     required String topic,
     required String nextAction,
     required String sourceKey,
-  }) {
-    return addNotification(
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isEnglish = _isEnglishLanguage(prefs);
+    final trimmedNextAction = nextAction.trim();
+    final safeNextActionEn = trimmedNextAction.isEmpty
+        ? null
+        : (_containsVietnameseChars(trimmedNextAction)
+              ? null
+              : trimmedNextAction);
+
+    await addNotification(
       category: 'session',
-      title: 'Tiến trình vừa được cập nhật',
-      message: 'Phiên "$topic" đã lưu xong. Gợi ý ngày mai: $nextAction',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Tiến trình vừa được cập nhật',
+        en: 'Progress updated',
+      ),
+      message: _pick(
+        isEnglish: isEnglish,
+        vi: 'Phiên "$topic" đã lưu xong. Mở Tiến trình để xem gợi ý cho ngày mai.',
+        en: safeNextActionEn == null
+            ? 'Your latest session was saved. Check Progress for the next suggested action.'
+            : 'Your latest session was saved. Suggested next action: $safeNextActionEn',
+      ),
       targetRoute: AppRoutes.progress,
       targetQuery: const <String, String>{'focus': 'weekly-plan'},
       dedupeKey: 'session-complete-$sourceKey',
@@ -246,15 +290,43 @@ class NotificationRepository {
   Future<void> pushMindfulBreakEvent({
     required String sourceKey,
     String? reason,
-  }) {
+  }) async {
     final normalizedReason = reason?.trim();
+    final prefs = await SharedPreferences.getInstance();
+    final isEnglish = _isEnglishLanguage(prefs);
+    final safeReasonEn = (normalizedReason == null || normalizedReason.isEmpty)
+        ? null
+        : (_containsVietnameseChars(normalizedReason)
+              ? null
+              : normalizedReason);
+    final safeReasonVi = (normalizedReason == null || normalizedReason.isEmpty)
+        ? null
+        : (_containsVietnameseChars(normalizedReason)
+              ? normalizedReason
+              : null);
 
-    return addNotification(
+    await addNotification(
       category: 'wellness',
-      title: 'Đã đến lúc nghỉ 90 giây',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Đã đến lúc nghỉ 90 giây',
+        en: 'Time for a 90-second break',
+      ),
       message: normalizedReason == null || normalizedReason.isEmpty
-          ? 'Mình đề xuất một mindful break ngắn để bạn hồi phục nhịp tập trung.'
-          : 'Mình phát hiện dấu hiệu $normalizedReason, bạn nghỉ 90 giây nhé.',
+          ? _pick(
+              isEnglish: isEnglish,
+              vi: 'Mình đề xuất một khoảng nghỉ thở ngắn để bạn hồi phục nhịp tập trung.',
+              en: 'Take a short mindful break to restore your focus rhythm.',
+            )
+          : _pick(
+              isEnglish: isEnglish,
+              vi: safeReasonVi == null
+                  ? 'Mình phát hiện dấu hiệu quá tải, bạn nghỉ 90 giây nhé.'
+                  : 'Mình phát hiện dấu hiệu $safeReasonVi, bạn nghỉ 90 giây nhé.',
+              en: safeReasonEn == null
+                  ? 'Detected overload signals. Take a 90-second break.'
+                  : 'Detected signal "$safeReasonEn". Take a 90-second break.',
+            ),
       targetRoute: AppRoutes.mindfulBreak,
       dedupeKey: 'mindful-break-$sourceKey',
     );
@@ -263,11 +335,22 @@ class NotificationRepository {
   Future<void> pushBadgeUnlockedEvent({
     required String badgeId,
     required String badgeTitle,
-  }) {
-    return addNotification(
+  }) async {
+    final prefs = await SharedPreferences.getInstance();
+    final isEnglish = _isEnglishLanguage(prefs);
+
+    await addNotification(
       category: 'achievement',
-      title: 'Bạn vừa mở huy hiệu mới',
-      message: 'Huy hiệu "$badgeTitle" đã được mở khóa.',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Bạn vừa mở huy hiệu mới',
+        en: 'New badge unlocked',
+      ),
+      message: _pick(
+        isEnglish: isEnglish,
+        vi: 'Huy hiệu "$badgeTitle" đã được mở khóa.',
+        en: 'A new badge has been unlocked.',
+      ),
       targetRoute: AppRoutes.progress,
       targetQuery: const <String, String>{'focus': 'badges'},
       dedupeKey: 'badge-unlocked-$badgeId',
@@ -286,16 +369,44 @@ class NotificationRepository {
     final reference = (now ?? DateTime.now());
     final dayKey =
         '${reference.year.toString().padLeft(4, '0')}-${reference.month.toString().padLeft(2, '0')}-${reference.day.toString().padLeft(2, '0')}';
+    final prefs = await SharedPreferences.getInstance();
+    final isEnglish = _isEnglishLanguage(prefs);
 
     await addNotification(
       category: 'review',
-      title: 'Lịch ôn tập hôm nay đã sẵn sàng',
-      message:
-          'Bạn có ${dueItems.length} chủ đề đến lịch ôn theo spaced repetition.',
+      title: _pick(
+        isEnglish: isEnglish,
+        vi: 'Lịch ôn tập hôm nay đã sẵn sàng',
+        en: 'Today\'s review plan is ready',
+      ),
+      message: _pick(
+        isEnglish: isEnglish,
+        vi: 'Bạn có ${dueItems.length} chủ đề đến lịch ôn tập ngắt quãng.',
+        en: '${dueItems.length} topic(s) are due for spaced-repetition review.',
+      ),
       targetRoute: AppRoutes.progress,
       targetQuery: const <String, String>{'focus': 'spaced-review'},
       dedupeKey: 'spaced-review-$dayKey',
     );
+  }
+
+  static bool _isEnglishLanguage(SharedPreferences prefs) {
+    final language = prefs.getString(_appLanguageKey) ?? 'vi';
+    return language.toLowerCase().startsWith('en');
+  }
+
+  static String _pick({
+    required bool isEnglish,
+    required String vi,
+    required String en,
+  }) {
+    return isEnglish ? en : vi;
+  }
+
+  static bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
   }
 
   Future<void> _persist(List<AppNotification> notifications) async {

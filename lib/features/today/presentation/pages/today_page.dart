@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
@@ -65,7 +66,7 @@ class _TodayPageState extends State<TodayPage> {
             _buildTopAppBar(context),
             const SizedBox(height: GrowMateLayout.sectionGap),
             Text(
-              _vnDateLabel(DateTime.now()),
+              _dateLabel(context, DateTime.now()),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
@@ -79,12 +80,23 @@ class _TodayPageState extends State<TodayPage> {
               child: _aiReady
                   ? AIHero(
                       key: const ValueKey<String>('ai-hero-ready'),
-                      title: 'Bắt đầu phiên mới với',
-                      topic: 'Ứng dụng đạo hàm',
-                      reason:
-                          'AI ghi nhận độ chính xác câu tính giờ đang giảm trong 2 phiên gần nhất.',
+                      title: context.t(
+                        vi: 'Bắt đầu phiên mới với',
+                        en: 'Start a new session with',
+                      ),
+                      topic: context.t(
+                        vi: 'Ứng dụng đạo hàm',
+                        en: 'Derivative applications',
+                      ),
+                      reason: context.t(
+                        vi: 'AI ghi nhận độ chính xác câu tính giờ đang giảm trong 2 phiên gần nhất.',
+                        en: 'AI detected decreasing timed-answer accuracy over your last 2 sessions.',
+                      ),
                       confidence: 0.87,
-                      ctaLabel: 'Bắt đầu phiên AI gợi ý',
+                      ctaLabel: context.t(
+                        vi: 'Bắt đầu phiên AI gợi ý',
+                        en: 'Start AI-guided session',
+                      ),
                       onPressed: () => context.push(AppRoutes.quiz),
                     )
                   : _ThinkingHero(theme: theme),
@@ -93,8 +105,11 @@ class _TodayPageState extends State<TodayPage> {
             const _PhaseTwoQuickPanel(),
             const SizedBox(height: GrowMateLayout.sectionGapLg),
             Section(
-              title: 'Tóm tắt',
-              subtitle: 'Nhịp học hôm nay',
+              title: context.t(vi: 'Tóm tắt', en: 'Summary'),
+              subtitle: context.t(
+                vi: 'Nhịp học hôm nay',
+                en: 'Today learning rhythm',
+              ),
               backgroundColor: isDark
                   ? colors.surfaceContainerLow.withValues(alpha: 0.98)
                   : colors.surfaceContainerLow,
@@ -111,7 +126,7 @@ class _TodayPageState extends State<TodayPage> {
                   ),
                 ),
                 child: Text(
-                  'Trang chủ',
+                  context.t(vi: 'Trang chủ', en: 'Home'),
                   style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
                     fontWeight: FontWeight.w600,
@@ -124,10 +139,16 @@ class _TodayPageState extends State<TodayPage> {
               ),
             ),
             const SizedBox(height: GrowMateLayout.sectionGapLg),
-            const Section(
-              title: 'Phân tích AI hoàn tất',
-              subtitle: 'Độ tự tin 74% · Rủi ro TRUNG BÌNH',
-              child: _AiSystemPanel(),
+            Section(
+              title: context.t(
+                vi: 'Phân tích AI hoàn tất',
+                en: 'AI analysis complete',
+              ),
+              subtitle: context.t(
+                vi: 'Độ tự tin 74% · Rủi ro TRUNG BÌNH',
+                en: 'Confidence 74% · Risk MEDIUM',
+              ),
+              child: const _AiSystemPanel(),
             ),
             const SizedBox(height: GrowMateLayout.sectionGap),
           ],
@@ -170,7 +191,21 @@ class _TodayPageState extends State<TodayPage> {
     );
   }
 
-  static String _vnDateLabel(DateTime now) {
+  static String _dateLabel(BuildContext context, DateTime now) {
+    if (context.isEnglish) {
+      const weekdays = <int, String>{
+        1: 'Monday',
+        2: 'Tuesday',
+        3: 'Wednesday',
+        4: 'Thursday',
+        5: 'Friday',
+        6: 'Saturday',
+        7: 'Sunday',
+      };
+      final weekday = weekdays[now.weekday] ?? 'Today';
+      return '$weekday, ${now.day}/${now.month}';
+    }
+
     const weekdays = <int, String>{
       1: 'Thứ Hai',
       2: 'Thứ Ba',
@@ -222,7 +257,10 @@ class _ThinkingHero extends StatelessWidget {
           const SizedBox(width: GrowMateLayout.space12),
           Expanded(
             child: Text(
-              'AI đang phân tích tiến độ của bạn...',
+              context.t(
+                vi: 'AI đang phân tích tiến độ của bạn...',
+                en: 'AI is analyzing your progress...',
+              ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: colors.onSurfaceVariant,
                 fontWeight: FontWeight.w500,
@@ -260,7 +298,10 @@ class _CompactStats extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            'Cập nhật nhanh trong 24 giờ qua',
+            context.t(
+              vi: 'Cập nhật nhanh trong 24 giờ qua',
+              en: 'Quick update in the last 24 hours',
+            ),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w600,
@@ -270,24 +311,24 @@ class _CompactStats extends StatelessWidget {
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: Row(
-              children: const [
+              children: [
                 StatItem(
-                  label: 'ngày',
+                  label: context.t(vi: 'ngày', en: 'days'),
                   value: '6',
                   icon: Icons.local_fire_department_rounded,
                   accent: Color(0xFFEA580C),
                 ),
                 SizedBox(width: GrowMateLayout.space12),
                 StatItem(
-                  label: 'hoàn thành',
+                  label: context.t(vi: 'hoàn thành', en: 'completed'),
                   value: '4/5',
                   icon: Icons.task_alt_rounded,
                   accent: GrowMateColors.success,
                 ),
                 SizedBox(width: GrowMateLayout.space12),
                 StatItem(
-                  label: 'Tập trung',
-                  value: 'Tốt',
+                  label: context.t(vi: 'Tập trung', en: 'Focus'),
+                  value: context.t(vi: 'Tốt', en: 'Good'),
                   icon: Icons.bolt_rounded,
                   accent: GrowMateColors.primary,
                 ),
@@ -321,25 +362,37 @@ class _AiSystemPanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: GrowMateLayout.contentGap),
-        const _InsightTile(
+        _InsightTile(
           icon: Icons.check_circle_rounded,
           iconColor: GrowMateColors.success,
-          title: 'Bạn làm tốt ở điểm nào',
-          subtitle: 'Quy tắc đạo hàm cơ bản',
+          title: context.t(
+            vi: 'Bạn làm tốt ở điểm nào',
+            en: 'What you did well',
+          ),
+          subtitle: context.t(
+            vi: 'Quy tắc đạo hàm cơ bản',
+            en: 'Basic derivative rules',
+          ),
         ),
         const SizedBox(height: GrowMateLayout.space12),
-        const _InsightTile(
+        _InsightTile(
           icon: Icons.warning_amber_rounded,
           iconColor: GrowMateColors.warningSoft,
-          title: 'Điểm cần cải thiện',
-          subtitle: 'Đạo hàm hàm số hợp',
+          title: context.t(vi: 'Điểm cần cải thiện', en: 'Needs improvement'),
+          subtitle: context.t(
+            vi: 'Đạo hàm hàm số hợp',
+            en: 'Derivative of composite functions',
+          ),
         ),
         const SizedBox(height: GrowMateLayout.space12),
-        const _InsightTile(
+        _InsightTile(
           icon: Icons.lightbulb_outline_rounded,
-          iconColor: GrowMateColors.primary,
-          title: 'Bước tiếp theo AI gợi ý',
-          subtitle: 'Review đạo hàm',
+          iconColor: colors.primary,
+          title: context.t(
+            vi: 'Bước tiếp theo AI gợi ý',
+            en: 'Suggested next step',
+          ),
+          subtitle: context.t(vi: 'Ôn đạo hàm', en: 'Review derivatives'),
         ),
         const SizedBox(height: GrowMateLayout.contentGap),
         Container(
@@ -356,7 +409,10 @@ class _AiSystemPanel extends StatelessWidget {
             children: [
               Expanded(
                 child: Text(
-                  'Giữ lộ trình hiện tại',
+                  context.t(
+                    vi: 'Giữ lộ trình hiện tại',
+                    en: 'Keep current plan',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: colors.onSurface,
                     fontWeight: FontWeight.w500,
@@ -468,11 +524,23 @@ class _ReviewDueStrip extends StatelessWidget {
             .toList(growable: false);
 
         final title = dueItems.isEmpty
-            ? 'Spaced Review hôm nay'
-            : 'Có ${dueItems.length} chủ đề đến lịch ôn';
+            ? context.t(
+                vi: 'Ôn tập ngắt quãng hôm nay',
+                en: 'Spaced Review today',
+              )
+            : context.t(
+                vi: 'Có ${dueItems.length} chủ đề đến lịch ôn',
+                en: '${dueItems.length} topics due for review',
+              );
         final subtitle = dueItems.isEmpty
-            ? 'Bạn đang giữ nhịp đều. Có thể bắt đầu phiên mới.'
-            : 'Ưu tiên ôn: ${dueItems.first.topic}';
+            ? context.t(
+                vi: 'Bạn đang giữ nhịp đều. Có thể bắt đầu phiên mới.',
+                en: 'You are keeping a steady rhythm. Ready for a new session.',
+              )
+            : context.t(
+                vi: 'Ưu tiên ôn: ${dueItems.first.topic}',
+                en: 'Prioritize review: ${dueItems.first.topic}',
+              );
 
         return _QuickStrip(
           icon: Icons.refresh_rounded,
@@ -502,11 +570,20 @@ class _MindfulBreakStrip extends StatelessWidget {
             (latest.mode == 'recovery' || latest.focusScore < 3.0);
 
         final title = shouldSuggestBreak
-            ? 'Gợi ý Mindful Break 90 giây'
-            : 'Giữ nhịp ổn định';
+            ? context.t(
+                vi: 'Gợi ý nghỉ thở 90 giây',
+                en: 'Mindful Break suggestion (90s)',
+              )
+            : context.t(vi: 'Giữ nhịp ổn định', en: 'Keep steady rhythm');
         final subtitle = shouldSuggestBreak
-            ? 'Phiên gần nhất cho thấy bạn nên nghỉ nhẹ trước khi học tiếp.'
-            : 'Nếu thấy mệt, bạn vẫn có thể chủ động nghỉ thở 90 giây.';
+            ? context.t(
+                vi: 'Phiên gần nhất cho thấy bạn nên nghỉ nhẹ trước khi học tiếp.',
+                en: 'Recent session suggests taking a short break before continuing.',
+              )
+            : context.t(
+                vi: 'Nếu thấy mệt, bạn vẫn có thể chủ động nghỉ thở 90 giây.',
+                en: 'If you feel tired, take a proactive 90-second breathing break.',
+              );
 
         return _QuickStrip(
           icon: Icons.spa_rounded,
@@ -538,12 +615,18 @@ class _SchedulePriorityStrip extends StatelessWidget {
 
         final nearest = pending.isEmpty ? null : pending.first;
         final title = nearest == null
-            ? 'Smart Schedule'
-            : 'Mốc gần nhất: ${nearest.title}';
+            ? context.t(vi: 'Lịch thông minh', en: 'Smart Schedule')
+            : context.t(
+                vi: 'Mốc gần nhất: ${nearest.title}',
+                en: 'Nearest milestone: ${nearest.title}',
+              );
 
         final subtitle = nearest == null
-            ? 'Thêm lịch thi/deadline để AI ưu tiên kế hoạch học.'
-            : _scheduleSubtitle(nearest, now);
+            ? context.t(
+                vi: 'Thêm lịch thi/hạn nộp để AI ưu tiên kế hoạch học.',
+                en: 'Add exams/deadlines so AI can prioritize your study plan.',
+              )
+            : _scheduleSubtitle(context, nearest, now);
 
         return _QuickStrip(
           icon: Icons.calendar_month_rounded,
@@ -557,15 +640,27 @@ class _SchedulePriorityStrip extends StatelessWidget {
     );
   }
 
-  static String _scheduleSubtitle(StudyScheduleItem item, DateTime now) {
+  static String _scheduleSubtitle(
+    BuildContext context,
+    StudyScheduleItem item,
+    DateTime now,
+  ) {
     final daysLeft = item.dueAt.toLocal().difference(now).inDays;
-    final label = item.type == 'exam' ? 'bài thi' : 'deadline';
+    final label = item.type == 'exam'
+        ? context.t(vi: 'bài thi', en: 'exam')
+        : context.t(vi: 'hạn nộp', en: 'deadline');
 
     if (daysLeft <= 0) {
-      return 'Hôm nay có $label, nên ưu tiên ôn ${item.subject} 15 phút.';
+      return context.t(
+        vi: 'Hôm nay có $label, nên ưu tiên ôn ${item.subject} 15 phút.',
+        en: 'There is a $label today. Prioritize a 15-minute review on ${item.subject}.',
+      );
     }
 
-    return 'Còn $daysLeft ngày tới $label (${item.subject}).';
+    return context.t(
+      vi: 'Còn $daysLeft ngày tới $label (${item.subject}).',
+      en: '$daysLeft days left until $label (${item.subject}).',
+    );
   }
 }
 
@@ -602,7 +697,7 @@ class _QuickStrip extends StatelessWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(icon, size: 18, color: GrowMateColors.primary),
+            Icon(icon, size: 18, color: colors.primary),
             const SizedBox(width: 8),
             Expanded(
               child: Column(

@@ -17,6 +17,7 @@ import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../data/mock_user_progress_generator.dart';
 
 class ProgressPage extends StatelessWidget {
@@ -77,12 +78,18 @@ class ProgressScreen extends StatelessWidget {
                 const GrowMateTopAppBar(),
                 const SizedBox(height: GrowMateLayout.sectionGap),
                 Text(
-                  'Tiến trình tuần này',
+                  context.t(
+                    vi: 'Tiến trình tuần này',
+                    en: 'This week\'s progress',
+                  ),
                   style: theme.textTheme.headlineLarge,
                 ),
                 const SizedBox(height: GrowMateLayout.space8),
                 Text(
-                  'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
+                  context.t(
+                    vi: 'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
+                    en: 'Focus on the most important topic to accelerate your next session.',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -132,10 +139,14 @@ class _SummarySection extends StatelessWidget {
 
     final ratio = _parseWeeklyRatio(progress.weeklyConsistency);
     final percentage = (ratio * 100).round();
+    final summaryLabel = _weeklySummaryLabel(
+      context,
+      progress.weeklyConsistency,
+    );
 
     return Section(
-      title: 'Tóm tắt',
-      subtitle: _weeklySummaryLabel(progress.weeklyConsistency),
+      title: context.t(vi: 'Tóm tắt', en: 'Summary'),
+      subtitle: summaryLabel,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -150,7 +161,7 @@ class _SummarySection extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _weeklySummaryLabel(progress.weeklyConsistency),
+                  summaryLabel,
                   style: Theme.of(context).textTheme.bodyLarge?.copyWith(
                     color: colors.onSurface,
                     fontWeight: FontWeight.w600,
@@ -160,7 +171,7 @@ class _SummarySection extends StatelessWidget {
                 Row(
                   children: [
                     Text(
-                      'Tóm tắt',
+                      context.t(vi: 'Tóm tắt', en: 'Summary'),
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                         color: colors.onSurface,
                         fontWeight: FontWeight.w600,
@@ -193,7 +204,10 @@ class _SummarySection extends StatelessWidget {
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
           Text(
-            progress.learningRhythm,
+            context.t(
+              vi: progress.learningRhythm,
+              en: 'Maintain a steady rhythm and focus on one high-impact topic for your next study sprint.',
+            ),
             style: Theme.of(
               context,
             ).textTheme.bodyLarge?.copyWith(color: colors.onSurfaceVariant),
@@ -220,11 +234,17 @@ class _StrengthSection extends StatelessWidget {
           ..sort((a, b) => b.score.compareTo(a.score));
 
     return Section(
-      title: 'Điểm mạnh',
-      subtitle: 'Những chủ đề bạn đang nắm khá chắc',
+      title: context.t(vi: 'Điểm mạnh', en: 'Strengths'),
+      subtitle: context.t(
+        vi: 'Những chủ đề bạn đang nắm khá chắc',
+        en: 'Topics you are handling with confidence',
+      ),
       child: strengths.isEmpty
           ? Text(
-              'Bạn đang trong giai đoạn xây nền. Hoàn thành thêm vài phiên để hệ thống nhận diện điểm mạnh rõ hơn.',
+              context.t(
+                vi: 'Bạn đang trong giai đoạn xây nền. Hoàn thành thêm vài phiên để hệ thống nhận diện điểm mạnh rõ hơn.',
+                en: 'You are still building foundations. Complete a few more sessions so the system can identify strengths more clearly.',
+              ),
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
@@ -238,10 +258,10 @@ class _StrengthSection extends StatelessWidget {
                   .entries
                   .map(
                     (entry) => ProgressBar(
-                      label: entry.value.topic,
+                      label: _topicLabel(context, entry.value.topic),
                       value: entry.value.score / 4,
                       trailing: '${((entry.value.score / 4) * 100).round()}%',
-                      caption: entry.value.statusLabel,
+                      caption: context.t(vi: 'Nắm chắc', en: 'Strong grasp'),
                       color: GrowMateColors.success,
                       delayMs: 70 + entry.key * 45,
                     ),
@@ -269,18 +289,30 @@ class _WeaknessSection extends StatelessWidget {
 
     final weakest = gaps.isEmpty ? null : gaps.first;
     final recommendation = weakest == null
-        ? 'Giữ nhịp hiện tại và thêm một bài nâng cao trong phiên tới.'
-        : 'Khuyến nghị AI: luyện trọng tâm ${weakest.topic} trong 15 phút, sau đó kiểm tra lại bằng 3 câu tính giờ.';
+        ? context.t(
+            vi: 'Giữ nhịp hiện tại và thêm một bài nâng cao trong phiên tới.',
+            en: 'Keep the current rhythm and add one advanced task next session.',
+          )
+        : context.t(
+            vi: 'Khuyến nghị AI: luyện trọng tâm ${weakest.topic} trong 15 phút, sau đó kiểm tra lại bằng 3 câu tính giờ.',
+            en: 'AI recommendation: spend 15 minutes on ${_topicLabel(context, weakest.topic)}, then validate with 3 timed questions.',
+          );
 
     return Section(
-      title: 'Điểm yếu cần ưu tiên',
-      subtitle: 'Tập trung vào 1 chủ đề yếu để tăng độ tự tin nhanh hơn',
+      title: context.t(vi: 'Điểm yếu cần ưu tiên', en: 'Priority weaknesses'),
+      subtitle: context.t(
+        vi: 'Tập trung vào 1 chủ đề yếu để tăng độ tự tin nhanh hơn',
+        en: 'Focus on one weak topic to improve confidence faster',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (gaps.isEmpty)
             Text(
-              'Tuyệt vời, hiện chưa có lỗ hổng cần ưu tiên.',
+              context.t(
+                vi: 'Tuyệt vời, hiện chưa có lỗ hổng cần ưu tiên.',
+                en: 'Great progress. There are no priority gaps right now.',
+              ),
               style: Theme.of(
                 context,
               ).textTheme.bodyMedium?.copyWith(color: colors.onSurfaceVariant),
@@ -293,10 +325,10 @@ class _WeaknessSection extends StatelessWidget {
                 .entries
                 .map(
                   (entry) => ProgressBar(
-                    label: entry.value.topic,
+                    label: _topicLabel(context, entry.value.topic),
                     value: entry.value.score / 4,
                     trailing: '${((entry.value.score / 4) * 100).round()}%',
-                    caption: 'Cần review lại',
+                    caption: context.t(vi: 'Cần ôn lại', en: 'Needs review'),
                     color: GrowMateColors.warningSoft,
                     delayMs: 80 + entry.key * 45,
                   ),
@@ -334,11 +366,17 @@ class _SessionTimelineSection extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Section(
-      title: 'Timeline phiên học',
-      subtitle: 'Lịch sử phiên gần đây để bạn theo dõi nhịp học',
+      title: context.t(vi: 'Timeline phiên học', en: 'Session timeline'),
+      subtitle: context.t(
+        vi: 'Lịch sử phiên gần đây để bạn theo dõi nhịp học',
+        en: 'Recent sessions to help you track your study rhythm',
+      ),
       child: history.isEmpty
           ? Text(
-              'Chưa có phiên học nào được lưu. Sau khi hoàn thành một phiên, timeline sẽ tự động xuất hiện.',
+              context.t(
+                vi: 'Chưa có phiên học nào được lưu. Sau khi hoàn thành một phiên, timeline sẽ tự động xuất hiện.',
+                en: 'No sessions have been saved yet. After you complete a session, your timeline will appear automatically.',
+              ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -380,21 +418,21 @@ class _SessionTimelineSection extends StatelessWidget {
                                 crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
                                   Text(
-                                    entry.topic,
+                                    _topicLabel(context, entry.topic),
                                     style: theme.textTheme.bodyLarge?.copyWith(
                                       fontWeight: FontWeight.w700,
                                     ),
                                   ),
                                   const SizedBox(height: 4),
                                   Text(
-                                    '${_dayLabel(entry.completedAt)} • ${entry.durationMinutes} phút • Focus ${entry.focusScore.toStringAsFixed(1)}/4',
+                                    '${_dayLabel(context, entry.completedAt)} • ${entry.durationMinutes} ${context.t(vi: 'phút', en: 'min')} • ${context.t(vi: 'Tập trung', en: 'Focus')} ${entry.focusScore.toStringAsFixed(1)}/4',
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: colors.onSurfaceVariant,
                                     ),
                                   ),
                                   const SizedBox(height: 6),
                                   Text(
-                                    'Action kế tiếp: ${entry.nextAction}',
+                                    _timelineNextActionText(context, entry),
                                     style: theme.textTheme.bodySmall?.copyWith(
                                       color: colors.onSurface,
                                       fontWeight: FontWeight.w500,
@@ -432,11 +470,17 @@ class _SpacedReviewSection extends StatelessWidget {
               ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
 
         return Section(
-          title: 'Spaced Repetition',
-          subtitle: 'Ôn tập đúng nhịp theo đường cong quên lãng',
+          title: context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Repetition'),
+          subtitle: context.t(
+            vi: 'Ôn tập đúng nhịp theo đường cong quên lãng',
+            en: 'Review at the right pace based on the forgetting curve',
+          ),
           child: dueItems.isEmpty
               ? Text(
-                  'Hôm nay chưa có chủ đề đến lịch ôn. Bạn đang giữ nhịp khá tốt.',
+                  context.t(
+                    vi: 'Hôm nay chưa có chủ đề đến lịch ôn. Bạn đang giữ nhịp khá tốt.',
+                    en: 'There are no topics due for review today. You are maintaining a solid rhythm.',
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -458,15 +502,15 @@ class _SpacedReviewSection extends StatelessWidget {
                             ),
                             child: Row(
                               children: [
-                                const Icon(
+                                Icon(
                                   Icons.refresh_rounded,
-                                  color: GrowMateColors.primary,
+                                  color: Theme.of(context).colorScheme.primary,
                                   size: 18,
                                 ),
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '${item.topic} • chu kỳ ${item.intervalDays} ngày',
+                                    '${_topicLabel(context, item.topic)} • ${context.t(vi: 'chu kỳ', en: 'cycle')} ${item.intervalDays} ${context.t(vi: 'ngày', en: 'days')}',
                                     style: Theme.of(context)
                                         .textTheme
                                         .bodyMedium
@@ -497,11 +541,17 @@ class _AchievementSection extends StatelessWidget {
         final badges = snapshot.data ?? const <AchievementBadge>[];
 
         return Section(
-          title: 'Achievement Badges',
-          subtitle: 'Ghi nhận nỗ lực tích cực, không tạo áp lực điểm số',
+          title: context.t(vi: 'Huy hiệu thành tựu', en: 'Achievement badges'),
+          subtitle: context.t(
+            vi: 'Ghi nhận nỗ lực tích cực, không tạo áp lực điểm số',
+            en: 'Celebrate positive effort without score pressure',
+          ),
           child: badges.isEmpty
               ? Text(
-                  'Hãy hoàn thành vài phiên để mở khóa huy hiệu đầu tiên.',
+                  context.t(
+                    vi: 'Hãy hoàn thành vài phiên để mở khóa huy hiệu đầu tiên.',
+                    en: 'Complete a few sessions to unlock your first badge.',
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -529,7 +579,7 @@ class _AchievementSection extends StatelessWidget {
                               Icon(
                                 _iconForBadge(badge.iconKey),
                                 size: 16,
-                                color: GrowMateColors.primary,
+                                color: Theme.of(context).colorScheme.primary,
                               ),
                               const SizedBox(width: 6),
                               Text(
@@ -583,11 +633,17 @@ class _SmartScheduleInsightSection extends StatelessWidget {
         final nearest = pending.isEmpty ? null : pending.first;
 
         return Section(
-          title: 'Smart Schedule',
-          subtitle: 'Ưu tiên lộ trình theo lịch thi và deadline',
+          title: context.t(vi: 'Lịch học thông minh', en: 'Smart Schedule'),
+          subtitle: context.t(
+            vi: 'Ưu tiên lộ trình theo lịch thi và hạn nộp',
+            en: 'Prioritize your plan around exams and deadlines',
+          ),
           child: nearest == null
               ? Text(
-                  'Chưa có mốc lịch học. Bạn có thể thêm trong mục Settings > Smart Schedule.',
+                  context.t(
+                    vi: 'Chưa có mốc lịch học. Bạn có thể thêm trong mục Cài đặt > Lịch thông minh.',
+                    en: 'No schedule milestones yet. You can add them in Settings > Smart Schedule.',
+                  ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
                   ),
@@ -600,7 +656,7 @@ class _SmartScheduleInsightSection extends StatelessWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Text(
-                    _scheduleHint(nearest, now),
+                    _scheduleHint(context, nearest, now),
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w600,
                     ),
@@ -611,15 +667,27 @@ class _SmartScheduleInsightSection extends StatelessWidget {
     );
   }
 
-  static String _scheduleHint(StudyScheduleItem item, DateTime now) {
+  static String _scheduleHint(
+    BuildContext context,
+    StudyScheduleItem item,
+    DateTime now,
+  ) {
     final daysLeft = item.dueAt.toLocal().difference(now.toLocal()).inDays;
-    final typeLabel = item.type == 'exam' ? 'bài thi' : 'deadline';
+    final typeLabel = item.type == 'exam'
+        ? context.t(vi: 'bài thi', en: 'exam')
+        : context.t(vi: 'hạn nộp', en: 'deadline');
 
     if (daysLeft <= 0) {
-      return 'Hôm nay có $typeLabel: ${item.title} (${item.subject}). Nên dành 15-20 phút ôn trọng tâm.';
+      return context.t(
+        vi: 'Hôm nay có $typeLabel: ${item.title} (${item.subject}). Nên dành 15-20 phút ôn trọng tâm.',
+        en: 'Today has a $typeLabel: ${item.title} (${item.subject}). Spend 15-20 minutes on focused review.',
+      );
     }
 
-    return 'Còn $daysLeft ngày tới $typeLabel: ${item.title} (${item.subject}). AI sẽ ưu tiên chủ đề liên quan trong kế hoạch tuần.';
+    return context.t(
+      vi: 'Còn $daysLeft ngày tới $typeLabel: ${item.title} (${item.subject}). AI sẽ ưu tiên chủ đề liên quan trong kế hoạch tuần.',
+      en: '$daysLeft day(s) left until $typeLabel: ${item.title} (${item.subject}). AI will prioritize related topics in your weekly plan.',
+    );
   }
 }
 
@@ -656,14 +724,26 @@ class _WeeklyMomentumSection extends StatelessWidget {
     }
 
     final avgFocus = focusCount == 0 ? 0.0 : focusSum / focusCount;
-    final weakestTopic = _resolveWeakestTopic(progress);
+    final weakestTopic = _resolveWeakestTopic(context, progress);
     final tomorrowAction = history.isEmpty
-        ? 'Bắt đầu 1 phiên 10 phút để mở lại nhịp học.'
-        : 'Dành 12 phút cho $weakestTopic, sau đó làm 2 câu tự kiểm tra trong 5 phút.';
+        ? context.t(
+            vi: 'Bắt đầu 1 phiên 10 phút để mở lại nhịp học.',
+            en: 'Start one 10-minute session to regain your rhythm.',
+          )
+        : context.t(
+            vi: 'Dành 12 phút cho $weakestTopic, sau đó làm 2 câu tự kiểm tra trong 5 phút.',
+            en: 'Spend 12 minutes on $weakestTopic, then do 2 self-check questions in 5 minutes.',
+          );
 
     return Section(
-      title: 'Kế hoạch tuần & ngày mai',
-      subtitle: 'Biểu đồ tiến bộ và gợi ý action cho phiên kế tiếp',
+      title: context.t(
+        vi: 'Kế hoạch tuần & ngày mai',
+        en: 'Weekly plan & tomorrow',
+      ),
+      subtitle: context.t(
+        vi: 'Biểu đồ tiến bộ và gợi ý hành động cho phiên kế tiếp',
+        en: 'Progress chart and suggested action for your next session',
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -696,7 +776,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
                         return Padding(
                           padding: const EdgeInsets.only(top: 6),
                           child: Text(
-                            _weekdayShort(days[index]),
+                            _weekdayShort(context, days[index]),
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         );
@@ -736,7 +816,10 @@ class _WeeklyMomentumSection extends StatelessWidget {
           ),
           const SizedBox(height: 8),
           Text(
-            'Trung bình focus 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
+            context.t(
+              vi: 'Trung bình tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
+              en: '7-day average focus: ${avgFocus.toStringAsFixed(1)}/4',
+            ),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -750,7 +833,10 @@ class _WeeklyMomentumSection extends StatelessWidget {
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
-              'Action ngày mai: $tomorrowAction',
+              context.t(
+                vi: 'Hành động ngày mai: $tomorrowAction',
+                en: 'Tomorrow action: $tomorrowAction',
+              ),
               style: Theme.of(
                 context,
               ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
@@ -761,7 +847,10 @@ class _WeeklyMomentumSection extends StatelessWidget {
     );
   }
 
-  static String _resolveWeakestTopic(UserProgressSnapshot progress) {
+  static String _resolveWeakestTopic(
+    BuildContext context,
+    UserProgressSnapshot progress,
+  ) {
     final gaps =
         progress.masteryMap
             .where((topic) => topic.score < 3.0)
@@ -769,10 +858,10 @@ class _WeeklyMomentumSection extends StatelessWidget {
           ..sort((a, b) => a.score.compareTo(b.score));
 
     if (gaps.isEmpty) {
-      return 'một chủ đề nâng cao';
+      return context.t(vi: 'một chủ đề nâng cao', en: 'an advanced topic');
     }
 
-    return gaps.first.topic;
+    return _topicLabel(context, gaps.first.topic);
   }
 }
 
@@ -784,15 +873,27 @@ class _ProgressEmptyState extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
 
     return Section(
-      title: 'Chưa có dữ liệu tiến trình',
-      subtitle: 'Hoàn tất một phiên để AI bắt đầu bản đồ hóa năng lực',
+      title: context.t(
+        vi: 'Chưa có dữ liệu tiến trình',
+        en: 'No progress data yet',
+      ),
+      subtitle: context.t(
+        vi: 'Hoàn tất một phiên để AI bắt đầu bản đồ hóa năng lực',
+        en: 'Complete one session to let AI start mapping your learning ability',
+      ),
       child: Row(
         children: [
-          const Icon(Icons.timeline_rounded, color: GrowMateColors.primary),
+          Icon(
+            Icons.timeline_rounded,
+            color: Theme.of(context).colorScheme.primary,
+          ),
           const SizedBox(width: GrowMateLayout.space12),
           Expanded(
             child: Text(
-              'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
+              context.t(
+                vi: 'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
+                en: 'After your first completed session, the system will automatically display strengths, weaknesses, and an updated roadmap.',
+              ),
               style: TextStyle(color: colors.onSurfaceVariant),
             ),
           ),
@@ -817,7 +918,7 @@ double _parseWeeklyRatio(String value) {
   return (done / total).clamp(0.0, 1.0);
 }
 
-String _weeklySummaryLabel(String value) {
+String _weeklySummaryLabel(BuildContext context, String value) {
   final match = RegExp(r'(\d+)\s*/\s*(\d+)').firstMatch(value);
   if (match == null) {
     return value;
@@ -825,14 +926,88 @@ String _weeklySummaryLabel(String value) {
 
   final done = match.group(1) ?? '0';
   final total = match.group(2) ?? '0';
-  return '$done/$total buổi đã hoàn thành tuần này';
+  return context.t(
+    vi: '$done/$total buổi đã hoàn thành tuần này',
+    en: '$done/$total sessions completed this week',
+  );
+}
+
+String _topicLabel(BuildContext context, String topic) {
+  if (!context.isEnglish) {
+    return topic;
+  }
+
+  switch (topic.trim()) {
+    case 'Đạo hàm':
+      return 'Derivatives';
+    case 'Giới hạn':
+      return 'Limits';
+    case 'Tích phân':
+      return 'Integrals';
+    case 'Hàm hợp':
+      return 'Composite functions';
+    case 'Ứng dụng':
+      return 'Applications';
+    case 'Đạo hàm đa thức':
+      return 'Polynomial derivatives';
+    case 'Quy tắc tích':
+      return 'Product rule';
+    case 'Giới hạn cơ bản':
+      return 'Basic limits';
+    default:
+      return topic;
+  }
+}
+
+String _timelineNextActionText(
+  BuildContext context,
+  SessionHistoryEntry entry,
+) {
+  final action = entry.nextAction.trim();
+
+  if (context.isEnglish) {
+    if (action.isEmpty || _containsVietnameseChars(action)) {
+      return 'Next action: Review ${_topicLabel(context, entry.topic)} with 3 timed questions.';
+    }
+    return 'Next action: $action';
+  }
+
+  if (action.isEmpty || !_containsVietnameseChars(action)) {
+    return 'Hành động kế tiếp: Ôn ${_topicLabel(context, entry.topic)} bằng 3 câu tính giờ.';
+  }
+  return 'Hành động kế tiếp: $action';
+}
+
+bool _containsVietnameseChars(String value) {
+  return RegExp(
+    r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+  ).hasMatch(value);
 }
 
 String _dateKey(DateTime value) {
   return '${value.year.toString().padLeft(4, '0')}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')}';
 }
 
-String _weekdayShort(DateTime value) {
+String _weekdayShort(BuildContext context, DateTime value) {
+  if (context.isEnglish) {
+    switch (value.weekday) {
+      case DateTime.monday:
+        return 'Mon';
+      case DateTime.tuesday:
+        return 'Tue';
+      case DateTime.wednesday:
+        return 'Wed';
+      case DateTime.thursday:
+        return 'Thu';
+      case DateTime.friday:
+        return 'Fri';
+      case DateTime.saturday:
+        return 'Sat';
+      default:
+        return 'Sun';
+    }
+  }
+
   switch (value.weekday) {
     case DateTime.monday:
       return 'T2';
@@ -851,9 +1026,12 @@ String _weekdayShort(DateTime value) {
   }
 }
 
-String _dayLabel(DateTime value) {
+String _dayLabel(BuildContext context, DateTime value) {
   final local = value.toLocal();
   final hour = local.hour.toString().padLeft(2, '0');
   final minute = local.minute.toString().padLeft(2, '0');
+  if (context.isEnglish) {
+    return '${local.month}/${local.day} • $hour:$minute';
+  }
   return '${local.day}/${local.month} • $hour:$minute';
 }
