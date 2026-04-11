@@ -16,7 +16,6 @@ class GrowMateBottomNavBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final strings = AppStrings.of(context);
 
     return Container(
