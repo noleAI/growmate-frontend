@@ -11,6 +11,9 @@ class InspectionBottomSheet extends StatefulWidget {
 
   static Future<void> show(BuildContext context) {
     final cubit = context.read<InspectionCubit>();
+    if (!cubit.state.canInspect) {
+      return Future<void>.value();
+    }
 
     return showModalBottomSheet<void>(
       context: context,
@@ -49,259 +52,292 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
 
     return SafeArea(
       top: false,
-      child: Container(
-        decoration: const BoxDecoration(
-          color: GrowMateColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
-          child: StreamBuilder<InspectionState>(
-            stream: cubit.stream,
-            initialData: cubit.state,
-            builder: (context, snapshot) {
-              final state = snapshot.data ?? cubit.state;
+      child: FractionallySizedBox(
+        heightFactor: 0.86,
+        alignment: Alignment.bottomCenter,
+        child: Container(
+          decoration: const BoxDecoration(
+            color: GrowMateColors.background,
+            borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 10, 16, 20),
+            child: StreamBuilder<InspectionState>(
+              stream: cubit.stream,
+              initialData: cubit.state,
+              builder: (context, snapshot) {
+                final state = snapshot.data ?? cubit.state;
 
-              return SingleChildScrollView(
-                child: Column(
+                return Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Center(
-                      child: Container(
-                        width: 48,
-                        height: 5,
-                        decoration: BoxDecoration(
-                          color: GrowMateColors.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    SectionHeader(
-                      title: context.t(
-                        vi: 'Bảng phân tích AI',
-                        en: 'AI insight panel',
-                      ),
-                      subtitle: context.t(
-                        vi: 'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
-                        en: 'AI insights · Updated ${_formatTimestamp(state.updatedAt)}',
-                      ),
-                      trailing: IconButton(
-                        onPressed: cubit.refreshNow,
-                        icon: Icon(
-                          Icons.refresh_rounded,
-                          color: theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    InsightCard(
-                      title: context.t(vi: 'AI nhận định', en: 'AI beliefs'),
-                      subtitle: context.t(
-                        vi: 'Phân bố niềm tin theo chủ đề',
-                        en: 'Belief distribution by topic',
-                      ),
-                      delayMs: 40,
-                      child: Column(
-                        children: state.beliefs
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => ProgressBarItem(
-                                label: _localizedDynamicText(
-                                  context,
-                                  entry.value.topic,
-                                  fallbackEn: 'Topic ${entry.key + 1}',
+                    Expanded(
+                      child: SingleChildScrollView(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Center(
+                              child: Container(
+                                width: 48,
+                                height: 5,
+                                decoration: BoxDecoration(
+                                  color: GrowMateColors.surfaceContainerHigh,
+                                  borderRadius: BorderRadius.circular(999),
                                 ),
-                                value: entry.value.ratio,
-                                color: theme.colorScheme.primary,
-                                delayMs: 60 + entry.key * 25,
                               ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    InsightCard(
-                      title: context.t(
-                        vi: 'Kế hoạch hành động',
-                        en: 'Action plan',
-                      ),
-                      subtitle: context.t(
-                        vi: 'Cây kế hoạch rút gọn cho phiên hiện tại',
-                        en: 'Compact plan tree for the current session',
-                      ),
-                      delayMs: 70,
-                      child: Column(
-                        children: state.planSteps
-                            .asMap()
-                            .entries
-                            .map(
-                              (entry) => Padding(
-                                padding: EdgeInsets.only(
-                                  bottom:
-                                      entry.key == state.planSteps.length - 1
-                                      ? 0
-                                      : 10,
-                                ),
-                                child: Row(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Container(
-                                      width: 20,
-                                      height: 20,
-                                      alignment: Alignment.center,
-                                      decoration: BoxDecoration(
-                                        color:
-                                            theme.colorScheme.primaryContainer,
-                                        borderRadius: BorderRadius.circular(
-                                          999,
-                                        ),
-                                      ),
-                                      child: Text(
-                                        '${entry.key + 1}',
-                                        style: TextStyle(
-                                          color: theme.colorScheme.primary,
-                                          fontWeight: FontWeight.w700,
-                                          fontSize: 11,
-                                        ),
-                                      ),
+                            ),
+                            const SizedBox(height: 12),
+                            SectionHeader(
+                              title: context.t(
+                                vi: 'Bảng phân tích AI',
+                                en: 'AI insight panel',
+                              ),
+                              subtitle: context.t(
+                                vi: 'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
+                                en: 'AI insights · Updated ${_formatTimestamp(state.updatedAt)}',
+                              ),
+                              trailing: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  IconButton(
+                                    onPressed: cubit.refreshNow,
+                                    icon: Icon(
+                                      Icons.refresh_rounded,
+                                      color: theme.colorScheme.primary,
                                     ),
-                                    const SizedBox(width: 10),
-                                    Expanded(
-                                      child: Text(
-                                        _localizedDynamicText(
+                                  ),
+                                  IconButton(
+                                    onPressed: () =>
+                                        Navigator.of(context).maybePop(),
+                                    icon: Icon(
+                                      Icons.close_rounded,
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'AI nhận định',
+                                en: 'AI beliefs',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Phân bố niềm tin theo chủ đề',
+                                en: 'Belief distribution by topic',
+                              ),
+                              delayMs: 40,
+                              child: Column(
+                                children: state.beliefs
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (entry) => ProgressBarItem(
+                                        label: _localizedDynamicText(
                                           context,
-                                          entry.value,
-                                          fallbackEn:
-                                              'Step ${entry.key + 1} in the current plan',
+                                          entry.value.topic,
+                                          fallbackEn: 'Topic ${entry.key + 1}',
                                         ),
-                                        style: theme.textTheme.bodyMedium,
+                                        value: entry.value.ratio,
+                                        color: theme.colorScheme.primary,
+                                        delayMs: 60 + entry.key * 25,
                                       ),
+                                    )
+                                    .toList(growable: false),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Kế hoạch hành động',
+                                en: 'Action plan',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Cây kế hoạch rút gọn cho phiên hiện tại',
+                                en: 'Compact plan tree for the current session',
+                              ),
+                              delayMs: 70,
+                              child: Column(
+                                children: state.planSteps
+                                    .asMap()
+                                    .entries
+                                    .map(
+                                      (entry) => Padding(
+                                        padding: EdgeInsets.only(
+                                          bottom:
+                                              entry.key ==
+                                                  state.planSteps.length - 1
+                                              ? 0
+                                              : 10,
+                                        ),
+                                        child: Row(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Container(
+                                              width: 20,
+                                              height: 20,
+                                              alignment: Alignment.center,
+                                              decoration: BoxDecoration(
+                                                color: theme
+                                                    .colorScheme
+                                                    .primaryContainer,
+                                                borderRadius:
+                                                    BorderRadius.circular(999),
+                                              ),
+                                              child: Text(
+                                                '${entry.key + 1}',
+                                                style: TextStyle(
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                  fontSize: 11,
+                                                ),
+                                              ),
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                _localizedDynamicText(
+                                                  context,
+                                                  entry.value,
+                                                  fallbackEn:
+                                                      'Step ${entry.key + 1} in the current plan',
+                                                ),
+                                                style:
+                                                    theme.textTheme.bodyMedium,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    )
+                                    .toList(growable: false),
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Trạng thái tinh thần',
+                                en: 'Mental state',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Trạng thái hiện tại của người học',
+                                en: 'Current learner state',
+                              ),
+                              delayMs: 100,
+                              child: Row(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 10,
+                                      vertical: 6,
                                     ),
-                                  ],
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    InsightCard(
-                      title: context.t(
-                        vi: 'Trạng thái tinh thần',
-                        en: 'Mental state',
-                      ),
-                      subtitle: context.t(
-                        vi: 'Trạng thái hiện tại của người học',
-                        en: 'Current learner state',
-                      ),
-                      delayMs: 100,
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 6,
-                            ),
-                            decoration: BoxDecoration(
-                              color: GrowMateColors.tertiaryContainer,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              _localizedDynamicText(
-                                context,
-                                state.mentalStateLabel,
-                                fallbackEn: 'Stable',
-                              ),
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: GrowMateColors.success,
-                                fontWeight: FontWeight.w700,
+                                    decoration: BoxDecoration(
+                                      color: GrowMateColors.tertiaryContainer,
+                                      borderRadius: BorderRadius.circular(999),
+                                    ),
+                                    child: Text(
+                                      _localizedDynamicText(
+                                        context,
+                                        state.mentalStateLabel,
+                                        fallbackEn: 'Stable',
+                                      ),
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: GrowMateColors.success,
+                                            fontWeight: FontWeight.w700,
+                                          ),
+                                    ),
+                                  ),
+                                  const SizedBox(width: 10),
+                                  Expanded(
+                                    child: Text(
+                                      _localizedDynamicText(
+                                        context,
+                                        state.mentalStateHint,
+                                        fallbackEn:
+                                            'Current learning state inferred from recent AI signals.',
+                                      ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: GrowMateColors.textSecondary,
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            child: Text(
-                              _localizedDynamicText(
-                                context,
-                                state.mentalStateHint,
-                                fallbackEn:
-                                    'Current learning state inferred from recent AI signals.',
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Độ tin cậy',
+                                en: 'Confidence metrics',
                               ),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
+                              subtitle: context.t(
+                                vi: 'Độ tin cậy mô hình và độ bất định',
+                                en: 'Model confidence and uncertainty',
+                              ),
+                              delayMs: 130,
+                              child: Column(
+                                children: [
+                                  ProgressBarItem(
+                                    label: context.t(
+                                      vi: 'Độ tin cậy mô hình',
+                                      en: 'Model confidence',
+                                    ),
+                                    value: state.confidenceScore,
+                                    color: GrowMateColors.success,
+                                    delayMs: 150,
+                                  ),
+                                  ProgressBarItem(
+                                    label: context.t(
+                                      vi: 'Độ bất định tổng hợp',
+                                      en: 'Aggregate uncertainty',
+                                    ),
+                                    value: state.uncertaintyScore,
+                                    color: GrowMateColors.warningSoft,
+                                    delayMs: 180,
+                                  ),
+                                ],
                               ),
                             ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    InsightCard(
-                      title: context.t(
-                        vi: 'Độ tin cậy',
-                        en: 'Confidence metrics',
-                      ),
-                      subtitle: context.t(
-                        vi: 'Độ tin cậy mô hình và độ bất định',
-                        en: 'Model confidence and uncertainty',
-                      ),
-                      delayMs: 130,
-                      child: Column(
-                        children: [
-                          ProgressBarItem(
-                            label: context.t(
-                              vi: 'Độ tin cậy mô hình',
-                              en: 'Model confidence',
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Q-Value ưu tiên',
+                                en: 'Priority Q-values',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Giá trị chiến lược đang được mô hình ưu tiên',
+                                en: 'Strategy values currently prioritized by the model',
+                              ),
+                              delayMs: 160,
+                              child: _QValueList(qValues: state.qValues),
                             ),
-                            value: state.confidenceScore,
-                            color: GrowMateColors.success,
-                            delayMs: 150,
-                          ),
-                          ProgressBarItem(
-                            label: context.t(
-                              vi: 'Độ bất định tổng hợp',
-                              en: 'Aggregate uncertainty',
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Nhật ký quyết định',
+                                en: 'Decision log',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Các quyết định gần nhất',
+                                en: 'Most recent decisions',
+                              ),
+                              delayMs: 190,
+                              child: _DecisionList(entries: state.decisionLogs),
                             ),
-                            value: state.uncertaintyScore,
-                            color: GrowMateColors.warningSoft,
-                            delayMs: 180,
-                          ),
-                        ],
+                            const SizedBox(height: 8),
+                          ],
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 12),
-                    InsightCard(
-                      title: context.t(
-                        vi: 'Q-Value ưu tiên',
-                        en: 'Priority Q-values',
-                      ),
-                      subtitle: context.t(
-                        vi: 'Giá trị chiến lược đang được mô hình ưu tiên',
-                        en: 'Strategy values currently prioritized by the model',
-                      ),
-                      delayMs: 160,
-                      child: _QValueList(qValues: state.qValues),
-                    ),
-                    const SizedBox(height: 12),
-                    InsightCard(
-                      title: context.t(
-                        vi: 'Nhật ký quyết định',
-                        en: 'Decision log',
-                      ),
-                      subtitle: context.t(
-                        vi: 'Các quyết định gần nhất',
-                        en: 'Most recent decisions',
-                      ),
-                      delayMs: 190,
-                      child: _DecisionList(entries: state.decisionLogs),
-                    ),
-                    const SizedBox(height: 8),
                   ],
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

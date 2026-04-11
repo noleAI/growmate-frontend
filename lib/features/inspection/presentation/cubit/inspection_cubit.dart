@@ -1,7 +1,6 @@
 import 'dart:async';
 
 import 'package:equatable/equatable.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 
@@ -71,7 +70,7 @@ class InspectionState extends Equatable {
   final List<InspectionDecisionLog> decisionLogs;
   final DateTime updatedAt;
 
-  bool get canInspect => kDebugMode || devModeEnabled;
+  bool get canInspect => devModeEnabled;
 
   factory InspectionState.initial() {
     final snapshot = InspectionRuntimeSnapshot.initial();

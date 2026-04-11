@@ -164,6 +164,7 @@ class _InterventionPageState extends State<InterventionPage> {
                     .toList();
 
                 return ZenPageContainer(
+                  includeBottomSafeArea: false,
                   child: ListView(
                     children: [
                       const GrowMateTopAppBar(),

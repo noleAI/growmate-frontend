@@ -156,18 +156,32 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                       spacing: 8,
                       runSpacing: 8,
                       children: MindfulSoundPreset.values
-                          .map(
-                            (preset) => ChoiceChip(
-                              label: Text(_soundPresetLabel(context, preset)),
-                              selected: _selectedSoundPreset == preset,
+                          .map((preset) {
+                            final isSelected = _selectedSoundPreset == preset;
+
+                            return ChoiceChip(
+                              label: Text(
+                                _soundPresetLabel(context, preset),
+                                style: theme.textTheme.labelLarge?.copyWith(
+                                  color: isSelected
+                                      ? GrowMateColors.textPrimary
+                                      : GrowMateColors.textSecondary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              selected: isSelected,
+                              checkmarkColor: GrowMateColors.textPrimary,
+                              backgroundColor: GrowMateColors.surface,
+                              selectedColor: GrowMateColors.tertiaryContainer,
+                              side: BorderSide.none,
                               onSelected: (selected) {
                                 if (!selected) {
                                   return;
                                 }
                                 unawaited(_selectSoundPreset(preset));
                               },
-                            ),
-                          )
+                            );
+                          })
                           .toList(growable: false),
                     ),
                     const SizedBox(height: 8),

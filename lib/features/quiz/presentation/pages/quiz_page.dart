@@ -451,20 +451,35 @@ class _QuizPageState extends State<QuizPage> {
                             children: _questionPool
                                 .asMap()
                                 .entries
-                                .map(
-                                  (entry) => ChoiceChip(
+                                .map((entry) {
+                                  final isSelected =
+                                      entry.value.id == _activeQuestion.id;
+
+                                  return ChoiceChip(
                                     label: Text(
                                       context.t(
                                         vi: 'Câu ${entry.key + 1}',
                                         en: 'Q${entry.key + 1}',
                                       ),
+                                      style: theme.textTheme.labelLarge
+                                          ?.copyWith(
+                                            color: isSelected
+                                                ? GrowMateColors.textPrimary
+                                                : GrowMateColors.textSecondary,
+                                            fontWeight: FontWeight.w700,
+                                          ),
                                     ),
-                                    selected:
-                                        entry.value.id == _activeQuestion.id,
+                                    selected: isSelected,
+                                    checkmarkColor: GrowMateColors.textPrimary,
+                                    backgroundColor:
+                                        GrowMateColors.surfaceContainerLow,
+                                    selectedColor:
+                                        GrowMateColors.tertiaryContainer,
+                                    side: BorderSide.none,
                                     onSelected: (_) =>
                                         _selectQuestion(entry.value),
-                                  ),
-                                )
+                                  );
+                                })
                                 .toList(growable: false),
                           ),
                         ),

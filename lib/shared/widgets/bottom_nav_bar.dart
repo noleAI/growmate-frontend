@@ -22,15 +22,8 @@ class GrowMateBottomNavBar extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow.withValues(alpha: 0.96),
+        color: Colors.white,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.1),
-            blurRadius: 26,
-            offset: Offset(0, -8),
-          ),
-        ],
       ),
       child: Row(
         children: [
@@ -98,23 +91,7 @@ class _NavItem extends StatelessWidget {
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              AnimatedContainer(
-                duration: const Duration(milliseconds: 220),
-                curve: Curves.easeOut,
-                width: 30,
-                height: 24,
-                decoration: BoxDecoration(
-                  color: selected
-                      ? colors.primary.withValues(alpha: 0.2)
-                      : Colors.transparent,
-                  borderRadius: BorderRadius.circular(10),
-                ),
-                child: Icon(
-                  icon,
-                  color: selected ? selectedColor : baseColor,
-                  size: 18,
-                ),
-              ),
+              Icon(icon, color: selected ? selectedColor : baseColor, size: 18),
               const SizedBox(height: 4),
               Text(
                 label,

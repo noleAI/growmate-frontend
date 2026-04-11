@@ -68,6 +68,7 @@ class ProgressScreen extends StatelessWidget {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
+        includeBottomSafeArea: false,
         child: StreamBuilder<List<SessionHistoryEntry>>(
           stream: sessionHistoryRepository.watchHistory(),
           builder: (context, snapshot) {

@@ -61,6 +61,7 @@ class _TodayPageState extends State<TodayPage> {
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
+        includeBottomSafeArea: false,
         child: ListView(
           children: [
             _buildTopAppBar(context),

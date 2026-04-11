@@ -358,6 +358,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           return Scaffold(
             backgroundColor: theme.scaffoldBackgroundColor,
             body: ZenPageContainer(
+              includeBottomSafeArea: false,
               child: ListView(
                 children: [
                   _buildHeader(profile),
@@ -1596,8 +1597,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                         )
                                       : _t(
                                           context,
-                                          vi: 'Đã tắt Chế độ Dev. Nút AI Insight chỉ hiện trong bản debug.',
-                                          en: 'Dev Mode disabled. AI Insight is now debug-only.',
+                                          vi: 'Đã tắt Chế độ Dev. Nút AI Insight sẽ được ẩn.',
+                                          en: 'Dev Mode disabled. The AI Insight button is now hidden.',
                                         ),
                                   style: _snackTextStyle(context),
                                 ),

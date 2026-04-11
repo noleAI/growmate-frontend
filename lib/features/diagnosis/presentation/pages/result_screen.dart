@@ -362,6 +362,7 @@ class _ResultContent extends StatelessWidget {
     final result = state.result;
 
     return ZenPageContainer(
+      includeBottomSafeArea: false,
       child: ListView(
         children: [
           const GrowMateTopAppBar(),
