@@ -1,7 +1,6 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 
-import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../features/achievement/data/models/achievement_badge.dart';
@@ -72,6 +71,22 @@ class ProgressScreen extends StatelessWidget {
         child: StreamBuilder<List<SessionHistoryEntry>>(
           stream: sessionHistoryRepository.watchHistory(),
           builder: (context, snapshot) {
+            if (snapshot.hasError) {
+              return _ErrorStateWidget(
+                message: context.t(
+                  vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+                  en: 'Unable to load data. Please try again.',
+                ),
+                onRetry: () {
+                  // Force rebuild - typically setState or re-subscribe
+                },
+              );
+            }
+
+            if (!snapshot.hasData) {
+              return const _LoadingStateWidget();
+            }
+
             final history = snapshot.data ?? const <SessionHistoryEntry>[];
 
             return ListView(
@@ -263,7 +278,7 @@ class _StrengthSection extends StatelessWidget {
                       value: entry.value.score / 4,
                       trailing: '${((entry.value.score / 4) * 100).round()}%',
                       caption: context.t(vi: 'Nắm chắc', en: 'Strong grasp'),
-                      color: GrowMateColors.success,
+                      color: Theme.of(context).colorScheme.tertiary,
                       delayMs: 70 + entry.key * 45,
                     ),
                   )
@@ -330,7 +345,7 @@ class _WeaknessSection extends StatelessWidget {
                     value: entry.value.score / 4,
                     trailing: '${((entry.value.score / 4) * 100).round()}%',
                     caption: context.t(vi: 'Cần ôn lại', en: 'Needs review'),
-                    color: GrowMateColors.warningSoft,
+                    color: Theme.of(context).colorScheme.secondary,
                     delayMs: 80 + entry.key * 45,
                   ),
                 ),
@@ -463,6 +478,22 @@ class _SpacedReviewSection extends StatelessWidget {
     return StreamBuilder<List<SpacedReviewItem>>(
       stream: SpacedRepetitionRepository.instance.watchItems(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _ErrorStateWidget(
+            message: context.t(
+              vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+              en: 'Unable to load data. Please try again.',
+            ),
+            onRetry: () {
+              // Force rebuild - typically setState or re-subscribe
+            },
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const _LoadingStateWidget();
+        }
+
         final items = snapshot.data ?? const <SpacedReviewItem>[];
         final dueItems =
             items
@@ -539,6 +570,22 @@ class _AchievementSection extends StatelessWidget {
     return StreamBuilder<List<AchievementBadge>>(
       stream: AchievementRepository.instance.watchUnlocked(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _ErrorStateWidget(
+            message: context.t(
+              vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+              en: 'Unable to load data. Please try again.',
+            ),
+            onRetry: () {
+              // Force rebuild - typically setState or re-subscribe
+            },
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const _LoadingStateWidget();
+        }
+
         final badges = snapshot.data ?? const <AchievementBadge>[];
 
         return Section(
@@ -625,6 +672,22 @@ class _SmartScheduleInsightSection extends StatelessWidget {
     return StreamBuilder<List<StudyScheduleItem>>(
       stream: StudyScheduleRepository.instance.watchItems(),
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _ErrorStateWidget(
+            message: context.t(
+              vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+              en: 'Unable to load data. Please try again.',
+            ),
+            onRetry: () {
+              // Force rebuild - typically setState or re-subscribe
+            },
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const _LoadingStateWidget();
+        }
+
         final now = DateTime.now().toUtc();
         final items = snapshot.data ?? const <StudyScheduleItem>[];
         final pending =
@@ -1035,4 +1098,84 @@ String _dayLabel(BuildContext context, DateTime value) {
     return '${local.month}/${local.day} • $hour:$minute';
   }
   return '${local.day}/${local.month} • $hour:$minute';
+}
+
+class _ErrorStateWidget extends StatelessWidget {
+  const _ErrorStateWidget({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
+      decoration: BoxDecoration(
+        color: colors.errorContainer.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 32, color: colors.error),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: Icon(Icons.refresh_rounded, size: 18, color: colors.error),
+            label: Text(
+              context.t(vi: 'Thử lại', en: 'Retry'),
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingStateWidget extends StatelessWidget {
+  const _LoadingStateWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: GrowMateLayout.space12),
+          Text(
+            context.t(vi: 'Đang tải dữ liệu...', en: 'Loading data...'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
 }

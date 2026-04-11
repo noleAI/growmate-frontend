@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -29,6 +28,11 @@ class _RegisterPageState extends State<RegisterPage> {
   bool _obscurePassword = true;
   bool _obscureConfirmPassword = true;
 
+  String? _nameError;
+  String? _emailError;
+  String? _passwordError;
+  String? _confirmPasswordError;
+
   @override
   void dispose() {
     _nameController.dispose();
@@ -38,7 +42,60 @@ class _RegisterPageState extends State<RegisterPage> {
     super.dispose();
   }
 
+  void _clearErrors() {
+    setState(() {
+      _nameError = null;
+      _emailError = null;
+      _passwordError = null;
+      _confirmPasswordError = null;
+    });
+  }
+
+  bool _validateForm() {
+    _clearErrors();
+
+    final name = _nameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    bool hasError = false;
+
+    if (name.isEmpty) {
+      setState(() => _nameError = 'Vui lòng nhập tên của bạn');
+      hasError = true;
+    }
+
+    if (email.isEmpty) {
+      setState(() => _emailError = 'Vui lòng nhập email');
+      hasError = true;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() => _emailError = 'Email không hợp lệ');
+      hasError = true;
+    }
+
+    if (password.isEmpty) {
+      setState(() => _passwordError = 'Vui lòng nhập mật khẩu');
+      hasError = true;
+    } else if (password.length < 6) {
+      setState(() => _passwordError = 'Mật khẩu phải có ít nhất 6 ký tự');
+      hasError = true;
+    }
+
+    if (confirmPassword.isEmpty) {
+      setState(() => _confirmPasswordError = 'Vui lòng xác nhận mật khẩu');
+      hasError = true;
+    } else if (password != confirmPassword) {
+      setState(() => _confirmPasswordError = 'Mật khẩu xác nhận không khớp');
+      hasError = true;
+    }
+
+    return !hasError;
+  }
+
   void _submit() {
+    if (!_validateForm()) return;
+
     context.read<AuthBloc>().add(
       RegisterRequested(
         name: _nameController.text.trim(),
@@ -78,9 +135,9 @@ class _RegisterPageState extends State<RegisterPage> {
                   alignment: Alignment.centerLeft,
                   child: IconButton(
                     onPressed: () => context.pop(),
-                    icon: const Icon(
+                    icon: Icon(
                       Icons.arrow_back_ios_new_rounded,
-                      color: GrowMateColors.primary,
+                      color: theme.colorScheme.primary,
                     ),
                   ),
                 ),
@@ -93,7 +150,7 @@ class _RegisterPageState extends State<RegisterPage> {
                 Text(
                   'Bắt đầu hành trình học tập nhẹ nhàng',
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: GrowMateColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 20),
@@ -103,67 +160,50 @@ class _RegisterPageState extends State<RegisterPage> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      ZenTextField(
+                      _buildTextField(
                         controller: _nameController,
-                        textInputAction: TextInputAction.next,
                         hintText: 'Tên của bạn',
                         enabled: !isLoading,
+                        error: _nameError,
+                        textInputAction: TextInputAction.next,
                       ),
                       const SizedBox(height: 12),
-                      ZenTextField(
+                      _buildTextField(
                         controller: _emailController,
-                        keyboardType: TextInputType.emailAddress,
-                        textInputAction: TextInputAction.next,
                         hintText: 'Email',
                         enabled: !isLoading,
-                      ),
-                      const SizedBox(height: 12),
-                      ZenTextField(
-                        controller: _passwordController,
+                        error: _emailError,
+                        keyboardType: TextInputType.emailAddress,
                         textInputAction: TextInputAction.next,
-                        hintText: 'Mật khẩu',
-                        obscureText: _obscurePassword,
-                        enabled: !isLoading,
-                        suffixIcon: IconButton(
-                          onPressed: isLoading
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _obscurePassword = !_obscurePassword;
-                                  });
-                                },
-                          icon: Icon(
-                            _obscurePassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: GrowMateColors.textSecondary,
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 12),
-                      ZenTextField(
-                        controller: _confirmPasswordController,
-                        textInputAction: TextInputAction.done,
-                        hintText: 'Xác nhận mật khẩu',
-                        obscureText: _obscureConfirmPassword,
+                      _buildPasswordField(
+                        controller: _passwordController,
+                        hintText: 'Mật khẩu',
                         enabled: !isLoading,
+                        error: _passwordError,
+                        obscureText: _obscurePassword,
+                        onToggleVisibility: () {
+                          setState(() {
+                            _obscurePassword = !_obscurePassword;
+                          });
+                        },
+                        textInputAction: TextInputAction.next,
+                      ),
+                      const SizedBox(height: 12),
+                      _buildPasswordField(
+                        controller: _confirmPasswordController,
+                        hintText: 'Xác nhận mật khẩu',
+                        enabled: !isLoading,
+                        error: _confirmPasswordError,
+                        obscureText: _obscureConfirmPassword,
+                        onToggleVisibility: () {
+                          setState(() {
+                            _obscureConfirmPassword = !_obscureConfirmPassword;
+                          });
+                        },
+                        textInputAction: TextInputAction.done,
                         onSubmitted: (_) => _submit(),
-                        suffixIcon: IconButton(
-                          onPressed: isLoading
-                              ? null
-                              : () {
-                                  setState(() {
-                                    _obscureConfirmPassword =
-                                        !_obscureConfirmPassword;
-                                  });
-                                },
-                          icon: Icon(
-                            _obscureConfirmPassword
-                                ? Icons.visibility_outlined
-                                : Icons.visibility_off_outlined,
-                            color: GrowMateColors.textSecondary,
-                          ),
-                        ),
                       ),
                       const SizedBox(height: 16),
                       ZenButton(
@@ -196,7 +236,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       Text(
                         'Đã có tài khoản?',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                       TextButton(
@@ -208,10 +248,10 @@ class _RegisterPageState extends State<RegisterPage> {
                         onPressed: isLoading
                             ? null
                             : () => context.pushReplacement(AppRoutes.login),
-                        child: const Text(
+                        child: Text(
                           'Đăng nhập',
                           style: TextStyle(
-                            color: GrowMateColors.primary,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w700,
                             fontSize: 16,
                           ),
@@ -234,9 +274,95 @@ class _RegisterPageState extends State<RegisterPage> {
       ..showSnackBar(
         SnackBar(
           content: Text(message),
-          backgroundColor: GrowMateColors.surfaceContainerHigh,
+          backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
           behavior: SnackBarBehavior.floating,
         ),
       );
+  }
+
+  Widget _buildTextField({
+    required TextEditingController controller,
+    required String hintText,
+    required bool enabled,
+    String? error,
+    TextInputType? keyboardType,
+    TextInputAction? textInputAction,
+  }) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ZenTextField(
+          controller: controller,
+          hintText: hintText,
+          enabled: enabled,
+          keyboardType: keyboardType,
+          textInputAction: textInputAction,
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              error,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildPasswordField({
+    required TextEditingController controller,
+    required String hintText,
+    required bool enabled,
+    required bool obscureText,
+    required VoidCallback onToggleVisibility,
+    String? error,
+    TextInputAction? textInputAction,
+    ValueChanged<String>? onSubmitted,
+  }) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        ZenTextField(
+          controller: controller,
+          hintText: hintText,
+          enabled: enabled,
+          obscureText: obscureText,
+          textInputAction: textInputAction,
+          onSubmitted: onSubmitted,
+          suffixIcon: IconButton(
+            onPressed: enabled ? onToggleVisibility : null,
+            icon: Icon(
+              obscureText
+                  ? Icons.visibility_outlined
+                  : Icons.visibility_off_outlined,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        if (error != null) ...[
+          const SizedBox(height: 6),
+          Padding(
+            padding: const EdgeInsets.only(left: 12),
+            child: Text(
+              error,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.error,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        ],
+      ],
+    );
   }
 }

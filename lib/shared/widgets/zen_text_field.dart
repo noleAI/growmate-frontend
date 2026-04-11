@@ -1,7 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/colors.dart';
-
 class ZenTextField extends StatelessWidget {
   const ZenTextField({
     super.key,
@@ -34,6 +32,8 @@ class ZenTextField extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return TextField(
       controller: controller,
       focusNode: focusNode,
@@ -45,23 +45,19 @@ class ZenTextField extends StatelessWidget {
       obscureText: obscureText,
       textAlign: textAlign,
       onSubmitted: onSubmitted,
-      style: const TextStyle(
-        color: GrowMateColors.textPrimary,
-        fontSize: 17,
-        height: 1.3,
+      style: theme.textTheme.bodyLarge?.copyWith(
+        color: theme.colorScheme.onSurface,
         fontWeight: FontWeight.w600,
       ),
       decoration: InputDecoration(
         hintText: hintText,
-        hintStyle: const TextStyle(
-          color: Color(0xFF97A1A5),
-          fontSize: 17,
-          height: 1.3,
+        hintStyle: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
         suffixIcon: suffixIcon,
         filled: true,
-        fillColor: Colors.white.withValues(alpha: 0.72),
+        fillColor: theme.colorScheme.surfaceContainerLow,
         contentPadding: const EdgeInsets.symmetric(
           horizontal: 18,
           vertical: 14,
@@ -73,16 +69,13 @@ class ZenTextField extends StatelessWidget {
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
           borderSide: BorderSide(
-            color: GrowMateColors.primary.withValues(alpha: 0.08),
+            color: theme.colorScheme.outlineVariant,
             width: 1.1,
           ),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(20),
-          borderSide: const BorderSide(
-            color: GrowMateColors.primary,
-            width: 1.4,
-          ),
+          borderSide: BorderSide(color: theme.colorScheme.primary, width: 1.4),
         ),
       ),
     );

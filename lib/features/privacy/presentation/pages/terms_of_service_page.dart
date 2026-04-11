@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 
 class TermsOfServicePage extends StatelessWidget {
@@ -28,9 +27,9 @@ class TermsOfServicePage extends StatelessWidget {
                     }
                     context.go(AppRoutes.settings);
                   },
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    color: GrowMateColors.primary,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -38,7 +37,7 @@ class TermsOfServicePage extends StatelessWidget {
                   context.t(vi: 'Điều khoản sử dụng', en: 'Terms of service'),
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontWeight: FontWeight.w700,
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                   ),
                 ),
               ],

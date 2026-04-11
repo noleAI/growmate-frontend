@@ -3,7 +3,6 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
@@ -101,7 +100,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                         child: Text(
                           'Mình chưa lấy được phân tích lần này. Bấm thử lại để tụi mình tiếp tục nhé.',
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: GrowMateColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                             height: 1.4,
                             fontWeight: FontWeight.w600,
                           ),
@@ -151,7 +150,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               ),
                               boxShadow: const [
                                 BoxShadow(
-                                  color: GrowMateColors.shadowSoft,
+                                  color: Color(0x14000000),
                                   blurRadius: 20,
                                   offset: Offset(0, 10),
                                 ),
@@ -169,7 +168,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                             successState.headline,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.headlineLarge?.copyWith(
-                              color: GrowMateColors.primary,
+                              color: theme.colorScheme.primary,
                               fontSize: 35,
                               height: 1.14,
                             ),
@@ -179,7 +178,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                             'Đừng lo lắng nhé, những kiến thức này đôi khi hơi "khó chiều" một chút thôi.\nChúng mình cùng nhau gỡ rối nhé?',
                             textAlign: TextAlign.center,
                             style: theme.textTheme.bodyLarge?.copyWith(
-                              color: GrowMateColors.textSecondary,
+                              color: theme.colorScheme.onSurfaceVariant,
                             ),
                           ),
                         ],
@@ -200,7 +199,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                                 height: 50,
                                 decoration: BoxDecoration(
                                   shape: BoxShape.circle,
-                                  color: GrowMateColors.primaryContainer
+                                  color: theme.colorScheme.primaryContainer
                                       .withValues(alpha: 0.6),
                                 ),
                                 alignment: Alignment.center,
@@ -214,7 +213,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                                 child: Text(
                                   'PHÂN TÍCH LỖ HỔNG',
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: GrowMateColors.textSecondary,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.w700,
                                     letterSpacing: 0.5,
                                   ),
@@ -226,7 +225,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                           Text(
                             successState.gapAnalysis,
                             style: theme.textTheme.titleMedium?.copyWith(
-                              color: GrowMateColors.textPrimary,
+                              color: theme.colorScheme.onSurface,
                               fontWeight: FontWeight.w700,
                               height: 1.35,
                             ),
@@ -240,7 +239,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: GrowMateColors.textSecondary,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                     fontWeight: FontWeight.w600,
                                   ),
                                 ),
@@ -249,7 +248,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               Text(
                                 '45%',
                                 style: theme.textTheme.titleMedium?.copyWith(
-                                  color: GrowMateColors.primary,
+                                  color: theme.colorScheme.primary,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
@@ -262,21 +261,21 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                               minHeight: 6,
                               value: 0.45,
                               backgroundColor:
-                                  GrowMateColors.surfaceContainerHigh,
-                              color: GrowMateColors.primary,
+                                  theme.colorScheme.surfaceContainerHigh,
+                              color: theme.colorScheme.primary,
                             ),
                           ),
                           const SizedBox(height: 14),
                           _SkillTile(
                             icon: Icons.check_circle_rounded,
-                            iconColor: GrowMateColors.success,
+                            iconColor: theme.colorScheme.tertiary,
                             title: 'Đã vững',
                             value: successState.strengths.first,
                           ),
                           const SizedBox(height: 10),
                           _SkillTile(
                             icon: Icons.error_rounded,
-                            iconColor: GrowMateColors.warningSoft,
+                            iconColor: theme.colorScheme.secondary,
                             title: 'Cần xem lại',
                             value: successState.needsReview.first,
                           ),
@@ -286,14 +285,14 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                     const SizedBox(height: 20),
                     ZenCard(
                       radius: 22,
-                      color: GrowMateColors.secondaryContainer.withValues(
+                      color: theme.colorScheme.secondaryContainer.withValues(
                         alpha: 0.35,
                       ),
                       padding: const EdgeInsets.all(14),
                       child: Text(
                         'Minh bạch AI: ${successState.diagnosisReason}',
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                           height: 1.4,
                         ),
                       ),
@@ -303,7 +302,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                       'Mình ôn lại phần này nhé?',
                       textAlign: TextAlign.center,
                       style: theme.textTheme.titleLarge?.copyWith(
-                        color: GrowMateColors.textPrimary,
+                        color: theme.colorScheme.onSurface,
                         fontWeight: FontWeight.w700,
                       ),
                     ),
@@ -401,7 +400,7 @@ class _DiagnosisLoadingView extends StatelessWidget {
                   'Mình đang phân tích để gợi ý đúng nhịp học của bạn...',
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: GrowMateColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.4,
                   ),
                 ),
@@ -438,7 +437,7 @@ class _SkillTile extends StatelessWidget {
         color: Colors.white.withValues(alpha: 0.8),
         borderRadius: BorderRadius.circular(18),
         border: Border.all(
-          color: GrowMateColors.primary.withValues(alpha: 0.08),
+          color: theme.colorScheme.primary.withValues(alpha: 0.08),
         ),
       ),
       child: Row(
@@ -452,7 +451,7 @@ class _SkillTile extends StatelessWidget {
                 Text(
                   title,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -460,7 +459,7 @@ class _SkillTile extends StatelessWidget {
                 Text(
                   value,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: GrowMateColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.35,
                     fontWeight: FontWeight.w600,
                   ),
@@ -504,7 +503,7 @@ class _TipBento extends StatelessWidget {
             child: Text.rich(
               TextSpan(
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textPrimary,
+                  color: theme.colorScheme.onSurface,
                   height: 1.45,
                 ),
                 children: [
@@ -512,7 +511,7 @@ class _TipBento extends StatelessWidget {
                     text: '$title ',
                     style: theme.textTheme.bodyMedium?.copyWith(
                       fontWeight: FontWeight.w700,
-                      color: GrowMateColors.textPrimary,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                   TextSpan(text: message),

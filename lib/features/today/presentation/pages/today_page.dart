@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../review/data/models/spaced_review_item.dart';
 import '../../../review/data/repositories/spaced_repetition_repository.dart';
@@ -179,6 +178,22 @@ class _TodayPageState extends State<TodayPage> {
       stream: inspectionCubit.stream,
       initialData: inspectionCubit.state,
       builder: (context, snapshot) {
+        if (snapshot.hasError) {
+          return _ErrorStateWidget(
+            message: context.t(
+              vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+              en: 'Unable to load data. Please try again.',
+            ),
+            onRetry: () {
+              setState(() {});
+            },
+          );
+        }
+
+        if (!snapshot.hasData) {
+          return const _LoadingStateWidget();
+        }
+
         final state = snapshot.data ?? inspectionCubit!.state;
 
         return GrowMateTopAppBar(
@@ -324,14 +339,14 @@ class _CompactStats extends StatelessWidget {
                   label: context.t(vi: 'hoàn thành', en: 'completed'),
                   value: '4/5',
                   icon: Icons.task_alt_rounded,
-                  accent: GrowMateColors.success,
+                  accent: colors.tertiary,
                 ),
                 SizedBox(width: GrowMateLayout.space12),
                 StatItem(
                   label: context.t(vi: 'Tập trung', en: 'Focus'),
                   value: context.t(vi: 'Tốt', en: 'Good'),
                   icon: Icons.bolt_rounded,
-                  accent: GrowMateColors.primary,
+                  accent: colors.primary,
                 ),
               ],
             ),
@@ -365,7 +380,7 @@ class _AiSystemPanel extends StatelessWidget {
         const SizedBox(height: GrowMateLayout.contentGap),
         _InsightTile(
           icon: Icons.check_circle_rounded,
-          iconColor: GrowMateColors.success,
+          iconColor: colors.tertiary,
           title: context.t(
             vi: 'Bạn làm tốt ở điểm nào',
             en: 'What you did well',
@@ -378,7 +393,7 @@ class _AiSystemPanel extends StatelessWidget {
         const SizedBox(height: GrowMateLayout.space12),
         _InsightTile(
           icon: Icons.warning_amber_rounded,
-          iconColor: GrowMateColors.warningSoft,
+          iconColor: colors.secondary,
           title: context.t(vi: 'Điểm cần cải thiện', en: 'Needs improvement'),
           subtitle: context.t(
             vi: 'Đạo hàm hàm số hợp',
@@ -727,6 +742,86 @@ class _QuickStrip extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _ErrorStateWidget extends StatelessWidget {
+  const _ErrorStateWidget({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
+      decoration: BoxDecoration(
+        color: colors.errorContainer.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.error.withValues(alpha: 0.3)),
+      ),
+      child: Column(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 32, color: colors.error),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: Icon(Icons.refresh_rounded, size: 18, color: colors.error),
+            label: Text(
+              context.t(vi: 'Thử lại', en: 'Retry'),
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingStateWidget extends StatelessWidget {
+  const _LoadingStateWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+      ),
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: GrowMateLayout.space12),
+          Text(
+            context.t(vi: 'Đang tải dữ liệu...', en: 'Loading data...'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
       ),
     );
   }

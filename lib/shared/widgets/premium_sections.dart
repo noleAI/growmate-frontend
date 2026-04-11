@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/build_context_i18n.dart';
-import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import 'zen_button.dart';
 
@@ -102,7 +101,7 @@ class StatItem extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final color = accent ?? GrowMateColors.primary;
+    final color = accent ?? colors.primary;
 
     return Container(
       constraints: const BoxConstraints(minWidth: 94),
@@ -180,7 +179,7 @@ class ProgressBar extends StatelessWidget {
     final safeValue = value.clamp(0.0, 1.0).toDouble();
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final barColor = color ?? GrowMateColors.primary;
+    final barColor = color ?? colors.primary;
 
     return Padding(
       padding: const EdgeInsets.only(bottom: GrowMateLayout.contentGap),

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -40,19 +39,21 @@ class WelcomePage extends StatelessWidget {
                         end: Alignment.bottomCenter,
                         colors: [Color(0xFFEAF2E0), Color(0xFFD8E6D0)],
                       ),
-                      boxShadow: const [
+                      boxShadow: [
                         BoxShadow(
-                          color: GrowMateColors.shadowSoft,
+                          color: theme.colorScheme.shadow.withValues(
+                            alpha: 0.08,
+                          ),
                           blurRadius: 18,
-                          offset: Offset(0, 10),
+                          offset: const Offset(0, 10),
                         ),
                       ],
                     ),
                     alignment: Alignment.center,
-                    child: const Icon(
+                    child: Icon(
                       Icons.energy_savings_leaf_rounded,
                       size: 48,
-                      color: GrowMateColors.success,
+                      color: theme.colorScheme.tertiary,
                     ),
                   ),
                   const SizedBox(height: 20),
@@ -69,7 +70,7 @@ class WelcomePage extends StatelessWidget {
                     'Học nhẹ hơn, đều hơn, và vẫn hiệu quả từng ngày.',
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -96,9 +97,9 @@ class WelcomePage extends StatelessWidget {
                   ZenButton(
                     label: 'Tiếp tục với Google',
                     variant: ZenButtonVariant.text,
-                    leading: const Icon(
+                    leading: Icon(
                       Icons.g_mobiledata_rounded,
-                      color: GrowMateColors.primary,
+                      color: theme.colorScheme.primary,
                       size: 30,
                     ),
                     onPressed: () {
@@ -119,7 +120,7 @@ class WelcomePage extends StatelessWidget {
               'Mỗi phiên học chỉ cần một nhịp nhỏ, bạn đang làm rất tốt rồi.',
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
           ],

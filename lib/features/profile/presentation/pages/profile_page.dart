@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../auth/presentation/bloc/auth_bloc.dart';
 import '../../../auth/presentation/bloc/auth_event.dart';
@@ -30,7 +29,9 @@ class ProfilePage extends StatelessWidget {
           ..showSnackBar(
             SnackBar(
               content: Text(state.message),
-              backgroundColor: GrowMateColors.surfaceContainerHigh,
+              backgroundColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHigh,
               behavior: SnackBarBehavior.floating,
             ),
           );
@@ -85,7 +86,7 @@ class ProfilePage extends StatelessWidget {
                                 maxLines: 1,
                                 overflow: TextOverflow.ellipsis,
                                 style: theme.textTheme.bodyLarge?.copyWith(
-                                  color: GrowMateColors.textPrimary,
+                                  color: theme.colorScheme.onSurface,
                                   fontWeight: FontWeight.w600,
                                 ),
                               ),
@@ -95,7 +96,7 @@ class ProfilePage extends StatelessWidget {
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                   style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: GrowMateColors.textSecondary,
+                                    color: theme.colorScheme.onSurfaceVariant,
                                   ),
                                 ),
                             ],
@@ -114,7 +115,7 @@ class ProfilePage extends StatelessWidget {
                         vertical: GrowMateLayout.space12,
                       ),
                       decoration: BoxDecoration(
-                        color: GrowMateColors.backgroundSoft,
+                        color: theme.colorScheme.surfaceContainerLow,
                         borderRadius: BorderRadius.circular(12),
                       ),
                       child: Row(
@@ -129,9 +130,9 @@ class ProfilePage extends StatelessWidget {
                             ),
                           ),
                           const Spacer(),
-                          const Icon(
+                          Icon(
                             Icons.keyboard_arrow_down_rounded,
-                            color: GrowMateColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                           ),
                         ],
                       ),
@@ -178,7 +179,7 @@ class ProfilePage extends StatelessWidget {
                           )
                         : context.t(vi: 'Đăng xuất', en: 'Log out'),
                     variant: ZenButtonVariant.secondary,
-                    backgroundColor: GrowMateColors.surfaceContainerLow,
+                    backgroundColor: theme.colorScheme.surfaceContainerLow,
                     onPressed: isLoading
                         ? null
                         : () {
@@ -197,9 +198,9 @@ class ProfilePage extends StatelessWidget {
                               ),
                             ),
                           )
-                        : const Icon(
+                        : Icon(
                             Icons.logout_rounded,
-                            color: GrowMateColors.textPrimary,
+                            color: theme.colorScheme.onSurface,
                             size: 22,
                           ),
                   ),
@@ -225,17 +226,18 @@ class _ProfileBlock extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(GrowMateLayout.contentGap),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerLow,
+        color: theme.colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(18),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x0A0F172A),
+            color: theme.colorScheme.shadow.withValues(alpha: 0.04),
             blurRadius: 24,
-            offset: Offset(0, 8),
+            offset: const Offset(0, 8),
           ),
         ],
       ),
@@ -245,8 +247,8 @@ class _ProfileBlock extends StatelessWidget {
           if (title != null) ...[
             Text(
               title!,
-              style: Theme.of(context).textTheme.titleLarge?.copyWith(
-                color: GrowMateColors.textPrimary,
+              style: theme.textTheme.titleLarge?.copyWith(
+                color: theme.colorScheme.onSurface,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -277,13 +279,13 @@ class _SubjectChip extends StatelessWidget {
       decoration: BoxDecoration(
         color: selected
             ? colors.primary.withValues(alpha: 0.15)
-            : GrowMateColors.backgroundSoft,
+            : colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(999),
       ),
       child: Text(
         label,
         style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: selected ? colors.primary : GrowMateColors.textPrimary,
+          color: selected ? colors.primary : colors.onSurface,
           fontWeight: FontWeight.w500,
         ),
       ),

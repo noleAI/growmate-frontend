@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../cubit/inspection_cubit.dart';
 
@@ -56,8 +55,8 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
         heightFactor: 0.86,
         alignment: Alignment.bottomCenter,
         child: Container(
-          decoration: const BoxDecoration(
-            color: GrowMateColors.background,
+          decoration: BoxDecoration(
+            color: theme.colorScheme.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
           child: Padding(
@@ -81,7 +80,7 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                 width: 48,
                                 height: 5,
                                 decoration: BoxDecoration(
-                                  color: GrowMateColors.surfaceContainerHigh,
+                                  color: theme.colorScheme.surfaceContainerHigh,
                                   borderRadius: BorderRadius.circular(999),
                                 ),
                               ),
@@ -235,7 +234,8 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       vertical: 6,
                                     ),
                                     decoration: BoxDecoration(
-                                      color: GrowMateColors.tertiaryContainer,
+                                      color:
+                                          theme.colorScheme.tertiaryContainer,
                                       borderRadius: BorderRadius.circular(999),
                                     ),
                                     child: Text(
@@ -246,7 +246,7 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       ),
                                       style: theme.textTheme.bodySmall
                                           ?.copyWith(
-                                            color: GrowMateColors.success,
+                                            color: theme.colorScheme.tertiary,
                                             fontWeight: FontWeight.w700,
                                           ),
                                     ),
@@ -262,7 +262,9 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       ),
                                       style: theme.textTheme.bodyMedium
                                           ?.copyWith(
-                                            color: GrowMateColors.textSecondary,
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
                                           ),
                                     ),
                                   ),
@@ -288,7 +290,7 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       en: 'Model confidence',
                                     ),
                                     value: state.confidenceScore,
-                                    color: GrowMateColors.success,
+                                    color: theme.colorScheme.tertiary,
                                     delayMs: 150,
                                   ),
                                   ProgressBarItem(
@@ -297,7 +299,7 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                       en: 'Aggregate uncertainty',
                                     ),
                                     value: state.uncertaintyScore,
-                                    color: GrowMateColors.warningSoft,
+                                    color: theme.colorScheme.secondary,
                                     delayMs: 180,
                                   ),
                                 ],
@@ -359,6 +361,7 @@ class _QValueList extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     if (qValues.isEmpty) {
       return Text(
         context.t(
@@ -366,7 +369,7 @@ class _QValueList extends StatelessWidget {
           en: 'No new Q-values in the current session.',
         ),
         style: TextStyle(
-          color: GrowMateColors.textSecondary,
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       );
@@ -408,7 +411,7 @@ class _DecisionList extends StatelessWidget {
           en: 'No recent decisions recorded.',
         ),
         style: theme.textTheme.bodyMedium?.copyWith(
-          color: GrowMateColors.textSecondary,
+          color: theme.colorScheme.onSurfaceVariant,
           fontWeight: FontWeight.w600,
         ),
       );
@@ -422,7 +425,7 @@ class _DecisionList extends StatelessWidget {
               margin: const EdgeInsets.only(bottom: 10),
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
-                color: GrowMateColors.surfaceContainerHigh,
+                color: theme.colorScheme.surfaceContainerHigh,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Column(
@@ -445,7 +448,7 @@ class _DecisionList extends StatelessWidget {
                       Text(
                         _formatTime(entry.createdAt),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w600,
                         ),
                       ),
@@ -460,7 +463,7 @@ class _DecisionList extends StatelessWidget {
                           'Decision rationale was updated from current runtime signals.',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -470,7 +473,7 @@ class _DecisionList extends StatelessWidget {
                       en: 'Source: ${_localizedDynamicText(context, entry.source, fallbackEn: 'runtime')}',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],

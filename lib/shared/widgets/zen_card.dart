@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 
 class AIGlassCard extends StatelessWidget {
@@ -25,10 +24,11 @@ class AIGlassCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     final card = Container(
       padding: padding,
       decoration: BoxDecoration(
-        color: color ?? GrowMateColors.surface,
+        color: color ?? theme.colorScheme.surface,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
         boxShadow: showShadow

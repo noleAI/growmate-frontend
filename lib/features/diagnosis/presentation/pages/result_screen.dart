@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
@@ -129,6 +128,8 @@ class _ResultScreenState extends State<ResultScreen> {
               });
             },
             builder: (context, state) {
+              final theme = Theme.of(context);
+
               if (state is ResultLoading) {
                 return const _ResultLoadingView();
               }
@@ -172,11 +173,13 @@ class _ResultScreenState extends State<ResultScreen> {
                           decoration: BoxDecoration(
                             color: Colors.white,
                             borderRadius: BorderRadius.circular(20),
-                            boxShadow: const [
+                            boxShadow: [
                               BoxShadow(
-                                color: GrowMateColors.shadowSoft,
+                                color: theme.colorScheme.shadow.withValues(
+                                  alpha: 0.08,
+                                ),
                                 blurRadius: 14,
-                                offset: Offset(0, 6),
+                                offset: const Offset(0, 6),
                               ),
                             ],
                           ),
@@ -194,8 +197,8 @@ class _ResultScreenState extends State<ResultScreen> {
                               Text(
                                 overlayMessage,
                                 textAlign: TextAlign.center,
-                                style: const TextStyle(
-                                  color: GrowMateColors.textSecondary,
+                                style: TextStyle(
+                                  color: theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w600,
                                   fontSize: 15,
                                   height: 1.3,
@@ -381,7 +384,7 @@ class _ResultContent extends StatelessWidget {
               en: 'AI has completed the decision and updated your next roadmap.',
             ),
             style: theme.textTheme.bodyLarge?.copyWith(
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.45,
             ),
           ),
@@ -431,7 +434,7 @@ class _ResultContent extends StatelessWidget {
                           fallbackEn: 'Learning snapshot',
                         ),
                         style: theme.textTheme.titleLarge?.copyWith(
-                          color: GrowMateColors.primaryDark,
+                          color: theme.colorScheme.primary,
                           fontSize: 30,
                           height: 1.08,
                         ),
@@ -443,7 +446,7 @@ class _ResultContent extends StatelessWidget {
                           en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabel(context, result.riskLevel)}',
                         ),
                         style: theme.textTheme.bodyMedium?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                           fontWeight: FontWeight.w700,
                         ),
                       ),
@@ -475,7 +478,7 @@ class _ResultContent extends StatelessWidget {
                 const SizedBox(height: 14),
                 _PointRow(
                   icon: Icons.check_circle_rounded,
-                  color: GrowMateColors.success,
+                  color: theme.colorScheme.tertiary,
                   label: context.t(vi: 'Đã vững', en: 'Strong area'),
                   value: _localizedDynamicText(
                     context,
@@ -486,7 +489,7 @@ class _ResultContent extends StatelessWidget {
                 const SizedBox(height: 10),
                 _PointRow(
                   icon: Icons.warning_rounded,
-                  color: GrowMateColors.warningSoft,
+                  color: theme.colorScheme.secondary,
                   label: context.t(
                     vi: 'Cần củng cố',
                     en: 'Needs reinforcement',
@@ -587,11 +590,12 @@ class _PointRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: GrowMateColors.surfaceContainerHigh,
+        color: theme.colorScheme.surfaceContainerHigh,
         borderRadius: BorderRadius.circular(14),
       ),
       child: Row(
@@ -602,8 +606,8 @@ class _PointRow extends StatelessWidget {
           Expanded(
             child: RichText(
               text: TextSpan(
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textPrimary,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: theme.colorScheme.onSurface,
                   height: 1.45,
                 ),
                 children: [
@@ -630,16 +634,17 @@ class _HintLine extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: Theme.of(context).colorScheme.primary),
+        Icon(icon, size: 18, color: theme.colorScheme.primary),
         const SizedBox(width: 8),
         Expanded(
           child: Text(
             text,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: GrowMateColors.textSecondary,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.45,
             ),
           ),

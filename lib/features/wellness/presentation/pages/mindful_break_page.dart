@@ -1,11 +1,8 @@
 import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
-
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
@@ -14,7 +11,6 @@ import '../../services/mindful_sound_service.dart';
 
 class MindfulBreakPage extends StatefulWidget {
   const MindfulBreakPage({super.key});
-
   @override
   State<MindfulBreakPage> createState() => _MindfulBreakPageState();
 }
@@ -22,14 +18,12 @@ class MindfulBreakPage extends StatefulWidget {
 class _MindfulBreakPageState extends State<MindfulBreakPage> {
   static const int _totalSeconds = 90;
   static const int _cycleSeconds = 8;
-
   Timer? _timer;
   int _remainingSeconds = _totalSeconds;
   final MindfulSoundService _soundService = MindfulSoundService();
   MindfulSoundPreset _selectedSoundPreset = MindfulSoundPreset.rain;
   bool _soundEnabled = false;
   double _soundVolume = 0.42;
-
   @override
   void initState() {
     super.initState();
@@ -38,7 +32,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
         _timer?.cancel();
         return;
       }
-
       if (_remainingSeconds <= 1) {
         _timer?.cancel();
         setState(() {
@@ -48,7 +41,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
         unawaited(_soundService.stop());
         return;
       }
-
       setState(() {
         _remainingSeconds -= 1;
       });
@@ -66,7 +58,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final progress = 1 - (_remainingSeconds / _totalSeconds);
-
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
@@ -82,9 +73,9 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                     }
                     context.go(AppRoutes.home);
                   },
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    color: GrowMateColors.primary,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 4),
@@ -115,9 +106,9 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                 children: [
                   Row(
                     children: [
-                      const Icon(
+                      Icon(
                         Icons.music_note_rounded,
-                        color: GrowMateColors.primary,
+                        color: theme.colorScheme.primary,
                       ),
                       const SizedBox(width: 8),
                       Expanded(
@@ -158,21 +149,21 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                       children: MindfulSoundPreset.values
                           .map((preset) {
                             final isSelected = _selectedSoundPreset == preset;
-
                             return ChoiceChip(
                               label: Text(
                                 _soundPresetLabel(context, preset),
                                 style: theme.textTheme.labelLarge?.copyWith(
                                   color: isSelected
-                                      ? GrowMateColors.textPrimary
-                                      : GrowMateColors.textSecondary,
+                                      ? theme.colorScheme.onSurface
+                                      : theme.colorScheme.onSurfaceVariant,
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
                               selected: isSelected,
-                              checkmarkColor: GrowMateColors.textPrimary,
-                              backgroundColor: GrowMateColors.surface,
-                              selectedColor: GrowMateColors.tertiaryContainer,
+                              checkmarkColor: theme.colorScheme.onSurface,
+                              backgroundColor: theme.colorScheme.surface,
+                              selectedColor:
+                                  theme.colorScheme.tertiaryContainer,
                               side: BorderSide.none,
                               onSelected: (selected) {
                                 if (!selected) {
@@ -187,9 +178,9 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                     const SizedBox(height: 8),
                     Row(
                       children: [
-                        const Icon(
+                        Icon(
                           Icons.volume_up_rounded,
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         Expanded(
                           child: Slider(
@@ -229,8 +220,8 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                         value: progress,
                         strokeWidth: 9,
                         backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                        valueColor: const AlwaysStoppedAnimation<Color>(
-                          GrowMateColors.primary,
+                        valueColor: AlwaysStoppedAnimation<Color>(
+                          theme.colorScheme.primary,
                         ),
                       ),
                     ),
@@ -241,7 +232,7 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                       height: _phaseScale(),
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: GrowMateColors.primaryContainer.withValues(
+                        color: theme.colorScheme.primaryContainer.withValues(
                           alpha: 0.55,
                         ),
                       ),
@@ -252,7 +243,7 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                         Text(
                           _phaseLabel(context),
                           style: theme.textTheme.titleMedium?.copyWith(
-                            color: GrowMateColors.textPrimary,
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -260,7 +251,7 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
                         Text(
                           _formatSeconds(_remainingSeconds),
                           style: theme.textTheme.headlineLarge?.copyWith(
-                            color: GrowMateColors.primary,
+                            color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w800,
                           ),
                         ),
@@ -314,7 +305,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
     if (_remainingSeconds == 0) {
       return context.t(vi: 'Hoàn thành', en: 'Complete');
     }
-
     final elapsed = _totalSeconds - _remainingSeconds;
     final inCycle = elapsed % _cycleSeconds;
     return inCycle < 4
@@ -344,7 +334,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
       });
       return;
     }
-
     try {
       await _soundService.play(
         preset: _selectedSoundPreset,
@@ -379,11 +368,9 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
     setState(() {
       _selectedSoundPreset = preset;
     });
-
     if (!_soundEnabled) {
       return;
     }
-
     try {
       await _soundService.play(preset: preset, volume: _soundVolume);
     } catch (_) {
@@ -409,7 +396,6 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
     if (_remainingSeconds == 0) {
       return 120;
     }
-
     final elapsed = _totalSeconds - _remainingSeconds;
     final inCycle = elapsed % _cycleSeconds;
     return inCycle < 4 ? 126 : 104;

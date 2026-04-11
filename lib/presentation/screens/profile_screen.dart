@@ -8,7 +8,6 @@ import '../../app/i18n/app_strings.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/color_palette_cubit.dart';
 import '../../app/theme/theme_mode_cubit.dart';
-import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import '../../data/models/user_profile.dart';
 import '../../data/repositories/profile_repository.dart';
@@ -385,9 +384,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,
                         children: [
-                          const Icon(
+                          Icon(
                             Icons.cloud_off_rounded,
-                            color: GrowMateColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                             size: 32,
                           ),
                           const SizedBox(height: 12),
@@ -546,7 +545,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           child: Text(
             _t(context, vi: 'Chào $name', en: 'Hi $name'),
             style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: GrowMateColors.textPrimary,
+              color: colors.onSurface,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -588,6 +587,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required UserProfile profile,
     required bool isProcessing,
   }) {
+    final theme = Theme.of(context);
+
     return _CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -638,9 +639,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : null,
             decoration: _softFieldDecoration(),
             style: _dropdownValueStyle(context),
-            icon: const Icon(
+            icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             items: _gradeOptions
                 .map(
@@ -705,8 +706,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _subjectLabel(context, subject),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: selected
-                            ? GrowMateColors.primaryDark
-                            : GrowMateColors.textSecondary,
+                            ? theme.colorScheme.primary
+                            : theme.colorScheme.onSurfaceVariant,
                         fontWeight: FontWeight.w500,
                       ),
                     ),
@@ -734,6 +735,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Widget _buildAiRhythmCard({required bool isProcessing}) {
+    final theme = Theme.of(context);
+
     return _CalmCard(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -778,9 +781,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : _paceOptions.first,
             decoration: _softFieldDecoration(),
             style: _dropdownValueStyle(context),
-            icon: const Icon(
+            icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             items: _paceOptions
                 .map(
@@ -811,9 +814,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 : _hintStyleOptions.first,
             decoration: _softFieldDecoration(),
             style: _dropdownValueStyle(context),
-            icon: const Icon(
+            icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             items: _hintStyleOptions
                 .map(
@@ -933,6 +936,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required UserProfile profile,
     required bool isProcessing,
   }) {
+    final theme = Theme.of(context);
     final cubit = context.read<ProfileCubit>();
 
     return _CalmCard(
@@ -955,9 +959,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
             initialValue: 'free',
             decoration: _softFieldDecoration(),
             style: _dropdownValueStyle(context),
-            icon: const Icon(
+            icon: Icon(
               Icons.keyboard_arrow_down_rounded,
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
             items: _subscriptionOptions
                 .map(
@@ -1049,7 +1053,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           Text(
             '${_t(context, vi: 'Hiện tại', en: 'Current')}: ${_toTierLabel(_subscriptionTier)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
         ],
@@ -1063,6 +1067,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     required UserProfile profile,
     required bool isProcessing,
   }) {
+    final theme = Theme.of(context);
     final inspectionCubit = _tryGetInspectionCubit(context);
     final themeModeCubit = context.read<ThemeModeCubit>();
     final colorPaletteCubit = context.read<ColorPaletteCubit>();
@@ -1208,7 +1213,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           en: 'Switch quickly between Vietnamese and English.',
                         ),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -1219,9 +1224,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         initialValue: language,
                         decoration: _softFieldDecoration(),
                         style: _dropdownValueStyle(context),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         items: AppLanguage.values
                             .map(
@@ -1298,7 +1303,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           en: 'Default is Green - Yellow. You can quickly switch it anytime.',
                         ),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),
@@ -1309,9 +1314,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         initialValue: palette,
                         decoration: _softFieldDecoration(),
                         style: _dropdownValueStyle(context),
-                        icon: const Icon(
+                        icon: Icon(
                           Icons.keyboard_arrow_down_rounded,
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                         items: AppColorPalette.values
                             .map(
@@ -1360,7 +1365,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Text(
                         _paletteDescription(context, palette),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                         ),
                       ),
                     ),

@@ -4,7 +4,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
@@ -118,19 +117,21 @@ class _InterventionPageState extends State<InterventionPage> {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return BlocProvider<InterventionBloc>.value(
       value: _interventionBloc,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
         body: Container(
-          decoration: const BoxDecoration(
+          decoration: BoxDecoration(
             gradient: LinearGradient(
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Color(0xFFEFF7E8),
-                Color(0xFFEAF2F5),
-                GrowMateColors.background,
+                const Color(0xFFEFF7E8),
+                const Color(0xFFEAF2F5),
+                theme.colorScheme.surface,
               ],
             ),
           ),
@@ -204,7 +205,7 @@ class _InterventionPageState extends State<InterventionPage> {
                                 Text(
                                   _formatDuration(state.remainingRestSeconds),
                                   style: theme.textTheme.displayLarge?.copyWith(
-                                    color: GrowMateColors.primary,
+                                    color: theme.colorScheme.primary,
                                     fontSize: 46,
                                     height: 1,
                                   ),
@@ -219,9 +220,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                     color: Colors.white.withValues(alpha: 0.72),
                                     borderRadius: BorderRadius.circular(999),
                                     border: Border.all(
-                                      color: GrowMateColors.primary.withValues(
-                                        alpha: 0.1,
-                                      ),
+                                      color: theme.colorScheme.primary
+                                          .withValues(alpha: 0.1),
                                     ),
                                   ),
                                   child: Text(
@@ -229,8 +229,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                       vi: 'THỜI GIAN HỒI PHỤC',
                                       en: 'RECOVERY TIME',
                                     ),
-                                    style: const TextStyle(
-                                      color: GrowMateColors.textSecondary,
+                                    style: TextStyle(
+                                      color: theme.colorScheme.onSurfaceVariant,
                                       fontSize: 16,
                                       fontWeight: FontWeight.w600,
                                     ),
@@ -250,10 +250,10 @@ class _InterventionPageState extends State<InterventionPage> {
                             vertical: 10,
                           ),
                           decoration: BoxDecoration(
-                            color: GrowMateColors.tertiaryContainer,
+                            color: theme.colorScheme.tertiaryContainer,
                             borderRadius: BorderRadius.circular(999),
                             border: Border.all(
-                              color: GrowMateColors.success.withValues(
+                              color: theme.colorScheme.tertiary.withValues(
                                 alpha: 0.16,
                               ),
                             ),
@@ -263,7 +263,7 @@ class _InterventionPageState extends State<InterventionPage> {
                             children: <Widget>[
                               Icon(
                                 Icons.eco_rounded,
-                                color: GrowMateColors.success,
+                                color: theme.colorScheme.tertiary,
                                 size: 18,
                               ),
                               const SizedBox(width: 10),
@@ -272,8 +272,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                   vi: 'KIỂM TRA TÂM TRẠNG',
                                   en: 'MOOD CHECK',
                                 ),
-                                style: const TextStyle(
-                                  color: GrowMateColors.success,
+                                style: TextStyle(
+                                  color: theme.colorScheme.tertiary,
                                   fontSize: 18,
                                   fontWeight: FontWeight.w700,
                                   letterSpacing: 0.4,
@@ -291,7 +291,7 @@ class _InterventionPageState extends State<InterventionPage> {
                         ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.headlineLarge?.copyWith(
-                          color: GrowMateColors.primary,
+                          color: theme.colorScheme.primary,
                           fontSize: 34,
                           height: 1.14,
                         ),
@@ -304,7 +304,7 @@ class _InterventionPageState extends State<InterventionPage> {
                         ),
                         textAlign: TextAlign.center,
                         style: theme.textTheme.bodyLarge?.copyWith(
-                          color: GrowMateColors.textSecondary,
+                          color: theme.colorScheme.onSurfaceVariant,
                           height: 1.45,
                         ),
                       ),
@@ -365,7 +365,7 @@ class _InterventionPageState extends State<InterventionPage> {
                                 en: 'Suggestion from GrowMate',
                               ),
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
+                                color: theme.colorScheme.onSurfaceVariant,
                                 fontStyle: FontStyle.italic,
                                 fontWeight: FontWeight.w500,
                               ),
@@ -378,7 +378,7 @@ class _InterventionPageState extends State<InterventionPage> {
                               ),
                               textAlign: TextAlign.center,
                               style: theme.textTheme.bodyLarge?.copyWith(
-                                color: GrowMateColors.textPrimary,
+                                color: theme.colorScheme.onSurface,
                                 height: 1.45,
                                 fontStyle: FontStyle.italic,
                               ),
@@ -505,7 +505,7 @@ class _InterventionOptionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final icon = _iconByType(option.type);
-    final iconBg = _iconBgByType(option.type);
+    final iconBg = _iconBgByType(option.type, theme.colorScheme);
 
     return GestureDetector(
       onTap: isSubmitting ? null : onTap,
@@ -533,7 +533,7 @@ class _InterventionOptionCard extends StatelessWidget {
                   Text(
                     _labelByType(context, option),
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: GrowMateColors.textPrimary,
+                      color: theme.colorScheme.onSurface,
                       fontWeight: FontWeight.w700,
                       height: 1.32,
                     ),
@@ -542,7 +542,7 @@ class _InterventionOptionCard extends StatelessWidget {
                   Text(
                     _descriptionByType(context, option.type),
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                       height: 1.4,
                     ),
                   ),
@@ -573,11 +573,11 @@ class _InterventionOptionCard extends StatelessWidget {
     return Icons.menu_book_rounded;
   }
 
-  static Color _iconBgByType(String type) {
+  static Color _iconBgByType(String type, ColorScheme colorScheme) {
     if (type.contains('breath') ||
         type.contains('ground') ||
         type.contains('recovery')) {
-      return GrowMateColors.tertiaryContainer;
+      return colorScheme.tertiaryContainer;
     }
     if (type.contains('practice')) {
       return const Color(0xFFE7F1E5);

@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../../domain/entities/quiz_question_template.dart';
 
@@ -75,13 +74,15 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: selectedOptionId == option.id
-                        ? GrowMateColors.primaryContainer.withValues(alpha: 0.5)
+                        ? theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.5,
+                          )
                         : Colors.white,
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
                       color: selectedOptionId == option.id
-                          ? GrowMateColors.primary
-                          : GrowMateColors.surfaceContainerHigh,
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.surfaceContainerHigh,
                     ),
                   ),
                   child: Row(
@@ -93,15 +94,15 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                         decoration: BoxDecoration(
                           borderRadius: BorderRadius.circular(999),
                           color: selectedOptionId == option.id
-                              ? GrowMateColors.primary
-                              : GrowMateColors.surfaceContainerHigh,
+                              ? theme.colorScheme.primary
+                              : theme.colorScheme.surfaceContainerHigh,
                         ),
                         child: Text(
                           option.id,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: selectedOptionId == option.id
                                 ? Colors.white
-                                : GrowMateColors.textSecondary,
+                                : theme.colorScheme.onSurfaceVariant,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -111,7 +112,7 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                         child: Text(
                           option.text,
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: GrowMateColors.textPrimary,
+                            color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w600,
                           ),
                         ),
@@ -147,13 +148,15 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
             margin: const EdgeInsets.only(bottom: 10),
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
-              color: GrowMateColors.secondaryContainer.withValues(alpha: 0.36),
+              color: theme.colorScheme.secondaryContainer.withValues(
+                alpha: 0.36,
+              ),
               borderRadius: BorderRadius.circular(12),
             ),
             child: Text(
               payload.generalHint,
               style: theme.textTheme.bodySmall?.copyWith(
-                color: GrowMateColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
               ),
             ),
@@ -166,7 +169,7 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
             decoration: BoxDecoration(
               color: Colors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: GrowMateColors.surfaceContainerHigh),
+              border: Border.all(color: theme.colorScheme.surfaceContainerHigh),
             ),
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -174,7 +177,7 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                 Text(
                   '${statement.id.toLowerCase()}) ${statement.text}',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w600,
                     height: 1.4,
                   ),
@@ -248,6 +251,7 @@ class _TrueFalseButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return InkWell(
       onTap: onTap,
       borderRadius: BorderRadius.circular(999),
@@ -255,22 +259,22 @@ class _TrueFalseButton extends StatelessWidget {
         padding: const EdgeInsets.symmetric(vertical: 10),
         decoration: BoxDecoration(
           color: selected
-              ? GrowMateColors.primary.withValues(alpha: 0.12)
-              : GrowMateColors.surfaceContainerLow,
+              ? theme.colorScheme.primary.withValues(alpha: 0.12)
+              : theme.colorScheme.surfaceContainerLow,
           borderRadius: BorderRadius.circular(999),
           border: Border.all(
             color: selected
-                ? GrowMateColors.primary
-                : GrowMateColors.surfaceContainerHigh,
+                ? theme.colorScheme.primary
+                : theme.colorScheme.surfaceContainerHigh,
           ),
         ),
         child: Center(
           child: Text(
             label,
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+            style: theme.textTheme.bodyMedium?.copyWith(
               color: selected
-                  ? GrowMateColors.primary
-                  : GrowMateColors.textSecondary,
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -287,17 +291,18 @@ class _FactoryError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: GrowMateColors.danger.withValues(alpha: 0.1),
+        color: theme.colorScheme.error.withValues(alpha: 0.1),
         borderRadius: BorderRadius.circular(12),
       ),
       child: Text(
         message,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: GrowMateColors.danger,
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.error,
           fontWeight: FontWeight.w600,
         ),
       ),

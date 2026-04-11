@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/repositories/privacy_repository.dart';
 
@@ -72,9 +71,9 @@ class _DataExportPageState extends State<DataExportPage> {
                         }
                         context.go(AppRoutes.settings);
                       },
-                      icon: const Icon(
+                      icon: Icon(
                         Icons.arrow_back_ios_new_rounded,
-                        color: GrowMateColors.primary,
+                        color: theme.colorScheme.primary,
                       ),
                     ),
                     const SizedBox(width: 4),
@@ -96,7 +95,7 @@ class _DataExportPageState extends State<DataExportPage> {
                     en: 'This JSON payload includes your profile, session history, and notifications.',
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: GrowMateColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 14),

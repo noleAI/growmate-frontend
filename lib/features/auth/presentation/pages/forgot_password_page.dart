@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -22,6 +21,7 @@ class ForgotPasswordPage extends StatefulWidget {
 class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
   final TextEditingController _emailController = TextEditingController();
   bool _isSending = false;
+  String? _emailError;
 
   @override
   void dispose() {
@@ -29,8 +29,24 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
     super.dispose();
   }
 
+  bool _validateEmail() {
+    setState(() => _emailError = null);
+
+    final email = _emailController.text.trim();
+
+    if (email.isEmpty) {
+      setState(() => _emailError = 'Vui lòng nhập email');
+      return false;
+    } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
+      setState(() => _emailError = 'Email không hợp lệ');
+      return false;
+    }
+
+    return true;
+  }
+
   Future<void> _submit() async {
-    if (_isSending) {
+    if (_isSending || !_validateEmail()) {
       return;
     }
 
@@ -57,7 +73,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 en: 'Reset link sent. Please check your email ✨',
               ),
             ),
-            backgroundColor: GrowMateColors.surfaceContainerHigh,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -71,7 +87,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
         ..showSnackBar(
           SnackBar(
             content: Text(failure.message),
-            backgroundColor: GrowMateColors.surfaceContainerHigh,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -89,7 +105,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 en: 'Connection looks slow. Please try again in a moment 🌿',
               ),
             ),
-            backgroundColor: GrowMateColors.surfaceContainerHigh,
+            backgroundColor: Theme.of(context).colorScheme.surfaceContainerHigh,
             behavior: SnackBarBehavior.floating,
           ),
         );
@@ -135,7 +151,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
                 en: 'Enter your email to receive a reset link',
               ),
               style: theme.textTheme.bodyLarge?.copyWith(
-                color: GrowMateColors.textSecondary,
+                color: colors.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 20),
@@ -145,13 +161,31 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  ZenTextField(
-                    controller: _emailController,
-                    keyboardType: TextInputType.emailAddress,
-                    textInputAction: TextInputAction.done,
-                    hintText: context.t(vi: 'Email', en: 'Email'),
-                    enabled: !_isSending,
-                    onSubmitted: (_) => _submit(),
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      ZenTextField(
+                        controller: _emailController,
+                        keyboardType: TextInputType.emailAddress,
+                        textInputAction: TextInputAction.done,
+                        hintText: context.t(vi: 'Email', en: 'Email'),
+                        enabled: !_isSending,
+                        onSubmitted: (_) => _submit(),
+                      ),
+                      if (_emailError != null) ...[
+                        const SizedBox(height: 6),
+                        Padding(
+                          padding: const EdgeInsets.only(left: 12),
+                          child: Text(
+                            _emailError!,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.error,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
                   ),
                   const SizedBox(height: 14),
                   ZenButton(

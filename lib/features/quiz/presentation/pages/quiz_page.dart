@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../core/models/signal_batch.dart';
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -110,6 +109,74 @@ class _QuizPageState extends State<QuizPage> {
 
   void _onAnswerFocusChanged() {
     _signalService.recordFocusChanged(hasFocus: _answerFocusNode.hasFocus);
+  }
+
+  bool get _hasAnyAnswers {
+    final hasMultipleChoiceAnswers = _selectedOptionByQuestion.values.any(
+      (v) => v.isNotEmpty,
+    );
+    final hasTrueFalseAnswers = _trueFalseAnswers.isNotEmpty;
+    final hasShortAnswerDrafts = _shortAnswerDraftByQuestion.values.any(
+      (v) => v.trim().isNotEmpty,
+    );
+    return hasMultipleChoiceAnswers ||
+        hasTrueFalseAnswers ||
+        hasShortAnswerDrafts;
+  }
+
+  Future<bool> _confirmLeaveQuiz() async {
+    if (!_hasAnyAnswers) return true;
+
+    final result = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(Icons.warning_amber_rounded, color: theme.colorScheme.error),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(context.t(vi: 'Rời bài quiz?', en: 'Leave quiz?')),
+              ),
+            ],
+          ),
+          content: Text(
+            context.t(
+              vi: 'Bạn đã trả lời một số câu hỏi. Tiến trình sẽ bị mất nếu rời đi bây giờ.',
+              en: 'You have answered some questions. Your progress will be lost if you leave now.',
+            ),
+            style: theme.textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                context.t(vi: 'Ở lại', en: 'Stay'),
+                style: TextStyle(
+                  color: theme.colorScheme.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              style: FilledButton.styleFrom(
+                backgroundColor: theme.colorScheme.error,
+              ),
+              child: Text(context.t(vi: 'Rời đi', en: 'Leave')),
+            ),
+          ],
+        );
+      },
+    );
+
+    return result ?? false;
   }
 
   void _onAnswerChanged(String value) {
@@ -330,302 +397,326 @@ class _QuizPageState extends State<QuizPage> {
           _signalService.registerInteraction();
           FocusScope.of(context).unfocus();
         },
-        child: Scaffold(
-          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-          body: BlocConsumer<QuizCubit, QuizCubitState>(
-            listener: (context, state) {
-              if (state is QuizSubmitFailureState) {
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(content: Text(state.message)));
-              }
+        child: PopScope(
+          canPop: false,
+          onPopInvokedWithResult: (didPop, result) async {
+            if (didPop) return;
+            final navigator = Navigator.of(context);
+            final canPopRoute = context.canPop();
+            final shouldLeave = await _confirmLeaveQuiz();
+            if (shouldLeave && mounted && canPopRoute) {
+              navigator.pop();
+            }
+          },
+          child: Scaffold(
+            backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+            body: BlocConsumer<QuizCubit, QuizCubitState>(
+              listener: (context, state) {
+                if (state is QuizSubmitFailureState) {
+                  ScaffoldMessenger.of(context)
+                    ..hideCurrentSnackBar()
+                    ..showSnackBar(SnackBar(content: Text(state.message)));
+                }
 
-              if (state is QuizSubmitSuccessState) {
-                context.go(
-                  '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
+                if (state is QuizSubmitSuccessState) {
+                  context.go(
+                    '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
+                  );
+                }
+
+                if (state is QuizRecoveryTriggeredState) {
+                  context.go(
+                    '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
+                  );
+                }
+              },
+              builder: (context, state) {
+                final isLoading = state is QuizSubmittingState;
+                final theme = Theme.of(context);
+                final formulaText = _activeQuestion.metadata['formula']
+                    ?.toString();
+                final currentIndex = _questionPool.indexWhere(
+                  (item) => item.id == _activeQuestion.id,
                 );
-              }
+                final questionNumber =
+                    (currentIndex >= 0 ? currentIndex + 1 : 1).toString();
+                final progress =
+                    (_remainingTime.inSeconds / _totalQuizDuration.inSeconds)
+                        .clamp(0.0, 1.0)
+                        .toDouble();
 
-              if (state is QuizRecoveryTriggeredState) {
-                context.go(
-                  '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
-                );
-              }
-            },
-            builder: (context, state) {
-              final isLoading = state is QuizSubmittingState;
-              final theme = Theme.of(context);
-              final formulaText = _activeQuestion.metadata['formula']
-                  ?.toString();
-              final currentIndex = _questionPool.indexWhere(
-                (item) => item.id == _activeQuestion.id,
-              );
-              final questionNumber = (currentIndex >= 0 ? currentIndex + 1 : 1)
-                  .toString();
-              final progress =
-                  (_remainingTime.inSeconds / _totalQuizDuration.inSeconds)
-                      .clamp(0.0, 1.0)
-                      .toDouble();
+                return ZenPageContainer(
+                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
+                  child: ScrollConfiguration(
+                    behavior: const MaterialScrollBehavior().copyWith(
+                      scrollbars: false,
+                    ),
+                    child: ListView(
+                      children: [
+                        Row(
+                          children: [
+                            IconButton(
+                              onPressed: () async {
+                                final navigator = Navigator.of(context);
+                                final router = GoRouter.of(context);
+                                final canPopRoute = context.canPop();
+                                final shouldLeave = await _confirmLeaveQuiz();
+                                if (!mounted) return;
 
-              return ZenPageContainer(
-                padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
-                child: ScrollConfiguration(
-                  behavior: const MaterialScrollBehavior().copyWith(
-                    scrollbars: false,
-                  ),
-                  child: ListView(
-                    children: [
-                      Row(
-                        children: [
-                          IconButton(
-                            onPressed: () {
-                              if (context.canPop()) {
-                                context.pop();
-                                return;
-                              }
-
-                              context.go(AppRoutes.home);
-                            },
-                            icon: const Icon(
-                              Icons.arrow_back_ios_new_rounded,
-                              color: GrowMateColors.primary,
+                                if (shouldLeave) {
+                                  if (canPopRoute) {
+                                    navigator.pop();
+                                    return;
+                                  }
+                                  router.go(AppRoutes.home);
+                                }
+                              },
+                              icon: Icon(
+                                Icons.arrow_back_ios_new_rounded,
+                                color: theme.colorScheme.primary,
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 6),
-                          Expanded(
-                            child: Text(
-                              context.t(vi: 'Giải tích 12', en: 'Calculus 12'),
+                            const SizedBox(width: 6),
+                            Expanded(
+                              child: Text(
+                                context.t(
+                                  vi: 'Giải tích 12',
+                                  en: 'Calculus 12',
+                                ),
+                                style: theme.textTheme.titleMedium?.copyWith(
+                                  color: theme.colorScheme.primary,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                            ),
+                            const Icon(Icons.timer_outlined, size: 22),
+                            const SizedBox(width: 6),
+                            Text(
+                              _formatDuration(_remainingTime),
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: GrowMateColors.primary,
-                                fontWeight: FontWeight.w700,
+                                color: theme.colorScheme.onSurfaceVariant,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        ClipRRect(
+                          borderRadius: BorderRadius.circular(999),
+                          child: Container(
+                            height: 6,
+                            width: double.infinity,
+                            color: theme.colorScheme.surfaceContainerHigh,
+                            child: FractionallySizedBox(
+                              widthFactor: progress,
+                              alignment: Alignment.centerLeft,
+                              child: Container(
+                                decoration: BoxDecoration(
+                                  gradient: const LinearGradient(
+                                    begin: Alignment.centerLeft,
+                                    end: Alignment.centerRight,
+                                    colors: [
+                                      Color(0xFF1E8E5B),
+                                      Color(0xFF2F9A4C),
+                                    ],
+                                  ),
+                                ),
                               ),
                             ),
                           ),
-                          const Icon(
-                            Icons.timer_outlined,
-                            color: GrowMateColors.textSecondary,
-                            size: 22,
+                        ),
+                        const SizedBox(height: 24),
+                        if (_questionPool.length > 1)
+                          Padding(
+                            padding: const EdgeInsets.only(bottom: 12),
+                            child: Wrap(
+                              spacing: 8,
+                              runSpacing: 8,
+                              children: _questionPool
+                                  .asMap()
+                                  .entries
+                                  .map((entry) {
+                                    final isSelected =
+                                        entry.value.id == _activeQuestion.id;
+
+                                    return ChoiceChip(
+                                      label: Text(
+                                        context.t(
+                                          vi: 'Câu ${entry.key + 1}',
+                                          en: 'Q${entry.key + 1}',
+                                        ),
+                                        style: theme.textTheme.labelLarge
+                                            ?.copyWith(
+                                              color: isSelected
+                                                  ? theme.colorScheme.onSurface
+                                                  : theme
+                                                        .colorScheme
+                                                        .onSurfaceVariant,
+                                              fontWeight: FontWeight.w700,
+                                            ),
+                                      ),
+                                      selected: isSelected,
+                                      checkmarkColor:
+                                          theme.colorScheme.onSurface,
+                                      backgroundColor:
+                                          theme.colorScheme.surfaceContainerLow,
+                                      selectedColor:
+                                          theme.colorScheme.tertiaryContainer,
+                                      side: BorderSide.none,
+                                      onSelected: (_) =>
+                                          _selectQuestion(entry.value),
+                                    );
+                                  })
+                                  .toList(growable: false),
+                            ),
                           ),
-                          const SizedBox(width: 6),
-                          Text(
-                            _formatDuration(_remainingTime),
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              color: GrowMateColors.textSecondary,
+                        ZenCard(
+                          radius: 30,
+                          gradient: const LinearGradient(
+                            begin: Alignment.topLeft,
+                            end: Alignment.bottomRight,
+                            colors: [Color(0xFFF6FAF8), Color(0xFFF1F3EA)],
+                          ),
+                          child: Column(
+                            children: [
+                              Text(
+                                context.t(
+                                  vi: 'CÂU HỎI SỐ $questionNumber',
+                                  en: 'QUESTION $questionNumber',
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w700,
+                                  letterSpacing: 0.85,
+                                ),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                _activeQuestion.content,
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.headlineLarge?.copyWith(
+                                  color: theme.colorScheme.onSurface,
+                                  fontSize: 30,
+                                  height: 1.18,
+                                ),
+                              ),
+                              if (formulaText != null &&
+                                  formulaText.isNotEmpty) ...[
+                                const SizedBox(height: 14),
+                                Text(
+                                  formulaText,
+                                  style: theme.textTheme.titleLarge?.copyWith(
+                                    color: theme.colorScheme.primary,
+                                    fontStyle: FontStyle.italic,
+                                    fontSize: 32,
+                                    height: 1.2,
+                                    fontWeight: FontWeight.w600,
+                                  ),
+                                ),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        ZenCard(
+                          radius: 24,
+                          padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+                          color: Colors.white.withValues(alpha: 0.78),
+                          child: QuizAnswerWidgetFactory(
+                            question: _activeQuestion,
+                            enabled: !isLoading,
+                            textController: _answerController,
+                            textFocusNode: _answerFocusNode,
+                            onTextChanged: _onAnswerChanged,
+                            onTextTap: _signalService.registerInteraction,
+                            selectedOptionId: _selectedOptionId,
+                            onOptionSelected: (optionId) {
+                              _signalService.registerInteraction();
+                              setState(() {
+                                _selectedOptionId = optionId;
+                                _selectedOptionByQuestion[_activeQuestion.id] =
+                                    optionId;
+                              });
+                            },
+                            trueFalseAnswers: _trueFalseAnswers,
+                            onTrueFalseChanged: _onTrueFalseChanged,
+                          ),
+                        ),
+                        const SizedBox(height: 14),
+                        AnimatedOpacity(
+                          opacity: _showHint ? 1 : 0,
+                          duration: const Duration(milliseconds: 420),
+                          curve: Curves.easeOut,
+                          child: AnimatedSlide(
+                            duration: const Duration(milliseconds: 420),
+                            curve: Curves.easeOut,
+                            offset: _showHint
+                                ? Offset.zero
+                                : const Offset(0, 0.08),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 14,
+                                vertical: 10,
+                              ),
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.secondaryContainer
+                                    .withValues(alpha: 0.42),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: theme.colorScheme.primary.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                ),
+                              ),
+                              child: Text(
+                                _hintText(context),
+                                textAlign: TextAlign.center,
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                  fontWeight: FontWeight.w600,
+                                  height: 1.42,
+                                ),
+                              ),
+                            ),
+                          ),
+                        ),
+                        const SizedBox(height: 18),
+                        ZenButton(
+                          label: isLoading
+                              ? context.t(
+                                  vi: 'Đang gửi...',
+                                  en: 'Submitting...',
+                                )
+                              : context.t(vi: 'Gửi bài', en: 'Submit'),
+                          onPressed: isLoading ? null : _submitCurrentAnswer,
+                          trailing: const Icon(
+                            Icons.arrow_forward_rounded,
+                            color: Colors.white,
+                            size: 26,
+                          ),
+                        ),
+                        const SizedBox(height: 22),
+                        Center(
+                          child: Text(
+                            context.t(
+                              vi: 'CẦN TRỢ GIÚP TỪ AI TUTOR?',
+                              en: 'NEED HELP FROM AI TUTOR?',
+                            ),
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              letterSpacing: 0.6,
                               fontWeight: FontWeight.w600,
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      ClipRRect(
-                        borderRadius: BorderRadius.circular(999),
-                        child: Container(
-                          height: 6,
-                          width: double.infinity,
-                          color: GrowMateColors.surfaceContainerHigh,
-                          child: FractionallySizedBox(
-                            widthFactor: progress,
-                            alignment: Alignment.centerLeft,
-                            child: Container(
-                              decoration: const BoxDecoration(
-                                gradient: LinearGradient(
-                                  begin: Alignment.centerLeft,
-                                  end: Alignment.centerRight,
-                                  colors: [
-                                    GrowMateColors.success,
-                                    GrowMateColors.primary,
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
                         ),
-                      ),
-                      const SizedBox(height: 24),
-                      if (_questionPool.length > 1)
-                        Padding(
-                          padding: const EdgeInsets.only(bottom: 12),
-                          child: Wrap(
-                            spacing: 8,
-                            runSpacing: 8,
-                            children: _questionPool
-                                .asMap()
-                                .entries
-                                .map((entry) {
-                                  final isSelected =
-                                      entry.value.id == _activeQuestion.id;
-
-                                  return ChoiceChip(
-                                    label: Text(
-                                      context.t(
-                                        vi: 'Câu ${entry.key + 1}',
-                                        en: 'Q${entry.key + 1}',
-                                      ),
-                                      style: theme.textTheme.labelLarge
-                                          ?.copyWith(
-                                            color: isSelected
-                                                ? GrowMateColors.textPrimary
-                                                : GrowMateColors.textSecondary,
-                                            fontWeight: FontWeight.w700,
-                                          ),
-                                    ),
-                                    selected: isSelected,
-                                    checkmarkColor: GrowMateColors.textPrimary,
-                                    backgroundColor:
-                                        GrowMateColors.surfaceContainerLow,
-                                    selectedColor:
-                                        GrowMateColors.tertiaryContainer,
-                                    side: BorderSide.none,
-                                    onSelected: (_) =>
-                                        _selectQuestion(entry.value),
-                                  );
-                                })
-                                .toList(growable: false),
-                          ),
-                        ),
-                      ZenCard(
-                        radius: 30,
-                        gradient: const LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [Color(0xFFF6FAF8), Color(0xFFF1F3EA)],
-                        ),
-                        child: Column(
-                          children: [
-                            Text(
-                              context.t(
-                                vi: 'CÂU HỎI SỐ $questionNumber',
-                                en: 'QUESTION $questionNumber',
-                              ),
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
-                                fontWeight: FontWeight.w700,
-                                letterSpacing: 0.85,
-                              ),
-                            ),
-                            const SizedBox(height: 10),
-                            Text(
-                              _activeQuestion.content,
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.headlineLarge?.copyWith(
-                                color: GrowMateColors.textPrimary,
-                                fontSize: 30,
-                                height: 1.18,
-                              ),
-                            ),
-                            if (formulaText != null &&
-                                formulaText.isNotEmpty) ...[
-                              const SizedBox(height: 14),
-                              Text(
-                                formulaText,
-                                style: theme.textTheme.titleLarge?.copyWith(
-                                  color: GrowMateColors.primary,
-                                  fontStyle: FontStyle.italic,
-                                  fontSize: 32,
-                                  height: 1.2,
-                                  fontWeight: FontWeight.w600,
-                                ),
-                              ),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      ZenCard(
-                        radius: 24,
-                        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                        color: Colors.white.withValues(alpha: 0.78),
-                        child: QuizAnswerWidgetFactory(
-                          question: _activeQuestion,
-                          enabled: !isLoading,
-                          textController: _answerController,
-                          textFocusNode: _answerFocusNode,
-                          onTextChanged: _onAnswerChanged,
-                          onTextTap: _signalService.registerInteraction,
-                          selectedOptionId: _selectedOptionId,
-                          onOptionSelected: (optionId) {
-                            _signalService.registerInteraction();
-                            setState(() {
-                              _selectedOptionId = optionId;
-                              _selectedOptionByQuestion[_activeQuestion.id] =
-                                  optionId;
-                            });
-                          },
-                          trueFalseAnswers: _trueFalseAnswers,
-                          onTrueFalseChanged: _onTrueFalseChanged,
-                        ),
-                      ),
-                      const SizedBox(height: 14),
-                      AnimatedOpacity(
-                        opacity: _showHint ? 1 : 0,
-                        duration: const Duration(milliseconds: 420),
-                        curve: Curves.easeOut,
-                        child: AnimatedSlide(
-                          duration: const Duration(milliseconds: 420),
-                          curve: Curves.easeOut,
-                          offset: _showHint
-                              ? Offset.zero
-                              : const Offset(0, 0.08),
-                          child: Container(
-                            width: double.infinity,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 14,
-                              vertical: 10,
-                            ),
-                            decoration: BoxDecoration(
-                              color: GrowMateColors.secondaryContainer
-                                  .withValues(alpha: 0.42),
-                              borderRadius: BorderRadius.circular(16),
-                              border: Border.all(
-                                color: GrowMateColors.primary.withValues(
-                                  alpha: 0.08,
-                                ),
-                              ),
-                            ),
-                            child: Text(
-                              _hintText(context),
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: GrowMateColors.textSecondary,
-                                fontWeight: FontWeight.w600,
-                                height: 1.42,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 18),
-                      ZenButton(
-                        label: isLoading
-                            ? context.t(vi: 'Đang gửi...', en: 'Submitting...')
-                            : context.t(vi: 'Gửi bài', en: 'Submit'),
-                        onPressed: isLoading ? null : _submitCurrentAnswer,
-                        trailing: const Icon(
-                          Icons.arrow_forward_rounded,
-                          color: Colors.white,
-                          size: 26,
-                        ),
-                      ),
-                      const SizedBox(height: 22),
-                      Center(
-                        child: Text(
-                          context.t(
-                            vi: 'CẦN TRỢ GIÚP TỪ AI TUTOR?',
-                            en: 'NEED HELP FROM AI TUTOR?',
-                          ),
-                          style: theme.textTheme.bodyMedium?.copyWith(
-                            color: GrowMateColors.textSecondary,
-                            letterSpacing: 0.6,
-                            fontWeight: FontWeight.w600,
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                    ],
+                        const SizedBox(height: 6),
+                      ],
+                    ),
                   ),
-                ),
-              );
-            },
+                );
+              },
+            ),
           ),
         ),
       ),

@@ -3,7 +3,6 @@ import 'dart:ui';
 import 'package:flutter/material.dart';
 
 import '../../app/i18n/build_context_i18n.dart';
-import '../../core/constants/colors.dart';
 import '../../core/constants/layout.dart';
 import 'zen_button.dart';
 import 'zen_card.dart';
@@ -39,7 +38,7 @@ class SectionHeader extends StatelessWidget {
                   title,
                   style: theme.textTheme.titleLarge?.copyWith(
                     fontSize: 23,
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -48,7 +47,7 @@ class SectionHeader extends StatelessWidget {
                   Text(
                     subtitle!,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                     ),
                   ),
                 ],
@@ -118,7 +117,7 @@ class AiThinkingStateCard extends StatelessWidget {
       child: ZenCard(
         radius: GrowMateLayout.specialRadius,
         padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
-        color: Colors.white.withValues(alpha: 0.94),
+        color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.94),
         child: Row(
           children: [
             const SizedBox(
@@ -135,7 +134,7 @@ class AiThinkingStateCard extends StatelessWidget {
                       en: 'AI is analyzing your progress...',
                     ),
                 style: theme.textTheme.bodyLarge?.copyWith(
-                  color: GrowMateColors.textSecondary,
+                  color: theme.colorScheme.onSurfaceVariant,
                   fontWeight: FontWeight.w600,
                 ),
               ),
@@ -169,11 +168,15 @@ class AiInsightCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
     return FadeSlideIn(
       delayMs: delayMs,
       child: ZenCard(
         padding: padding,
-        color: color ?? Colors.white.withValues(alpha: 0.96),
+        color:
+            color ??
+            theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.96),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -246,7 +249,7 @@ class ProgressItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final safeValue = value.clamp(0.0, 1.0).toDouble();
-    final barColor = color ?? GrowMateColors.primary;
+    final barColor = color ?? Theme.of(context).colorScheme.primary;
     final theme = Theme.of(context);
 
     return FadeSlideIn(
@@ -269,7 +272,7 @@ class ProgressItem extends StatelessWidget {
                 Text(
                   trailingLabel ?? '${(safeValue * 100).toStringAsFixed(0)}%',
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: GrowMateColors.textSecondary,
+                    color: theme.colorScheme.onSurfaceVariant,
                     fontWeight: FontWeight.w700,
                   ),
                 ),
@@ -286,7 +289,7 @@ class ProgressItem extends StatelessWidget {
                   return LinearProgressIndicator(
                     minHeight: 8,
                     value: animatedValue,
-                    backgroundColor: GrowMateColors.surfaceContainerHigh,
+                    backgroundColor: theme.colorScheme.surfaceContainerHigh,
                     valueColor: AlwaysStoppedAnimation<Color>(barColor),
                   );
                 },
@@ -297,7 +300,7 @@ class ProgressItem extends StatelessWidget {
               Text(
                 caption!,
                 style: theme.textTheme.bodySmall?.copyWith(
-                  color: GrowMateColors.textSecondary,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -379,10 +382,13 @@ class AiRecommendationCard extends StatelessWidget {
       child: ZenCard(
         radius: GrowMateLayout.specialRadius,
         padding: const EdgeInsets.all(20),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF0F3FA4), Color(0xFF1D4ED8), Color(0xFF2563EB)],
+          colors: [
+            theme.colorScheme.primary,
+            theme.colorScheme.primaryContainer,
+          ],
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -661,10 +667,13 @@ class AiResultModal extends StatelessWidget {
       child: ZenCard(
         radius: 26,
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFFF7FBFF), Color(0xFFF1F5FF)],
+          colors: [
+            theme.colorScheme.surfaceContainerLowest,
+            theme.colorScheme.surfaceContainerLow,
+          ],
         ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -676,12 +685,12 @@ class AiResultModal extends StatelessWidget {
                   width: 44,
                   height: 44,
                   decoration: BoxDecoration(
-                    color: GrowMateColors.primaryContainer,
+                    color: theme.colorScheme.primaryContainer,
                     borderRadius: BorderRadius.circular(14),
                   ),
-                  child: const Icon(
+                  child: Icon(
                     Icons.psychology_alt_rounded,
-                    color: GrowMateColors.primaryDark,
+                    color: theme.colorScheme.primary,
                     size: 24,
                   ),
                 ),
@@ -691,7 +700,7 @@ class AiResultModal extends StatelessWidget {
                     resolvedTitle,
                     style: theme.textTheme.titleLarge?.copyWith(
                       fontWeight: FontWeight.w800,
-                      color: GrowMateColors.textPrimary,
+                      color: theme.colorScheme.onSurface,
                     ),
                   ),
                 ),
@@ -702,7 +711,7 @@ class AiResultModal extends StatelessWidget {
               Text(
                 subtitle!,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textSecondary,
+                  color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
             ],
@@ -713,7 +722,7 @@ class AiResultModal extends StatelessWidget {
                 en: 'What you did well',
               ),
               lines: safeDidWell,
-              color: GrowMateColors.success,
+              color: theme.colorScheme.tertiary,
               icon: Icons.check_circle_rounded,
             ),
             const SizedBox(height: 10),
@@ -723,7 +732,7 @@ class AiResultModal extends StatelessWidget {
                 en: 'Needs improvement',
               ),
               lines: safeNeedsImprovement,
-              color: GrowMateColors.warningSoft,
+              color: theme.colorScheme.secondary,
               icon: Icons.tune_rounded,
             ),
             const SizedBox(height: 10),
@@ -733,7 +742,7 @@ class AiResultModal extends StatelessWidget {
                 en: 'AI suggested next step',
               ),
               lines: <String>[nextStep],
-              color: GrowMateColors.primary,
+              color: theme.colorScheme.primary,
               icon: Icons.alt_route_rounded,
             ),
             const SizedBox(height: 14),
@@ -749,7 +758,7 @@ class AiResultModal extends StatelessWidget {
                     resolvedSecondaryLabel,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: GrowMateColors.textSecondary,
+                      color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -815,7 +824,7 @@ class _AiResultSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(12, 11, 12, 11),
       decoration: BoxDecoration(
-        color: Colors.white.withValues(alpha: 0.84),
+        color: theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.84),
         borderRadius: BorderRadius.circular(14),
       ),
       child: Column(
@@ -829,7 +838,7 @@ class _AiResultSection extends StatelessWidget {
                 child: Text(
                   title,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w700,
                   ),
                   maxLines: 2,
@@ -845,7 +854,7 @@ class _AiResultSection extends StatelessWidget {
               child: Text(
                 line,
                 style: theme.textTheme.bodyMedium?.copyWith(
-                  color: GrowMateColors.textSecondary,
+                  color: theme.colorScheme.onSurfaceVariant,
                   height: 1.35,
                 ),
               ),

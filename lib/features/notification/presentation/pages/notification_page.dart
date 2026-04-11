@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/models/app_notification.dart';
@@ -117,16 +116,16 @@ class _NotificationPageState extends State<NotificationPage> {
 
                     context.go(AppRoutes.home);
                   },
-                  icon: const Icon(
+                  icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
-                    color: GrowMateColors.primary,
+                    color: theme.colorScheme.primary,
                   ),
                 ),
                 const SizedBox(width: 4),
                 Text(
                   context.t(vi: 'Thông báo', en: 'Notifications'),
                   style: theme.textTheme.headlineSmall?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     fontWeight: FontWeight.w800,
                   ),
                 ),
@@ -139,7 +138,7 @@ class _NotificationPageState extends State<NotificationPage> {
                 en: 'Study reminders and intervention events will appear here.',
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
-                color: GrowMateColors.textSecondary,
+                color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
             const SizedBox(height: 14),
@@ -148,6 +147,22 @@ class _NotificationPageState extends State<NotificationPage> {
             StreamBuilder<List<AppNotification>>(
               stream: widget.notificationRepository.watchNotifications(),
               builder: (context, snapshot) {
+                if (snapshot.hasError) {
+                  return _ErrorStateWidget(
+                    message: context.t(
+                      vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+                      en: 'Unable to load data. Please try again.',
+                    ),
+                    onRetry: () {
+                      setState(() {});
+                    },
+                  );
+                }
+
+                if (!snapshot.hasData) {
+                  return const _LoadingStateWidget();
+                }
+
                 final notifications =
                     snapshot.data ?? const <AppNotification>[];
                 final unreadCount = notifications
@@ -191,7 +206,7 @@ class _NotificationPageState extends State<NotificationPage> {
                             en: 'No new notifications. GrowMate will remind you when it is study time or when an important intervention is needed.',
                           ),
                           style: theme.textTheme.bodyMedium?.copyWith(
-                            color: GrowMateColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                             height: 1.4,
                           ),
                         ),
@@ -207,9 +222,8 @@ class _NotificationPageState extends State<NotificationPage> {
                               radius: 18,
                               color: item.isRead
                                   ? theme.colorScheme.surfaceContainerLow
-                                  : GrowMateColors.primaryContainer.withValues(
-                                      alpha: 0.4,
-                                    ),
+                                  : theme.colorScheme.primaryContainer
+                                        .withValues(alpha: 0.4),
                               padding: const EdgeInsets.fromLTRB(
                                 14,
                                 12,
@@ -250,8 +264,9 @@ class _NotificationPageState extends State<NotificationPage> {
                                                     .textTheme
                                                     .titleMedium
                                                     ?.copyWith(
-                                                      color: GrowMateColors
-                                                          .textPrimary,
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onSurface,
                                                       fontWeight:
                                                           FontWeight.w700,
                                                     ),
@@ -261,8 +276,9 @@ class _NotificationPageState extends State<NotificationPage> {
                                               Container(
                                                 width: 8,
                                                 height: 8,
-                                                decoration: const BoxDecoration(
-                                                  color: GrowMateColors.primary,
+                                                decoration: BoxDecoration(
+                                                  color:
+                                                      theme.colorScheme.primary,
                                                   shape: BoxShape.circle,
                                                 ),
                                               ),
@@ -273,8 +289,9 @@ class _NotificationPageState extends State<NotificationPage> {
                                           _notificationMessage(context, item),
                                           style: theme.textTheme.bodyMedium
                                               ?.copyWith(
-                                                color: GrowMateColors
-                                                    .textSecondary,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                                 height: 1.4,
                                               ),
                                         ),
@@ -286,8 +303,9 @@ class _NotificationPageState extends State<NotificationPage> {
                                           ),
                                           style: theme.textTheme.bodySmall
                                               ?.copyWith(
-                                                color: GrowMateColors
-                                                    .textSecondary,
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
                                                 fontWeight: FontWeight.w600,
                                               ),
                                         ),
@@ -322,9 +340,9 @@ class _NotificationPageState extends State<NotificationPage> {
         children: [
           Row(
             children: [
-              const Icon(
+              Icon(
                 Icons.alarm_rounded,
-                color: GrowMateColors.primary,
+                color: theme.colorScheme.primary,
                 size: 20,
               ),
               const SizedBox(width: 8),
@@ -348,7 +366,7 @@ class _NotificationPageState extends State<NotificationPage> {
               en: 'At the set time, GrowMate creates a reminder and deep-links to your study session.',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
-              color: GrowMateColors.textSecondary,
+              color: theme.colorScheme.onSurfaceVariant,
               height: 1.4,
             ),
           ),
@@ -493,5 +511,76 @@ class _NotificationPageState extends State<NotificationPage> {
     return RegExp(
       r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
     ).hasMatch(value);
+  }
+}
+
+class _ErrorStateWidget extends StatelessWidget {
+  const _ErrorStateWidget({required this.message, required this.onRetry});
+
+  final String message;
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      radius: 18,
+      color: colors.errorContainer.withValues(alpha: 0.15),
+      child: Column(
+        children: [
+          Icon(Icons.warning_amber_rounded, size: 32, color: colors.error),
+          const SizedBox(height: 12),
+          Text(
+            message,
+            textAlign: TextAlign.center,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onErrorContainer,
+            ),
+          ),
+          const SizedBox(height: 12),
+          TextButton.icon(
+            onPressed: onRetry,
+            icon: Icon(Icons.refresh_rounded, size: 18, color: colors.error),
+            label: Text(
+              context.t(vi: 'Thử lại', en: 'Retry'),
+              style: TextStyle(color: colors.error),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _LoadingStateWidget extends StatelessWidget {
+  const _LoadingStateWidget();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      radius: 18,
+      color: colors.surfaceContainerLow,
+      child: Row(
+        children: [
+          SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.5),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            context.t(vi: 'Đang tải dữ liệu...', en: 'Loading data...'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }

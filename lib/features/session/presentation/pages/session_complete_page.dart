@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../core/constants/colors.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
@@ -171,19 +170,21 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                             end: Alignment.bottomCenter,
                             colors: [Color(0xFFD7E9CF), Color(0xFFC1DDC1)],
                           ),
-                          boxShadow: const [
+                          boxShadow: [
                             BoxShadow(
-                              color: GrowMateColors.shadowSoft,
+                              color: theme.colorScheme.shadow.withValues(
+                                alpha: 0.08,
+                              ),
                               blurRadius: 20,
-                              offset: Offset(0, 10),
+                              offset: const Offset(0, 10),
                             ),
                           ],
                         ),
                         alignment: Alignment.center,
-                        child: const Icon(
+                        child: Icon(
                           Icons.energy_savings_leaf_rounded,
                           size: 78,
-                          color: GrowMateColors.success,
+                          color: theme.colorScheme.tertiary,
                         ),
                       ),
                     ),
@@ -197,7 +198,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                   ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineLarge?.copyWith(
-                    color: GrowMateColors.textPrimary,
+                    color: theme.colorScheme.onSurface,
                     height: 1.2,
                   ),
                 ),
@@ -210,9 +211,11 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     ),
                     decoration: BoxDecoration(
                       borderRadius: BorderRadius.circular(999),
-                      color: GrowMateColors.tertiaryContainer,
+                      color: theme.colorScheme.tertiaryContainer,
                       border: Border.all(
-                        color: GrowMateColors.success.withValues(alpha: 0.16),
+                        color: theme.colorScheme.tertiary.withValues(
+                          alpha: 0.16,
+                        ),
                       ),
                     ),
                     child: Text(
@@ -225,8 +228,8 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                               vi: 'ĐÃ LƯU TIMELINE PHIÊN HỌC',
                               en: 'SESSION TIMELINE SAVED',
                             ),
-                      style: const TextStyle(
-                        color: GrowMateColors.success,
+                      style: TextStyle(
+                        color: theme.colorScheme.tertiary,
                         fontSize: 16,
                         fontWeight: FontWeight.w700,
                         letterSpacing: 0.4,
@@ -240,9 +243,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      const _RoundedInfoIcon(
+                      _RoundedInfoIcon(
                         icon: Icons.psychology_alt_rounded,
-                        color: GrowMateColors.tertiaryContainer,
+                        color: theme.colorScheme.tertiaryContainer,
                       ),
                       const SizedBox(width: 14),
                       Expanded(
@@ -257,7 +260,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                                   Text(
                                     _completionTopicText(context, entry?.topic),
                                     style: theme.textTheme.bodyLarge?.copyWith(
-                                      color: GrowMateColors.textPrimary,
+                                      color: theme.colorScheme.onSurface,
                                       height: 1.35,
                                       fontWeight: FontWeight.w700,
                                     ),
@@ -266,7 +269,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                                   Text(
                                     _suggestionText(context, entry?.nextAction),
                                     style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: GrowMateColors.textSecondary,
+                                      color: theme.colorScheme.onSurfaceVariant,
                                       height: 1.35,
                                     ),
                                   ),
@@ -296,7 +299,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                             en: '"Thank you for learning with me today!"',
                           ),
                           style: theme.textTheme.bodyLarge?.copyWith(
-                            color: GrowMateColors.textSecondary,
+                            color: theme.colorScheme.onSurfaceVariant,
                             height: 1.48,
                             fontStyle: FontStyle.italic,
                           ),
@@ -437,7 +440,7 @@ class _RoundedInfoIcon extends StatelessWidget {
   const _RoundedInfoIcon({
     required this.icon,
     required this.color,
-    this.iconColor = GrowMateColors.success,
+    this.iconColor = const Color(0xFF1E8E5B),
   });
 
   final IconData icon;
