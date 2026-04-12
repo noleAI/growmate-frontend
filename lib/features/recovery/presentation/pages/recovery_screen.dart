@@ -74,7 +74,6 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                 Text(
                   context.t(vi: 'Chế độ phục hồi', en: 'Recovery mode'),
                   style: theme.textTheme.headlineLarge?.copyWith(
-                    fontSize: 36,
                     color: const Color(0xFF7C4A14),
                   ),
                 ),

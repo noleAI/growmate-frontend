@@ -64,7 +64,7 @@ class _TodayPageState extends State<TodayPage> {
         child: ListView(
           children: [
             _buildTopAppBar(context),
-            const SizedBox(height: GrowMateLayout.sectionGap),
+            const SizedBox(height: GrowMateLayout.space16),
             Text(
               _dateLabel(context, DateTime.now()),
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -101,9 +101,9 @@ class _TodayPageState extends State<TodayPage> {
                     )
                   : _ThinkingHero(theme: theme),
             ),
-            const SizedBox(height: GrowMateLayout.sectionGap),
+            const SizedBox(height: GrowMateLayout.space12),
             const _PhaseTwoQuickPanel(),
-            const SizedBox(height: GrowMateLayout.sectionGapLg),
+            const SizedBox(height: GrowMateLayout.space16),
             Section(
               title: context.t(vi: 'Tóm tắt', en: 'Summary'),
               subtitle: context.t(
@@ -138,7 +138,7 @@ class _TodayPageState extends State<TodayPage> {
                 children: [_CompactStats()],
               ),
             ),
-            const SizedBox(height: GrowMateLayout.sectionGapLg),
+            const SizedBox(height: GrowMateLayout.space16),
             Section(
               title: context.t(
                 vi: 'Phân tích AI hoàn tất',

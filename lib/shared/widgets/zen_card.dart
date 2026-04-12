@@ -12,6 +12,7 @@ class AIGlassCard extends StatelessWidget {
     this.gradient,
     this.margin,
     this.showShadow = true,
+    this.border,
   });
 
   final Widget child;
@@ -21,6 +22,7 @@ class AIGlassCard extends StatelessWidget {
   final Gradient? gradient;
   final EdgeInsetsGeometry? margin;
   final bool showShadow;
+  final BoxBorder? border;
 
   @override
   Widget build(BuildContext context) {
@@ -31,12 +33,18 @@ class AIGlassCard extends StatelessWidget {
         color: color ?? theme.colorScheme.surface,
         gradient: gradient,
         borderRadius: BorderRadius.circular(radius),
+        border: border,
         boxShadow: showShadow
-            ? const [
+            ? [
                 BoxShadow(
-                  color: Color(0x120F172A),
-                  blurRadius: 12,
-                  offset: Offset(0, 4),
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.12),
+                  blurRadius: 20,
+                  offset: const Offset(0, 4),
+                ),
+                BoxShadow(
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.06),
+                  blurRadius: 6,
+                  offset: const Offset(0, 1),
                 ),
               ]
             : const [],
@@ -62,5 +70,6 @@ class ZenCard extends AIGlassCard {
     super.gradient,
     super.margin,
     super.showShadow,
+    super.border,
   });
 }

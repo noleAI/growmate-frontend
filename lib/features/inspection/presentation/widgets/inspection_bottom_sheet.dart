@@ -49,12 +49,13 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
     final cubit = context.read<InspectionCubit>();
     final theme = Theme.of(context);
 
-    return SafeArea(
-      top: false,
-      child: FractionallySizedBox(
-        heightFactor: 0.86,
-        alignment: Alignment.bottomCenter,
-        child: Container(
+    return DraggableScrollableSheet(
+      initialChildSize: 0.7,
+      maxChildSize: 0.9,
+      minChildSize: 0.4,
+      expand: false,
+      builder: (context, scrollController) {
+        return Container(
           decoration: BoxDecoration(
             color: theme.colorScheme.surface,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
@@ -72,6 +73,7 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                   children: [
                     Expanded(
                       child: SingleChildScrollView(
+                        controller: scrollController,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -341,8 +343,8 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
               },
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 

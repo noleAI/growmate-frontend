@@ -462,9 +462,8 @@ class AiRecommendationCard extends StatelessWidget {
             const SizedBox(height: 10),
             Text(
               topic,
-              style: theme.textTheme.headlineLarge?.copyWith(
+              style: theme.textTheme.headlineMedium?.copyWith(
                 color: Colors.white,
-                fontSize: 34,
                 height: 1.08,
               ),
             ),

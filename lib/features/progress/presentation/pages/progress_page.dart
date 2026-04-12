@@ -1,6 +1,8 @@
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../features/achievement/data/models/achievement_badge.dart';
@@ -15,6 +17,7 @@ import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
+import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../data/mock_user_progress_generator.dart';
@@ -945,21 +948,30 @@ class _ProgressEmptyState extends StatelessWidget {
         vi: 'Hoàn tất một phiên để AI bắt đầu bản đồ hóa năng lực',
         en: 'Complete one session to let AI start mapping your learning ability',
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(
             Icons.timeline_rounded,
+            size: 40,
             color: Theme.of(context).colorScheme.primary,
           ),
-          const SizedBox(width: GrowMateLayout.space12),
-          Expanded(
-            child: Text(
-              context.t(
-                vi: 'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
-                en: 'After your first completed session, the system will automatically display strengths, weaknesses, and an updated roadmap.',
-              ),
-              style: TextStyle(color: colors.onSurfaceVariant),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            context.t(
+              vi: 'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
+              en: 'After your first completed session, the system will automatically display strengths, weaknesses, and an updated roadmap.',
             ),
+            style: TextStyle(color: colors.onSurfaceVariant),
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(
+              vi: 'Bắt đầu quiz đầu tiên',
+              en: 'Start first quiz',
+            ),
+            onPressed: () => context.go(AppRoutes.quiz),
+            trailing: const Icon(Icons.play_arrow_rounded, color: Colors.white),
           ),
         ],
       ),

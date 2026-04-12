@@ -3,8 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
-import '../../../../shared/widgets/bottom_nav_bar.dart';
-import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
@@ -94,7 +93,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                   child: Column(
                     children: [
                       const GrowMateTopAppBar(),
-                      const SizedBox(height: 20),
+                      const SizedBox(height: GrowMateLayout.sectionGap),
                       ZenCard(
                         radius: 28,
                         child: Text(
@@ -107,7 +106,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                           textAlign: TextAlign.center,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: GrowMateLayout.space12),
                       ZenButton(
                         label: 'Thử lại',
                         onPressed: () {
@@ -127,7 +126,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                 child: ListView(
                   children: [
                     const GrowMateTopAppBar(),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: GrowMateLayout.space12),
                     ZenCard(
                       radius: 34,
                       padding: const EdgeInsets.fromLTRB(20, 24, 20, 22),
@@ -184,7 +183,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 18),
+                    const SizedBox(height: GrowMateLayout.space16),
                     ZenCard(
                       radius: 30,
                       color: Colors.white.withValues(alpha: 0.82),
@@ -282,7 +281,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: GrowMateLayout.sectionGap),
                     ZenCard(
                       radius: 22,
                       color: theme.colorScheme.secondaryContainer.withValues(
@@ -306,7 +305,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 14),
+                    const SizedBox(height: GrowMateLayout.space12),
                     ZenButton(
                       label: successState.isConfirming
                           ? 'Đang xử lý...'
@@ -331,7 +330,7 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
                           ? null
                           : () => context.push(AppRoutes.sessionComplete),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: GrowMateLayout.sectionGap),
                     const _TipBento(
                       icon: Icons.lightbulb_rounded,
                       title: 'Mẹo nhỏ:',
@@ -352,10 +351,6 @@ class _DiagnosisPageState extends State<DiagnosisPage> {
               );
             },
           ),
-        ),
-        bottomNavigationBar: GrowMateBottomNavBar(
-          currentTab: GrowMateTab.today,
-          onTabSelected: (tab) => handleTabNavigation(context, tab),
         ),
       ),
     );
@@ -395,7 +390,7 @@ class _DiagnosisLoadingView extends StatelessWidget {
                   height: 30,
                   child: CircularProgressIndicator(strokeWidth: 2.8),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: GrowMateLayout.space12),
                 Text(
                   'Mình đang phân tích để gợi ý đúng nhịp học của bạn...',
                   textAlign: TextAlign.center,
@@ -435,7 +430,7 @@ class _SkillTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: Colors.white.withValues(alpha: 0.8),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
         border: Border.all(
           color: theme.colorScheme.primary.withValues(alpha: 0.08),
         ),

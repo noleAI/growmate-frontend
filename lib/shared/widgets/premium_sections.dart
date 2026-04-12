@@ -112,13 +112,9 @@ class StatItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        boxShadow: [
-          BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.08),
-            blurRadius: 18,
-            offset: Offset(0, 8),
-          ),
-        ],
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.5),
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -263,6 +259,16 @@ class AIHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final safeConfidence = confidence.clamp(0.0, 1.0).toDouble();
     final theme = Theme.of(context);
+    final primaryHsl = HSLColor.fromColor(theme.colorScheme.primary);
+    final gradientStart = primaryHsl
+        .withLightness((primaryHsl.lightness + 0.08).clamp(0.0, 0.85).toDouble())
+        .withSaturation((primaryHsl.saturation - 0.05).clamp(0.0, 1.0).toDouble())
+        .toColor();
+    final gradientMid = theme.colorScheme.primary;
+    final gradientEnd = primaryHsl
+        .withLightness((primaryHsl.lightness + 0.14).clamp(0.0, 0.88).toDouble())
+        .withSaturation((primaryHsl.saturation - 0.1).clamp(0.0, 1.0).toDouble())
+        .toColor();
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
@@ -270,18 +276,18 @@ class AIHero extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(GrowMateLayout.contentGap),
       decoration: BoxDecoration(
-        gradient: const LinearGradient(
+        gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [Color(0xFF77A9FF), Color(0xFF5E97FF), Color(0xFF8AB5FF)],
-          stops: [0, 0.58, 1],
+          colors: [gradientStart, gradientMid, gradientEnd],
+          stops: const [0, 0.58, 1],
         ),
         borderRadius: BorderRadius.circular(22),
-        boxShadow: const [
+        boxShadow: [
           BoxShadow(
-            color: Color(0x1F4F8CFF),
+            color: theme.colorScheme.primary.withValues(alpha: 0.12),
             blurRadius: 28,
-            offset: Offset(0, 12),
+            offset: const Offset(0, 12),
           ),
         ],
       ),
@@ -408,8 +414,8 @@ class AIHero extends StatelessWidget {
                   minHeight: 6,
                   value: safeConfidence,
                   backgroundColor: Colors.white.withValues(alpha: 0.26),
-                  valueColor: const AlwaysStoppedAnimation<Color>(
-                    Color(0xFF63D2D8),
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    theme.colorScheme.tertiary,
                   ),
                 ),
               ),
@@ -418,8 +424,8 @@ class AIHero extends StatelessWidget {
                 label: ctaLabel,
                 onPressed: onPressed,
                 variant: ZenButtonVariant.primary,
-                backgroundColor: const Color(0xFF5A94FF),
-                shadowColor: const Color(0x334F8CFF),
+                backgroundColor: gradientMid.withValues(alpha: 0.85),
+                shadowColor: theme.colorScheme.primary.withValues(alpha: 0.2),
                 padding: const EdgeInsets.symmetric(
                   horizontal: GrowMateLayout.contentGap,
                   vertical: GrowMateLayout.space12,

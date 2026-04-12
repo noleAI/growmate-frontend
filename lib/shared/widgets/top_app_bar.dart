@@ -120,7 +120,7 @@ class _TopAppBarBody extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
+      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(20),
@@ -137,19 +137,24 @@ class _TopAppBarBody extends StatelessWidget {
           InkWell(
             borderRadius: BorderRadius.circular(999),
             onTap: () => _showAvatarComingSoon(context),
-            child: Container(
-              width: 36,
-              height: 36,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: colors.primaryContainer,
-              ),
-              alignment: Alignment.center,
-              child: Text(
-                userName.isEmpty ? 'B' : userName.substring(0, 1).toUpperCase(),
-                style: theme.textTheme.titleSmall?.copyWith(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w700,
+            child: Semantics(
+              label: context.t(vi: 'Avatar tài khoản', en: 'Account avatar'),
+              child: Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.primaryContainer,
+                ),
+                alignment: Alignment.center,
+                child: Text(
+                  userName.isEmpty
+                      ? 'B'
+                      : userName.substring(0, 1).toUpperCase(),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
                 ),
               ),
             ),
@@ -161,9 +166,8 @@ class _TopAppBarBody extends StatelessWidget {
               children: [
                 Text(
                   'GrowMate AI Tutor',
-                  style: TextStyle(
+                  style: theme.textTheme.bodySmall?.copyWith(
                     color: colors.onSurfaceVariant,
-                    fontSize: 12,
                     fontWeight: FontWeight.w600,
                   ),
                 ),
@@ -172,10 +176,8 @@ class _TopAppBarBody extends StatelessWidget {
                   context.t(vi: 'Chào $userName', en: 'Hi $userName'),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
+                  style: theme.textTheme.titleLarge?.copyWith(
                     color: colors.onSurface,
-                    fontSize: 21,
-                    fontWeight: FontWeight.w600,
                     height: 1,
                   ),
                 ),
@@ -224,47 +226,54 @@ class _AppBarIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isNotification = icon == Icons.notifications_none_rounded;
+    final semanticLabel = isNotification
+        ? context.t(vi: 'Thông báo', en: 'Notifications')
+        : context.t(vi: 'Kiểm tra', en: 'Inspection');
 
-    return Material(
-      color: Colors.transparent,
-      child: InkWell(
-        onTap: onPressed,
-        borderRadius: BorderRadius.circular(12),
-        child: SizedBox(
-          width: 34,
-          height: 34,
-          child: Stack(
-            clipBehavior: Clip.none,
-            alignment: Alignment.center,
-            children: [
-              Container(
-                width: 30,
-                height: 30,
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(10),
+    return Semantics(
+      label: semanticLabel,
+      child: Material(
+        color: Colors.transparent,
+        child: InkWell(
+          onTap: onPressed,
+          borderRadius: BorderRadius.circular(12),
+          child: SizedBox(
+            width: 48,
+            height: 48,
+            child: Stack(
+              clipBehavior: Clip.none,
+              alignment: Alignment.center,
+              children: [
+                Container(
+                  width: 30,
+                  height: 30,
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(icon, color: colors.primary, size: 19),
                 ),
-                alignment: Alignment.center,
-                child: Icon(icon, color: colors.primary, size: 19),
-              ),
-              if (showBadge)
-                Positioned(
-                  top: 6,
-                  right: 4,
-                  child: Container(
-                    width: 7,
-                    height: 7,
-                    decoration: BoxDecoration(
-                      color: colors.primary,
-                      shape: BoxShape.circle,
-                      border: Border.all(
-                        color: colors.surfaceContainerLow,
-                        width: 1,
+                if (showBadge)
+                  Positioned(
+                    top: 6,
+                    right: 4,
+                    child: Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: colors.primary,
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: colors.surfaceContainerLow,
+                          width: 1,
+                        ),
                       ),
                     ),
                   ),
-                ),
-            ],
+              ],
+            ),
           ),
         ),
       ),

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -18,13 +19,16 @@ class WelcomePage extends StatelessWidget {
       body: ZenPageContainer(
         child: ListView(
           children: [
-            const SizedBox(height: 14),
+            const SizedBox(height: GrowMateLayout.space12),
             ZenCard(
-              radius: 30,
-              gradient: const LinearGradient(
+              radius: GrowMateLayout.cardRadius,
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFF9FBF8), Color(0xFFF2EFE8)],
+                colors: [
+                  theme.colorScheme.surface,
+                  theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.6),
+                ],
               ),
               padding: const EdgeInsets.fromLTRB(24, 24, 24, 24),
               child: Column(
@@ -34,10 +38,15 @@ class WelcomePage extends StatelessWidget {
                     height: 94,
                     decoration: BoxDecoration(
                       shape: BoxShape.circle,
-                      gradient: const LinearGradient(
+                      gradient: LinearGradient(
                         begin: Alignment.topCenter,
                         end: Alignment.bottomCenter,
-                        colors: [Color(0xFFEAF2E0), Color(0xFFD8E6D0)],
+                        colors: [
+                          theme.colorScheme.primaryContainer,
+                          theme.colorScheme.primaryContainer.withValues(
+                            alpha: 0.6,
+                          ),
+                        ],
                       ),
                       boxShadow: [
                         BoxShadow(
@@ -50,22 +59,30 @@ class WelcomePage extends StatelessWidget {
                       ],
                     ),
                     alignment: Alignment.center,
-                    child: Icon(
-                      Icons.energy_savings_leaf_rounded,
-                      size: 48,
-                      color: theme.colorScheme.tertiary,
+                    child: TweenAnimationBuilder<double>(
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: const Duration(milliseconds: 2500),
+                      builder: (context, value, child) {
+                        // Create a continuous breathing effect
+                        final breathe =
+                            1.0 +
+                            0.06 * (0.5 + 0.5 * (1 - (2 * value - 1).abs()));
+                        return Transform.scale(scale: breathe, child: child);
+                      },
+                      child: Icon(
+                        Icons.energy_savings_leaf_rounded,
+                        size: 48,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
                   ),
-                  const SizedBox(height: 20),
+                  const SizedBox(height: GrowMateLayout.sectionGap),
                   Text(
                     'Chào bạn đến với GrowMate',
                     textAlign: TextAlign.center,
-                    style: theme.textTheme.headlineLarge?.copyWith(
-                      fontSize: 34,
-                      height: 1.12,
-                    ),
+                    style: theme.textTheme.headlineMedium,
                   ),
-                  const SizedBox(height: 10),
+                  const SizedBox(height: GrowMateLayout.space16),
                   Text(
                     'Học nhẹ hơn, đều hơn, và vẫn hiệu quả từng ngày.',
                     textAlign: TextAlign.center,
@@ -76,9 +93,9 @@ class WelcomePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: GrowMateLayout.space16),
             ZenCard(
-              radius: 32,
+              radius: GrowMateLayout.cardRadius,
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -115,7 +132,7 @@ class WelcomePage extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(height: 18),
+            const SizedBox(height: GrowMateLayout.space16),
             Text(
               'Mỗi phiên học chỉ cần một nhịp nhỏ, bạn đang làm rất tốt rồi.',
               textAlign: TextAlign.center,
@@ -123,6 +140,7 @@ class WelcomePage extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
+            const SizedBox(height: GrowMateLayout.space12),
           ],
         ),
       ),

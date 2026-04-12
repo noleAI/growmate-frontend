@@ -54,7 +54,62 @@ class _ZenButtonState extends State<ZenButton> {
   Widget build(BuildContext context) {
     final disabled = widget.onPressed == null;
 
-    final baseChild = Row(
+    Widget child = AnimatedScale(
+      scale: _pressed ? 0.985 : (_hovered && !disabled ? 1.005 : 1),
+      duration: _motionDuration,
+      curve: Curves.easeOut,
+      child: AnimatedContainer(
+        duration: _motionDuration,
+        curve: Curves.easeOut,
+        width: widget.expanded ? double.infinity : null,
+        constraints: const BoxConstraints(minHeight: 52),
+        padding: widget.padding,
+        decoration: _decoration(disabled),
+        child: _buildContent(disabled),
+      ),
+    );
+
+    if (disabled) {
+      child = Semantics(
+        label: widget.label,
+        excludeSemantics: true,
+        child: child,
+      );
+    }
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: disabled ? null : (_) => _setPressed(true),
+      onTapUp: disabled ? null : (_) => _setPressed(false),
+      onTapCancel: disabled ? null : () => _setPressed(false),
+      onTap: widget.onPressed,
+      child: MouseRegion(
+        onEnter: (_) {
+          if (disabled || _hovered) {
+            return;
+          }
+          setState(() {
+            _hovered = true;
+          });
+        },
+        onExit: (_) {
+          if (!_hovered) {
+            return;
+          }
+          setState(() {
+            _hovered = false;
+          });
+        },
+        child: child,
+      ),
+    );
+  }
+
+  Widget _buildContent(bool disabled) {
+    final isLoading = widget.trailing is SizedBox;
+    final semanticsLabel = isLoading && disabled ? widget.label : null;
+
+    Widget content = Row(
       mainAxisSize: MainAxisSize.min,
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
@@ -83,47 +138,11 @@ class _ZenButtonState extends State<ZenButton> {
       ],
     );
 
-    final body = AnimatedScale(
-      scale: _pressed ? 0.985 : (_hovered && !disabled ? 1.005 : 1),
-      duration: _motionDuration,
-      curve: Curves.easeOut,
-      child: AnimatedContainer(
-        duration: _motionDuration,
-        curve: Curves.easeOut,
-        width: widget.expanded ? double.infinity : null,
-        constraints: const BoxConstraints(minHeight: 52),
-        padding: widget.padding,
-        decoration: _decoration(disabled),
-        child: baseChild,
-      ),
-    );
+    if (semanticsLabel != null) {
+      return Semantics(label: semanticsLabel, child: content);
+    }
 
-    return GestureDetector(
-      behavior: HitTestBehavior.opaque,
-      onTapDown: disabled ? null : (_) => _setPressed(true),
-      onTapUp: disabled ? null : (_) => _setPressed(false),
-      onTapCancel: disabled ? null : () => _setPressed(false),
-      onTap: widget.onPressed,
-      child: MouseRegion(
-        onEnter: (_) {
-          if (disabled || _hovered) {
-            return;
-          }
-          setState(() {
-            _hovered = true;
-          });
-        },
-        onExit: (_) {
-          if (!_hovered) {
-            return;
-          }
-          setState(() {
-            _hovered = false;
-          });
-        },
-        child: body,
-      ),
-    );
+    return content;
   }
 
   BoxDecoration _decoration(bool disabled) {
@@ -132,13 +151,17 @@ class _ZenButtonState extends State<ZenButton> {
 
     switch (widget.variant) {
       case ZenButtonVariant.primary:
+        final primaryHsl = HSLColor.fromColor(theme.colorScheme.primary);
+        final darkerPrimary = primaryHsl
+            .withLightness(
+              (primaryHsl.lightness - 0.12).clamp(0.0, 1.0).toDouble(),
+            )
+            .toColor();
+
         final defaultGradient = LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
-          colors: [
-            theme.colorScheme.primary.withValues(alpha: 0.94),
-            theme.colorScheme.primaryContainer,
-          ],
+          colors: [theme.colorScheme.primary, darkerPrimary],
         );
 
         return BoxDecoration(

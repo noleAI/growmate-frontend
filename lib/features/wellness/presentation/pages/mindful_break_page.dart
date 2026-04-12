@@ -206,60 +206,66 @@ class _MindfulBreakPageState extends State<MindfulBreakPage> {
               ),
             ),
             const SizedBox(height: GrowMateLayout.sectionGapLg),
-            Center(
-              child: SizedBox(
-                width: 210,
-                height: 210,
-                child: Stack(
-                  alignment: Alignment.center,
-                  children: [
-                    SizedBox(
-                      width: 210,
-                      height: 210,
-                      child: CircularProgressIndicator(
-                        value: progress,
-                        strokeWidth: 9,
-                        backgroundColor: theme.colorScheme.surfaceContainerHigh,
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    AnimatedContainer(
-                      duration: const Duration(milliseconds: 420),
-                      curve: Curves.easeInOut,
-                      width: _phaseScale(),
-                      height: _phaseScale(),
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        color: theme.colorScheme.primaryContainer.withValues(
-                          alpha: 0.55,
-                        ),
-                      ),
-                    ),
-                    Column(
-                      mainAxisSize: MainAxisSize.min,
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final availableWidth = constraints.maxWidth;
+                final circleSize = (availableWidth * 0.55).clamp(160.0, 260.0);
+                return Center(
+                  child: SizedBox(
+                    width: circleSize,
+                    height: circleSize,
+                    child: Stack(
+                      alignment: Alignment.center,
                       children: [
-                        Text(
-                          _phaseLabel(context),
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.onSurface,
-                            fontWeight: FontWeight.w700,
+                        SizedBox(
+                          width: circleSize,
+                          height: circleSize,
+                          child: CircularProgressIndicator(
+                            value: progress,
+                            strokeWidth: 9,
+                            backgroundColor:
+                                theme.colorScheme.surfaceContainerHigh,
+                            valueColor: AlwaysStoppedAnimation<Color>(
+                              theme.colorScheme.primary,
+                            ),
                           ),
                         ),
-                        const SizedBox(height: 8),
-                        Text(
-                          _formatSeconds(_remainingSeconds),
-                          style: theme.textTheme.headlineLarge?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w800,
+                        AnimatedContainer(
+                          duration: const Duration(milliseconds: 420),
+                          curve: Curves.easeInOut,
+                          width: _phaseScale(),
+                          height: _phaseScale(),
+                          decoration: BoxDecoration(
+                            shape: BoxShape.circle,
+                            color: theme.colorScheme.primaryContainer
+                                .withValues(alpha: 0.55),
                           ),
+                        ),
+                        Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Text(
+                              _phaseLabel(context),
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              _formatSeconds(_remainingSeconds),
+                              style: theme.textTheme.headlineLarge?.copyWith(
+                                color: theme.colorScheme.primary,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ],
                         ),
                       ],
                     ),
-                  ],
-                ),
-              ),
+                  ),
+                );
+              },
             ),
             const SizedBox(height: GrowMateLayout.sectionGapLg),
             ZenCard(

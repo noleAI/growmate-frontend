@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../core/models/signal_batch.dart';
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -48,6 +49,7 @@ class _QuizPageState extends State<QuizPage> {
 
   Duration _remainingTime = _totalQuizDuration;
   bool _showHint = false;
+  bool _isFetchingRemote = false;
 
   Timer? _countdownTimer;
   Timer? _hintTimer;
@@ -200,26 +202,48 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Future<void> _loadRemoteQuestions() async {
-    final remoteQuestions = await widget.quizRepository.fetchQuestionTemplates(
-      limit: 9,
-    );
-
-    if (!mounted || remoteQuestions.isEmpty) {
-      return;
-    }
-
     setState(() {
-      _shortAnswerDraftByQuestion.clear();
-      _selectedOptionByQuestion.clear();
-      _trueFalseDraftByQuestion.clear();
-      _questionPool = remoteQuestions;
-      _activeQuestion = remoteQuestions.first;
-      _restoreDraftForActiveQuestion();
-      _showHint = false;
+      _isFetchingRemote = true;
     });
 
-    _signalService.startQuestion(questionId: _activeQuestion.id);
-    _restartHintTimer();
+    try {
+      final remoteQuestions = await widget.quizRepository
+          .fetchQuestionTemplates(limit: 9);
+
+      if (!mounted || remoteQuestions.isEmpty) {
+        return;
+      }
+
+      setState(() {
+        _isFetchingRemote = false;
+        _shortAnswerDraftByQuestion.clear();
+        _selectedOptionByQuestion.clear();
+        _trueFalseDraftByQuestion.clear();
+        _questionPool = remoteQuestions;
+        _activeQuestion = remoteQuestions.first;
+        _restoreDraftForActiveQuestion();
+        _showHint = false;
+      });
+
+      _signalService.startQuestion(questionId: _activeQuestion.id);
+      _restartHintTimer();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isFetchingRemote = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            context.t(
+              vi: 'Không tải được câu hỏi từ server. Dùng bộ câu hỏi mẫu tạm thời.',
+              en: 'Could not fetch questions from server. Using sample questions for now.',
+            ),
+          ),
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   void _selectQuestion(QuizQuestionTemplate question) {
@@ -471,12 +495,25 @@ class _QuizPageState extends State<QuizPage> {
                                   router.go(AppRoutes.home);
                                 }
                               },
+                              tooltip: context.t(vi: 'Quay lại', en: 'Back'),
+                              padding: EdgeInsets.all(12),
                               icon: Icon(
                                 Icons.arrow_back_ios_new_rounded,
                                 color: theme.colorScheme.primary,
                               ),
                             ),
                             const SizedBox(width: 6),
+                            if (_isFetchingRemote) ...[
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: theme.colorScheme.primary,
+                                ),
+                              ),
+                              const SizedBox(width: 4),
+                            ],
                             Expanded(
                               child: Text(
                                 context.t(
@@ -512,12 +549,22 @@ class _QuizPageState extends State<QuizPage> {
                               alignment: Alignment.centerLeft,
                               child: Container(
                                 decoration: BoxDecoration(
-                                  gradient: const LinearGradient(
+                                  gradient: LinearGradient(
                                     begin: Alignment.centerLeft,
                                     end: Alignment.centerRight,
                                     colors: [
-                                      Color(0xFF1E8E5B),
-                                      Color(0xFF2F9A4C),
+                                      HSLColor.fromColor(
+                                              theme.colorScheme.primary)
+                                          .withLightness((
+                                                  HSLColor.fromColor(theme
+                                                              .colorScheme
+                                                              .primary)
+                                                      .lightness -
+                                                  0.06)
+                                              .clamp(0.0, 1.0)
+                                              .toDouble())
+                                          .toColor(),
+                                      theme.colorScheme.primary,
                                     ],
                                   ),
                                 ),
@@ -572,10 +619,14 @@ class _QuizPageState extends State<QuizPage> {
                           ),
                         ZenCard(
                           radius: 30,
-                          gradient: const LinearGradient(
+                          gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
-                            colors: [Color(0xFFF6FAF8), Color(0xFFF1F3EA)],
+                            colors: [
+                              theme.colorScheme.surface,
+                              theme.colorScheme.surfaceContainerHigh
+                                  .withValues(alpha: 0.5),
+                            ],
                           ),
                           child: Column(
                             children: [
@@ -602,7 +653,7 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                               if (formulaText != null &&
                                   formulaText.isNotEmpty) ...[
-                                const SizedBox(height: 14),
+                                const SizedBox(height: GrowMateLayout.space12),
                                 Text(
                                   formulaText,
                                   style: theme.textTheme.titleLarge?.copyWith(
@@ -617,11 +668,11 @@ class _QuizPageState extends State<QuizPage> {
                             ],
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: GrowMateLayout.space12),
                         ZenCard(
                           radius: 24,
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-                          color: Colors.white.withValues(alpha: 0.78),
+                          color: theme.colorScheme.surfaceContainerLowest,
                           child: QuizAnswerWidgetFactory(
                             question: _activeQuestion,
                             enabled: !isLoading,
@@ -642,7 +693,7 @@ class _QuizPageState extends State<QuizPage> {
                             onTrueFalseChanged: _onTrueFalseChanged,
                           ),
                         ),
-                        const SizedBox(height: 14),
+                        const SizedBox(height: GrowMateLayout.space12),
                         AnimatedOpacity(
                           opacity: _showHint ? 1 : 0,
                           duration: const Duration(milliseconds: 420),
@@ -681,7 +732,7 @@ class _QuizPageState extends State<QuizPage> {
                             ),
                           ),
                         ),
-                        const SizedBox(height: 18),
+                        const SizedBox(height: GrowMateLayout.space16),
                         ZenButton(
                           label: isLoading
                               ? context.t(
@@ -696,7 +747,7 @@ class _QuizPageState extends State<QuizPage> {
                             size: 26,
                           ),
                         ),
-                        const SizedBox(height: 22),
+                        const SizedBox(height: GrowMateLayout.sectionGap),
                         Center(
                           child: Text(
                             context.t(

@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/models/app_notification.dart';
@@ -116,6 +117,8 @@ class _NotificationPageState extends State<NotificationPage> {
 
                     context.go(AppRoutes.home);
                   },
+                  tooltip: context.t(vi: 'Quay lại', en: 'Back'),
+                  padding: EdgeInsets.all(12),
                   icon: Icon(
                     Icons.arrow_back_ios_new_rounded,
                     color: theme.colorScheme.primary,
@@ -141,9 +144,9 @@ class _NotificationPageState extends State<NotificationPage> {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 14),
+            const SizedBox(height: GrowMateLayout.space12),
             _buildReminderCard(theme),
-            const SizedBox(height: 14),
+            const SizedBox(height: GrowMateLayout.space12),
             StreamBuilder<List<AppNotification>>(
               stream: widget.notificationRepository.watchNotifications(),
               builder: (context, snapshot) {
@@ -216,10 +219,12 @@ class _NotificationPageState extends State<NotificationPage> {
                         (item) => Padding(
                           padding: const EdgeInsets.only(bottom: 10),
                           child: InkWell(
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(
+                              GrowMateLayout.cardRadius,
+                            ),
                             onTap: () => _openNotification(item),
                             child: ZenCard(
-                              radius: 18,
+                              radius: GrowMateLayout.cardRadius,
                               color: item.isRead
                                   ? theme.colorScheme.surfaceContainerLow
                                   : theme.colorScheme.primaryContainer

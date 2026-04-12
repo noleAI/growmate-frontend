@@ -4,8 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../shared/widgets/bottom_nav_bar.dart';
-import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
@@ -181,6 +180,7 @@ class _InterventionPageState extends State<InterventionPage> {
                             }
                             context.go(AppRoutes.home);
                           },
+                          padding: EdgeInsets.all(12),
                           icon: Icon(
                             Icons.arrow_back_rounded,
                             color: theme.colorScheme.primary,
@@ -188,60 +188,81 @@ class _InterventionPageState extends State<InterventionPage> {
                         ),
                       ),
                       if (state.mode == InterventionMode.recovery) ...[
-                        const SizedBox(height: 14),
-                        SizedBox(
-                          height: 210,
-                          child: ZenCard(
-                            radius: 28,
-                            padding: const EdgeInsets.all(18),
-                            gradient: const LinearGradient(
-                              begin: Alignment.topLeft,
-                              end: Alignment.bottomRight,
-                              colors: [Color(0xFFF4FAF3), Color(0xFFE7F0EA)],
-                            ),
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Text(
-                                  _formatDuration(state.remainingRestSeconds),
-                                  style: theme.textTheme.displayLarge?.copyWith(
-                                    color: theme.colorScheme.primary,
-                                    fontSize: 46,
-                                    height: 1,
-                                  ),
+                        const SizedBox(height: GrowMateLayout.space12),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final availableHeight = constraints.maxHeight;
+                            final timerHeight = (availableHeight * 0.28).clamp(
+                              160.0,
+                              240.0,
+                            );
+                            return SizedBox(
+                              height: timerHeight,
+                              child: ZenCard(
+                                radius: 28,
+                                padding: const EdgeInsets.all(18),
+                                gradient: const LinearGradient(
+                                  begin: Alignment.topLeft,
+                                  end: Alignment.bottomRight,
+                                  colors: [
+                                    Color(0xFFF4FAF3),
+                                    Color(0xFFE7F0EA),
+                                  ],
                                 ),
-                                const SizedBox(height: 10),
-                                Container(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 20,
-                                    vertical: 10,
-                                  ),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white.withValues(alpha: 0.72),
-                                    borderRadius: BorderRadius.circular(999),
-                                    border: Border.all(
-                                      color: theme.colorScheme.primary
-                                          .withValues(alpha: 0.1),
+                                child: Column(
+                                  mainAxisAlignment: MainAxisAlignment.center,
+                                  children: [
+                                    Text(
+                                      _formatDuration(
+                                        state.remainingRestSeconds,
+                                      ),
+                                      style: theme.textTheme.displayLarge
+                                          ?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                            fontSize: 46,
+                                            height: 1,
+                                          ),
                                     ),
-                                  ),
-                                  child: Text(
-                                    context.t(
-                                      vi: 'THỜI GIAN HỒI PHỤC',
-                                      en: 'RECOVERY TIME',
+                                    const SizedBox(height: 10),
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(
+                                        horizontal: 20,
+                                        vertical: 10,
+                                      ),
+                                      decoration: BoxDecoration(
+                                        color: Colors.white.withValues(
+                                          alpha: 0.72,
+                                        ),
+                                        borderRadius: BorderRadius.circular(
+                                          999,
+                                        ),
+                                        border: Border.all(
+                                          color: theme.colorScheme.primary
+                                              .withValues(alpha: 0.1),
+                                        ),
+                                      ),
+                                      child: Text(
+                                        context.t(
+                                          vi: 'THỜI GIAN HỒI PHỤC',
+                                          en: 'RECOVERY TIME',
+                                        ),
+                                        style: TextStyle(
+                                          color: theme
+                                              .colorScheme
+                                              .onSurfaceVariant,
+                                          fontSize: 16,
+                                          fontWeight: FontWeight.w600,
+                                        ),
+                                      ),
                                     ),
-                                    style: TextStyle(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      fontSize: 16,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
+                                  ],
                                 ),
-                              ],
-                            ),
-                          ),
+                              ),
+                            );
+                          },
                         ),
                       ],
-                      const SizedBox(height: 18),
+                      const SizedBox(height: GrowMateLayout.space16),
                       Align(
                         alignment: Alignment.center,
                         child: Container(
@@ -283,16 +304,16 @@ class _InterventionPageState extends State<InterventionPage> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: GrowMateLayout.space16),
                       Text(
                         context.t(
                           vi: 'Mình chọn cách học nhẹ\nnhàng hơn nha?',
                           en: 'Shall we switch to a\ngentler study flow?',
                         ),
                         textAlign: TextAlign.center,
-                        style: theme.textTheme.headlineLarge?.copyWith(
+                        maxLines: 3,
+                        style: theme.textTheme.headlineMedium?.copyWith(
                           color: theme.colorScheme.primary,
-                          fontSize: 34,
                           height: 1.14,
                         ),
                       ),
@@ -303,12 +324,13 @@ class _InterventionPageState extends State<InterventionPage> {
                           en: 'Learning is a long journey, and it is okay\nto slow down a little. 🌿',
                         ),
                         textAlign: TextAlign.center,
+                        maxLines: 4,
                         style: theme.textTheme.bodyLarge?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                           height: 1.45,
                         ),
                       ),
-                      const SizedBox(height: 22),
+                      const SizedBox(height: GrowMateLayout.sectionGap),
                       ...displayedOptions.map((option) {
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 14),
@@ -342,7 +364,7 @@ class _InterventionPageState extends State<InterventionPage> {
                                 );
                               },
                       ),
-                      const SizedBox(height: 14),
+                      const SizedBox(height: GrowMateLayout.space12),
                       ZenCard(
                         radius: 26,
                         color: const Color(0xFFFAF9F6),
@@ -377,6 +399,7 @@ class _InterventionPageState extends State<InterventionPage> {
                                 en: '"You seem a bit tired today.\nTake 5 minutes to listen to instrumental music\nbefore starting."',
                               ),
                               textAlign: TextAlign.center,
+                              maxLines: 5,
                               style: theme.textTheme.bodyLarge?.copyWith(
                                 color: theme.colorScheme.onSurface,
                                 height: 1.45,
@@ -386,7 +409,7 @@ class _InterventionPageState extends State<InterventionPage> {
                           ],
                         ),
                       ),
-                      const SizedBox(height: 18),
+                      const SizedBox(height: GrowMateLayout.space16),
                       ZenButton(
                         label: state.feedbackRecorded
                             ? context.t(
@@ -435,10 +458,6 @@ class _InterventionPageState extends State<InterventionPage> {
               },
             ),
           ),
-        ),
-        bottomNavigationBar: GrowMateBottomNavBar(
-          currentTab: GrowMateTab.today,
-          onTabSelected: (tab) => handleTabNavigation(context, tab),
         ),
       ),
     );
@@ -520,7 +539,7 @@ class _InterventionOptionCard extends StatelessWidget {
               height: 66,
               decoration: BoxDecoration(
                 color: iconBg,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
               ),
               alignment: Alignment.center,
               child: Icon(icon, color: theme.colorScheme.primary, size: 30),

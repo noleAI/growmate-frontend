@@ -17,12 +17,19 @@ class GrowMateBottomNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final strings = AppStrings.of(context);
+    final colors = Theme.of(context).colorScheme;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
       decoration: BoxDecoration(
-        color: Colors.white,
+        color: colors.surfaceContainerLow,
         borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+        border: Border(
+          top: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.5),
+            width: 0.5,
+          ),
+        ),
       ),
       child: Row(
         children: [
@@ -82,27 +89,35 @@ class _NavItem extends StatelessWidget {
     final baseColor = colors.onSurfaceVariant;
 
     return Expanded(
-      child: InkWell(
-        borderRadius: BorderRadius.circular(14),
-        onTap: onTap,
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 6),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Icon(icon, color: selected ? selectedColor : baseColor, size: 18),
-              const SizedBox(height: 4),
-              Text(
-                label,
-                style: TextStyle(
+      child: Semantics(
+        label: label,
+        selected: selected,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(14),
+          onTap: onTap,
+          child: Padding(
+            padding: const EdgeInsets.symmetric(vertical: 6),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(
+                  icon,
                   color: selected ? selectedColor : baseColor,
-                  fontSize: 12,
-                  letterSpacing: 0,
-                  fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  size: 18,
                 ),
-                textAlign: TextAlign.center,
-              ),
-            ],
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  style: TextStyle(
+                    color: selected ? selectedColor : baseColor,
+                    fontSize: 12,
+                    letterSpacing: 0,
+                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
+            ),
           ),
         ),
       ),

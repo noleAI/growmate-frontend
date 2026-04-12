@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -113,7 +114,7 @@ class _LoginPageState extends State<LoginPage> {
                 const SizedBox(height: 8),
                 Text(
                   'Chào mừng bạn quay lại',
-                  style: theme.textTheme.headlineLarge?.copyWith(fontSize: 34),
+                  style: theme.textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -124,8 +125,13 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 20),
                 ZenCard(
-                  radius: 30,
+                  radius: GrowMateLayout.cardRadius,
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
+                  showShadow: true,
+                  border: Border.all(
+                    color: Theme.of(context).colorScheme.outlineVariant
+                        .withValues(alpha: 0.6),
+                  ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [

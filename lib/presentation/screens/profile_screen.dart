@@ -379,7 +379,34 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGap),
-                  if (profile == null && state is! ProfileLoading)
+                  if (profile == null && state is ProfileLoading)
+                    _CalmCard(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.center,
+                        children: [
+                          SizedBox(
+                            width: 40,
+                            height: 40,
+                            child: CircularProgressIndicator(
+                              color: theme.colorScheme.primary,
+                            ),
+                          ),
+                          const SizedBox(height: 16),
+                          Text(
+                            _t(
+                              context,
+                              vi: 'Đang tải hồ sơ của bạn...',
+                              en: 'Loading your profile...',
+                            ),
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                    )
+                  else if (profile == null && state is! ProfileLoading)
                     _CalmCard(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.center,

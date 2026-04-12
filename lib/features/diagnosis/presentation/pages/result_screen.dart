@@ -4,9 +4,8 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/ai_components.dart';
-import '../../../../shared/widgets/bottom_nav_bar.dart';
-import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -215,10 +214,6 @@ class _ResultScreenState extends State<ResultScreen> {
             },
           ),
         ),
-        bottomNavigationBar: GrowMateBottomNavBar(
-          currentTab: GrowMateTab.today,
-          onTabSelected: (tab) => handleTabNavigation(context, tab),
-        ),
       ),
     );
   }
@@ -372,10 +367,7 @@ class _ResultContent extends StatelessWidget {
           const SizedBox(height: 32),
           Text(
             context.t(vi: 'Kết quả phân tích AI', en: 'AI analysis result'),
-            style: theme.textTheme.headlineLarge?.copyWith(
-              fontSize: 40,
-              height: 1.05,
-            ),
+            style: theme.textTheme.displayLarge?.copyWith(height: 1.05),
           ),
           const SizedBox(height: 8),
           Text(
@@ -433,6 +425,8 @@ class _ResultContent extends StatelessWidget {
                           result.headline,
                           fallbackEn: 'Learning snapshot',
                         ),
+                        maxLines: 3,
+                        overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: theme.colorScheme.primary,
                           fontSize: 30,
@@ -473,6 +467,8 @@ class _ResultContent extends StatelessWidget {
                     fallbackEn:
                         'AI identified a key gap and prepared a focused next step for your upcoming session.',
                   ),
+                  maxLines: 6,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
                 ),
                 const SizedBox(height: 14),
@@ -605,6 +601,8 @@ class _PointRow extends StatelessWidget {
           const SizedBox(width: 8),
           Expanded(
             child: RichText(
+              maxLines: 4,
+              overflow: TextOverflow.ellipsis,
               text: TextSpan(
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: theme.colorScheme.onSurface,
@@ -643,6 +641,8 @@ class _HintLine extends StatelessWidget {
         Expanded(
           child: Text(
             text,
+            maxLines: 4,
+            overflow: TextOverflow.ellipsis,
             style: theme.textTheme.bodyMedium?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
               height: 1.45,
@@ -700,7 +700,7 @@ class _ResultErrorView extends StatelessWidget {
       child: Column(
         children: [
           const GrowMateTopAppBar(),
-          const SizedBox(height: 20),
+          const SizedBox(height: GrowMateLayout.sectionGap),
           Section(
             title: context.t(
               vi: 'Không tải được kết quả',

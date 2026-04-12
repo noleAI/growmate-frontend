@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -142,7 +143,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             const SizedBox(height: 8),
             Text(
               context.t(vi: 'Quên mật khẩu?', en: 'Forgot password?'),
-              style: theme.textTheme.headlineLarge?.copyWith(fontSize: 34),
+              style: theme.textTheme.headlineMedium,
             ),
             const SizedBox(height: 6),
             Text(
@@ -156,7 +157,7 @@ class _ForgotPasswordPageState extends State<ForgotPasswordPage> {
             ),
             const SizedBox(height: 20),
             ZenCard(
-              radius: 30,
+              radius: GrowMateLayout.cardRadius,
               padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,

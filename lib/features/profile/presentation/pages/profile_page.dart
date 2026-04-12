@@ -232,7 +232,7 @@ class _ProfileBlock extends StatelessWidget {
       padding: const EdgeInsets.all(GrowMateLayout.contentGap),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
         boxShadow: [
           BoxShadow(
             color: theme.colorScheme.shadow.withValues(alpha: 0.04),
@@ -271,22 +271,38 @@ class _SubjectChip extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.symmetric(
-        horizontal: GrowMateLayout.space12,
-        vertical: GrowMateLayout.space8,
-      ),
-      decoration: BoxDecoration(
-        color: selected
-            ? colors.primary.withValues(alpha: 0.15)
-            : colors.surfaceContainerLow,
+    return Material(
+      color: Colors.transparent,
+      child: InkWell(
         borderRadius: BorderRadius.circular(999),
-      ),
-      child: Text(
-        label,
-        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-          color: selected ? colors.primary : colors.onSurface,
-          fontWeight: FontWeight.w500,
+        onTap: () {
+          // Coming soon — will connect to ProfileCubit
+        },
+        child: AnimatedContainer(
+          duration: const Duration(milliseconds: 200),
+          curve: Curves.easeOut,
+          padding: const EdgeInsets.symmetric(
+            horizontal: GrowMateLayout.space12,
+            vertical: GrowMateLayout.space8,
+          ),
+          decoration: BoxDecoration(
+            color: selected
+                ? colors.primary.withValues(alpha: 0.15)
+                : colors.surfaceContainerHigh,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              color: selected
+                  ? colors.primary.withValues(alpha: 0.3)
+                  : Colors.transparent,
+            ),
+          ),
+          child: Text(
+            label,
+            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+              color: selected ? colors.primary : colors.onSurface,
+              fontWeight: selected ? FontWeight.w600 : FontWeight.w500,
+            ),
+          ),
         ),
       ),
     );

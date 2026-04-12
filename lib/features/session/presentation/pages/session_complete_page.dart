@@ -3,8 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
-import '../../../../shared/widgets/bottom_nav_bar.dart';
-import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
@@ -146,51 +145,61 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                       }
                       context.go(AppRoutes.home);
                     },
+                    padding: EdgeInsets.all(12),
                     icon: const Icon(Icons.arrow_back_rounded),
                   ),
                 ),
                 const SizedBox(height: 6),
-                SizedBox(
-                  height: 292,
-                  child: ZenCard(
-                    radius: 36,
-                    gradient: const LinearGradient(
-                      begin: Alignment.topLeft,
-                      end: Alignment.bottomRight,
-                      colors: [Color(0xFFEFF7ED), Color(0xFFE5F0EA)],
-                    ),
-                    child: Center(
-                      child: Container(
-                        width: 142,
-                        height: 142,
-                        decoration: BoxDecoration(
-                          shape: BoxShape.circle,
-                          gradient: const LinearGradient(
-                            begin: Alignment.topCenter,
-                            end: Alignment.bottomCenter,
-                            colors: [Color(0xFFD7E9CF), Color(0xFFC1DDC1)],
-                          ),
-                          boxShadow: [
-                            BoxShadow(
-                              color: theme.colorScheme.shadow.withValues(
-                                alpha: 0.08,
-                              ),
-                              blurRadius: 20,
-                              offset: const Offset(0, 10),
-                            ),
-                          ],
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final availableHeight = constraints.maxHeight;
+                    final heroHeight = (availableHeight * 0.35).clamp(
+                      180.0,
+                      320.0,
+                    );
+                    return SizedBox(
+                      height: heroHeight,
+                      child: ZenCard(
+                        radius: 36,
+                        gradient: const LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [Color(0xFFEFF7ED), Color(0xFFE5F0EA)],
                         ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.energy_savings_leaf_rounded,
-                          size: 78,
-                          color: theme.colorScheme.tertiary,
+                        child: Center(
+                          child: Container(
+                            width: 142,
+                            height: 142,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              gradient: const LinearGradient(
+                                begin: Alignment.topCenter,
+                                end: Alignment.bottomCenter,
+                                colors: [Color(0xFFD7E9CF), Color(0xFFC1DDC1)],
+                              ),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: theme.colorScheme.shadow.withValues(
+                                    alpha: 0.08,
+                                  ),
+                                  blurRadius: 20,
+                                  offset: const Offset(0, 10),
+                                ),
+                              ],
+                            ),
+                            alignment: Alignment.center,
+                            child: Icon(
+                              Icons.energy_savings_leaf_rounded,
+                              size: 78,
+                              color: theme.colorScheme.tertiary,
+                            ),
+                          ),
                         ),
                       ),
-                    ),
-                  ),
+                    );
+                  },
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: GrowMateLayout.space16),
                 Text(
                   context.t(
                     vi: 'Hôm nay bạn học\nrất ổn ✨',
@@ -237,9 +246,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: GrowMateLayout.space16),
                 ZenCard(
-                  radius: 30,
+                  radius: GrowMateLayout.cardRadius,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
@@ -279,9 +288,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: GrowMateLayout.space12),
                 ZenCard(
-                  radius: 30,
+                  radius: GrowMateLayout.cardRadius,
                   color: const Color(0xFFEAF0EE),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,9 +318,9 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                   ),
                 ),
                 if (newBadges.isNotEmpty) ...[
-                  const SizedBox(height: 14),
+                  const SizedBox(height: GrowMateLayout.space12),
                   ZenCard(
-                    radius: 30,
+                    radius: GrowMateLayout.cardRadius,
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
@@ -350,7 +359,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     ),
                   ),
                 ],
-                const SizedBox(height: 20),
+                const SizedBox(height: GrowMateLayout.sectionGap),
                 ZenButton(
                   label: context.t(
                     vi: 'Kết thúc phiên học',
@@ -358,7 +367,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                   ),
                   onPressed: () => context.go(AppRoutes.home),
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: GrowMateLayout.space12),
                 ZenButton(
                   label: context.t(
                     vi: 'Nghỉ thở 90 giây',
@@ -369,7 +378,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                     context.go(AppRoutes.mindfulBreak);
                   },
                 ),
-                const SizedBox(height: 14),
+                const SizedBox(height: GrowMateLayout.space12),
                 ZenButton(
                   label: context.t(
                     vi: 'Xem timeline tuần',
@@ -384,10 +393,6 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
             );
           },
         ),
-      ),
-      bottomNavigationBar: GrowMateBottomNavBar(
-        currentTab: GrowMateTab.today,
-        onTabSelected: (tab) => handleTabNavigation(context, tab),
       ),
     );
   }

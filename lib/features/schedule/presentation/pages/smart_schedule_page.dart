@@ -86,18 +86,27 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
                 ),
                 const SizedBox(height: GrowMateLayout.contentGap),
                 if (items.isEmpty)
-                  ZenCard(
-                    radius: 18,
-                    child: Text(
-                      context.t(
-                        vi: 'Chưa có mốc nào. Thêm lịch thi hoặc hạn nộp để GrowMate sắp xếp kế hoạch học thông minh hơn.',
-                        en: 'No milestones yet. Add an exam or deadline so GrowMate can build a smarter study plan.',
+                  Column(
+                    children: [
+                      Icon(
+                        Icons.event_note_rounded,
+                        size: 40,
+                        color: theme.colorScheme.primary,
                       ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: theme.colorScheme.onSurfaceVariant,
-                        height: 1.45,
+                      const SizedBox(height: GrowMateLayout.space12),
+                      ZenCard(
+                        child: Text(
+                          context.t(
+                            vi: 'Chưa có mốc nào. Thêm lịch thi hoặc hạn nộp để GrowMate sắp xếp kế hoạch học thông minh hơn.',
+                            en: 'No milestones yet. Add an exam or deadline so GrowMate can build a smarter study plan.',
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: theme.colorScheme.onSurfaceVariant,
+                            height: 1.45,
+                          ),
+                        ),
                       ),
-                    ),
+                    ],
                   )
                 else
                   ...items.map((item) => _buildItemCard(context, item)),
@@ -116,7 +125,7 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 10),
       child: ZenCard(
-        radius: 18,
+        radius: GrowMateLayout.cardRadius,
         color: item.completed
             ? theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.65)
             : theme.colorScheme.surfaceContainerLow,
