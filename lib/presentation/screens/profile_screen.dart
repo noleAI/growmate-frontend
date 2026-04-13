@@ -13,6 +13,7 @@ import '../../data/models/user_profile.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
+import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/inspection/presentation/cubit/inspection_cubit.dart';
 import '../../features/notification/data/repositories/notification_repository.dart';
 import '../../features/offline/data/models/offline_state.dart';
@@ -326,7 +327,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               includeBottomSafeArea: false,
               child: ListView(
                 children: [
-                  _buildHeader(profile),
+                  _buildHeader(profile: profile, authState: authBloc.state),
                   const SizedBox(height: GrowMateLayout.sectionGap),
                   _buildSectionHeader(
                     title: _isSettingsSection
@@ -492,8 +493,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildHeader(UserProfile? profile) {
-    final name = _displayName(profile?.fullName);
+  Widget _buildHeader({
+    required UserProfile? profile,
+    required AuthState authState,
+  }) {
+    final name = _resolveHeaderName(profile: profile, authState: authState);
     final avatarUrl = profile?.avatarUrl?.trim();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
     final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'B';
@@ -506,8 +510,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           borderRadius: BorderRadius.circular(999),
           onTap: null,
           child: Container(
-            width: 52,
-            height: 52,
+            width: 42,
+            height: 42,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
               color: colors.primaryContainer.withValues(
@@ -516,7 +520,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               boxShadow: const [
                 BoxShadow(
                   color: Color(0x140F172A),
-                  blurRadius: 16,
+                  blurRadius: 14,
                   offset: Offset(0, 6),
                 ),
               ],
@@ -534,10 +538,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        const SizedBox(width: 10),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
             children: [
               Text(
                 _t(context, vi: 'CHÀO MỪNG TRỞ LẠI', en: 'WELCOME BACK'),
@@ -549,7 +554,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   letterSpacing: 1.0,
                 ),
               ),
-              const SizedBox(height: 2),
+              const SizedBox(height: 1),
               Text(
                 name,
                 maxLines: 1,
@@ -557,6 +562,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 style: theme.textTheme.titleMedium?.copyWith(
                   color: colors.onSurface,
                   fontWeight: FontWeight.w800,
+                  height: 1.05,
                 ),
               ),
             ],
@@ -1785,10 +1791,35 @@ class _ProfileScreenState extends State<ProfileScreen> {
   static String _displayName(String? fullName) {
     final value = fullName?.trim();
     if (value == null || value.isEmpty) {
-      return 'Huy';
+      return '';
     }
     final parts = value.split(RegExp(r'\s+'));
-    return parts.isEmpty ? 'Huy' : parts.last;
+    return parts.isEmpty ? '' : parts.last;
+  }
+
+  String _resolveHeaderName({
+    required UserProfile? profile,
+    required AuthState authState,
+  }) {
+    final fromProfile = _displayName(profile?.fullName);
+    if (fromProfile.isNotEmpty) {
+      return fromProfile;
+    }
+
+    if (authState is AuthAuthenticated) {
+      final fromSessionName = _displayName(authState.session.displayName);
+      if (fromSessionName.isNotEmpty) {
+        return fromSessionName;
+      }
+
+      final localPart = authState.session.email.trim().split('@').first;
+      final fromEmail = _displayName(localPart);
+      if (fromEmail.isNotEmpty) {
+        return fromEmail;
+      }
+    }
+
+    return _t(context, vi: 'Bạn', en: 'You');
   }
 
   static String _toTierLabel(String tier) {
@@ -2109,20 +2140,24 @@ class _IconCircleButton extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       onTap: onTap,
       child: Ink(
-        width: 42,
-        height: 42,
+        width: 48,
+        height: 48,
         decoration: BoxDecoration(
-          color: colors.surfaceContainerLow,
+          color: Colors.transparent,
           shape: BoxShape.circle,
-          boxShadow: [
-            BoxShadow(
-              color: colors.shadow.withValues(alpha: 0.08),
-              blurRadius: 18,
-              offset: Offset(0, 7),
-            ),
-          ],
         ),
-        child: Icon(icon, color: colors.onSurface, size: 21),
+        child: Center(
+          child: Container(
+            width: 30,
+            height: 30,
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            alignment: Alignment.center,
+            child: Icon(icon, color: colors.primary, size: 19),
+          ),
+        ),
       ),
     );
   }
