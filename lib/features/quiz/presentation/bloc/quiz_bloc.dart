@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../data/models/api_models.dart';
 import '../../data/repositories/quiz_repository.dart';
 import 'quiz_event.dart';
 import 'quiz_state.dart';
@@ -60,11 +61,11 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
       final responseData = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final submitResponse = SubmitAnswerResponse.fromJson(responseData);
 
-      final submissionId =
-          responseData['submissionId']?.toString() ??
-          responseData['answerId']?.toString() ??
-          '';
+      final submissionId = submitResponse.submissionId.isNotEmpty
+          ? submitResponse.submissionId
+          : submitResponse.answerId;
 
       if (submissionId.isEmpty) {
         throw Exception('Backend response missing submissionId/answerId.');

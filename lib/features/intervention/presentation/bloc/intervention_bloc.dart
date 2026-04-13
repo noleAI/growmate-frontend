@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../data/models/api_models.dart';
 import '../../../inspection/domain/inspection_runtime_store.dart';
 import '../../../notification/data/repositories/notification_repository.dart';
 import '../../data/repositories/intervention_repository.dart';
@@ -130,10 +131,9 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final feedbackResponse = InterventionFeedbackResponse.fromJson(data);
 
-      final qValues = data['updatedQValues'] is Map<String, dynamic>
-          ? data['updatedQValues'] as Map<String, dynamic>
-          : <String, dynamic>{};
+      final qValues = feedbackResponse.updatedQValues;
       final backendMessage = response['message']?.toString();
 
       _inspectionRuntimeStore.updateQValues(qValues);
@@ -278,6 +278,12 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
         .toList();
 
     if (mapped.isEmpty) {
+      _inspectionRuntimeStore.addDecision(
+        action: 'Intervention Fallback Options',
+        reason: 'Using default intervention options — backend plan was empty',
+        source: 'intervention',
+      );
+
       return <InterventionOption>[
         InterventionOption(
           id: 'review_theory',

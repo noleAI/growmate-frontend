@@ -2,6 +2,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:growmate_frontend/core/services/behavioral_signal_collector.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
@@ -10,6 +11,7 @@ void main() {
   late List<List<Map<String, dynamic>>> submittedBatches;
 
   setUp(() {
+    SharedPreferences.setMockInitialValues(<String, Object>{});
     collector = BehavioralSignalCollector.instance;
     collector.resetForTest();
 
@@ -46,6 +48,10 @@ void main() {
   });
 
   test('gom batch dung chu ky 5 giay', () {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'data_consent_accepted': true,
+    });
+
     fakeAsync((async) {
       collector.attachBatchSubmitter((batch) async {
         submittedBatches.add(
@@ -56,6 +62,7 @@ void main() {
       });
       collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
+      async.flushMicrotasks();
       collector.recordKeystroke(characterCount: 5);
 
       async.elapse(const Duration(seconds: 4, milliseconds: 999));
@@ -73,6 +80,10 @@ void main() {
   });
 
   test('tinh typingSpeed va correctionRate chinh xac', () {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'data_consent_accepted': true,
+    });
+
     fakeAsync((async) {
       collector.attachBatchSubmitter((batch) async {
         submittedBatches.add(
@@ -83,6 +94,7 @@ void main() {
       });
       collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
+      async.flushMicrotasks();
       collector.recordKeystroke(characterCount: 10);
       collector.recordCorrection();
       collector.recordCorrection();
@@ -105,6 +117,10 @@ void main() {
   });
 
   test('flush batch khi app pause', () {
+    SharedPreferences.setMockInitialValues(<String, Object>{
+      'data_consent_accepted': true,
+    });
+
     fakeAsync((async) {
       collector.attachBatchSubmitter((batch) async {
         submittedBatches.add(
@@ -115,6 +131,7 @@ void main() {
       });
       collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
+      async.flushMicrotasks();
       collector.recordKeystroke(characterCount: 4);
 
       async.elapse(const Duration(seconds: 1));

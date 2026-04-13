@@ -1,6 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../data/models/api_models.dart';
 import '../../../inspection/domain/inspection_runtime_store.dart';
+import '../../data/repositories/diagnosis_snapshot_cache_repository.dart';
 import '../../data/repositories/diagnosis_repository.dart';
 import 'result_state.dart';
 
@@ -8,15 +10,20 @@ class ResultCubit extends Cubit<ResultState> {
   ResultCubit({
     required DiagnosisRepository diagnosisRepository,
     InspectionRuntimeStore? inspectionRuntimeStore,
+    DiagnosisSnapshotCacheRepository? diagnosisSnapshotCacheRepository,
   }) : _diagnosisRepository = diagnosisRepository,
        _inspectionRuntimeStore =
            inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
+       _diagnosisSnapshotCacheRepository =
+           diagnosisSnapshotCacheRepository ??
+           DiagnosisSnapshotCacheRepository.instance,
        super(const ResultLoading());
 
   static const String _episodicMemoryScope = 'episodic_memory';
 
   final DiagnosisRepository _diagnosisRepository;
   final InspectionRuntimeStore _inspectionRuntimeStore;
+  final DiagnosisSnapshotCacheRepository _diagnosisSnapshotCacheRepository;
 
   Future<void> loadResult(String submissionId) async {
     emit(const ResultLoading());
@@ -28,36 +35,49 @@ class ResultCubit extends Cubit<ResultState> {
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final diagnosis = DiagnosisResponse.fromJson(data);
       final resolvedDiagnosisId = _resolveDiagnosisId(
-        rawId: data['diagnosisId']?.toString(),
+        rawId: diagnosis.diagnosisId,
         submissionId: submissionId,
       );
 
       final strengths = _extractStringList(
-        data['strengths'],
+        diagnosis.strengths,
       ).ifEmpty(const <String>['Quy tắc đạo hàm cơ bản']);
       final needsReview = _extractStringList(
-        data['needsReview'],
+        diagnosis.needsReview,
       ).ifEmpty(const <String>['Đạo hàm hàm số hợp']);
-      final gapAnalysis =
-          data['gapAnalysis']?.toString() ??
-          data['summary']?.toString() ??
-          'Cần bổ trợ Đạo hàm bậc cao';
+      final gapAnalysis = diagnosis.gapAnalysis.isNotEmpty
+          ? diagnosis.gapAnalysis
+          : diagnosis.summary.isNotEmpty
+          ? diagnosis.summary
+          : 'Cần bổ trợ Đạo hàm bậc cao';
       final diagnosisReason = _normalizeDiagnosisReason(
-        raw: data['diagnosisReason']?.toString(),
+        raw: diagnosis.diagnosisReason,
         gapAnalysis: gapAnalysis,
         needsReview: needsReview,
       );
-      final confidence = _normalizeScore(data['confidence'], fallback: 0.78);
+      final confidence = _normalizeScore(diagnosis.confidence, fallback: 0.78);
       final uncertainty = _normalizeScore(1 - confidence, fallback: 0.22);
-      final finalMode = data['mode']?.toString() ?? 'normal';
-      final riskLevel =
-          data['riskLevel']?.toString() ??
-          (uncertainty >= 0.45 ? 'high' : 'low');
-      final requiresHitl = data['requiresHITL'] == true;
-      final nextSuggestedTopic =
-          data['nextSuggestedTopic']?.toString() ?? 'Review Đạo hàm';
-      final interventionPlan = _extractPlanList(data['interventionPlan']);
+      final finalMode = diagnosis.mode.isEmpty ? 'normal' : diagnosis.mode;
+      final riskLevel = diagnosis.riskLevel.isNotEmpty
+          ? diagnosis.riskLevel
+          : (uncertainty >= 0.45 ? 'high' : 'low');
+      final requiresHitl = diagnosis.requiresHitl;
+      final nextSuggestedTopic = diagnosis.nextSuggestedTopic.isNotEmpty
+          ? diagnosis.nextSuggestedTopic
+          : 'Review Đạo hàm';
+      final interventionPlan = _extractPlanList(diagnosis.interventionPlan);
+
+      await _diagnosisSnapshotCacheRepository.saveSnapshot(
+        DiagnosisSnapshot(
+          strengths: strengths,
+          needsReview: needsReview,
+          nextSuggestedTopic: nextSuggestedTopic,
+          confidenceScore: confidence,
+          savedAt: DateTime.now().toUtc(),
+        ),
+      );
 
       _inspectionRuntimeStore.syncFromDiagnosis(
         gapAnalysis: gapAnalysis,
@@ -75,9 +95,9 @@ class ResultCubit extends Cubit<ResultState> {
           result: ResultModel(
             submissionId: submissionId,
             diagnosisId: resolvedDiagnosisId,
-            headline:
-                data['title']?.toString() ??
-                'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
+            headline: diagnosis.title.isEmpty
+                ? 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè'
+                : diagnosis.title,
             gapAnalysis: gapAnalysis,
             diagnosisReason: diagnosisReason,
             strengths: strengths,
@@ -188,9 +208,11 @@ class ResultCubit extends Cubit<ResultState> {
       final payload = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final interactionResponse = InteractionFeedbackResponse.fromJson(payload);
 
-      final repairedTopic =
-          payload['nextSuggestedTopic']?.toString() ?? _repairPlanTopic();
+      final repairedTopic = interactionResponse.nextSuggestedTopic.isNotEmpty
+          ? interactionResponse.nextSuggestedTopic
+          : _repairPlanTopic();
 
       _inspectionRuntimeStore.addDecision(
         action: 'Plan Rejected',

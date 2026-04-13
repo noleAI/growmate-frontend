@@ -12,6 +12,7 @@ import '../../../../core/models/signal_batch.dart';
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
+import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/repositories/quiz_repository.dart';
 import '../../domain/entities/quiz_question_template.dart';
@@ -50,7 +51,7 @@ class _QuizPageState extends State<QuizPage> {
   QuizCubit? _quizCubit;
   QuizQuestionTemplate? _activeQuestion;
 
-  // Start with empty pool — will load from Supabase
+  // Start with empty pool â€” will load from Supabase
   List<QuizQuestionTemplate> _questionPool = <QuizQuestionTemplate>[];
   String? _selectedOptionId;
   Map<String, bool> _trueFalseAnswers = <String, bool>{};
@@ -65,7 +66,10 @@ class _QuizPageState extends State<QuizPage> {
   Duration _quizDuration = const Duration(seconds: _initialQuizDurationSeconds);
   bool _showHint = false;
   bool _isLoadingQuestions = true;
+  bool _isQuestionBankEmpty = false;
+  bool _isNavigatingToDiagnosis = false;
   String? _fetchError;
+  String? _submitErrorMessage;
 
   Timer? _countdownTimer;
   int _previousLength = 0;
@@ -105,7 +109,10 @@ class _QuizPageState extends State<QuizPage> {
   Future<void> _loadQuestionsAndInit() async {
     setState(() {
       _isLoadingQuestions = true;
+      _isQuestionBankEmpty = false;
+      _isNavigatingToDiagnosis = false;
       _fetchError = null;
+      _submitErrorMessage = null;
     });
 
     try {
@@ -117,7 +124,7 @@ class _QuizPageState extends State<QuizPage> {
       if (remoteQuestions.isEmpty) {
         setState(() {
           _isLoadingQuestions = false;
-          _fetchError = 'Không có câu hỏi nào. Vui lòng liên hệ quản trị viên.';
+          _isQuestionBankEmpty = true;
         });
         return;
       }
@@ -143,11 +150,13 @@ class _QuizPageState extends State<QuizPage> {
         _quizDuration = quizDuration;
         _remainingTime = quizDuration;
         _isLoadingQuestions = false;
+        _isQuestionBankEmpty = false;
       });
     } catch (e) {
       if (!mounted) return;
       setState(() {
         _isLoadingQuestions = false;
+        _isQuestionBankEmpty = false;
         _fetchError =
             'Không kết nối được với server. Kiểm tra mạng và thử lại.';
       });
@@ -541,11 +550,55 @@ class _QuizPageState extends State<QuizPage> {
       ..showSnackBar(SnackBar(content: Text(message)));
   }
 
+  bool _isValidationSubmitMessage(String message) {
+    final normalized = message.toLowerCase();
+    return normalized.contains('vui lòng') ||
+        normalized.contains('please') ||
+        normalized.contains('hãy chọn') ||
+        normalized.contains('hoàn thành');
+  }
+
+  Widget _buildSubmitTransitionCard(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return ZenCard(
+      radius: 18,
+      color: theme.colorScheme.surfaceContainerLow,
+      child: Row(
+        children: [
+          const SizedBox(
+            width: 20,
+            height: 20,
+            child: CircularProgressIndicator(strokeWidth: 2.4),
+          ),
+          const SizedBox(width: GrowMateLayout.space12),
+          Expanded(
+            child: Text(
+              context.t(
+                vi: 'Đã nhận bài - AI đang phân tích...',
+                en: 'Submission received - AI is analyzing...',
+              ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   void _submitCurrentAnswer() {
     final userAnswer = _buildUserAnswer(context);
     if (userAnswer == null) {
       return;
     }
+
+    setState(() {
+      _submitErrorMessage = null;
+    });
 
     _signalService.markSubmitted();
     _quizCubit?.submitTypedAnswer(
@@ -779,39 +832,17 @@ class _QuizPageState extends State<QuizPage> {
       );
     }
 
-    // Show error state if fetch failed
-    if (_fetchError != null || _questionPool.isEmpty) {
+    if (_fetchError != null) {
       return Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-        body: Center(
+        body: ZenPageContainer(
           child: Column(
-            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Icon(
-                Icons.cloud_off_rounded,
-                size: 64,
-                color: Theme.of(context).colorScheme.error,
-              ),
-              const SizedBox(height: 16),
-              Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 32),
-                child: Text(
-                  _fetchError ?? 'Không có câu hỏi nào.',
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodyLarge,
-                ),
-              ),
-              const SizedBox(height: 24),
-              FilledButton.icon(
-                onPressed: _loadQuestionsAndInit,
-                icon: const Icon(Icons.refresh_rounded),
-                label: Text(context.t(vi: 'Thử lại', en: 'Retry')),
-              ),
-              const SizedBox(height: 12),
-              TextButton.icon(
-                onPressed: () => context.go(AppRoutes.home),
-                icon: const Icon(Icons.home_outlined),
-                label: Text(context.t(vi: 'Về trang chủ', en: 'Go Home')),
+              ZenErrorCard(
+                message: _fetchError!,
+                onRetry: _loadQuestionsAndInit,
+                onDismiss: () => context.go(AppRoutes.home),
               ),
             ],
           ),
@@ -819,6 +850,50 @@ class _QuizPageState extends State<QuizPage> {
       );
     }
 
+    if (_isQuestionBankEmpty || _questionPool.isEmpty) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: ZenPageContainer(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              ZenCard(
+                radius: 20,
+                child: Column(
+                  children: [
+                    Icon(
+                      Icons.quiz_outlined,
+                      size: 44,
+                      color: Theme.of(context).colorScheme.primary,
+                    ),
+                    const SizedBox(height: GrowMateLayout.space12),
+                    Text(
+                      context.t(
+                        vi: 'Mình chưa có câu hỏi cho chuyên đề này. Thử quay lại sau nhé!',
+                        en: 'No question set is available for this topic yet. Please come back later.',
+                      ),
+                      textAlign: TextAlign.center,
+                      style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                        color: Theme.of(context).colorScheme.onSurface,
+                        height: 1.4,
+                      ),
+                    ),
+                    const SizedBox(height: GrowMateLayout.space16),
+                    ZenButton(
+                      label: context.t(
+                        vi: 'Quay về Trang chủ',
+                        en: 'Back to Home',
+                      ),
+                      onPressed: () => context.go(AppRoutes.home),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
     return BlocProvider<QuizCubit>.value(
       value: _quizCubit!,
       child: GestureDetector(
@@ -843,18 +918,51 @@ class _QuizPageState extends State<QuizPage> {
             body: BlocConsumer<QuizCubit, QuizCubitState>(
               listener: (context, state) {
                 if (state is QuizSubmitFailureState) {
-                  ScaffoldMessenger.of(context)
-                    ..hideCurrentSnackBar()
-                    ..showSnackBar(SnackBar(content: Text(state.message)));
+                  if (_isValidationSubmitMessage(state.message)) {
+                    ScaffoldMessenger.of(context)
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(content: Text(state.message)));
+
+                    setState(() {
+                      _isNavigatingToDiagnosis = false;
+                      _submitErrorMessage = null;
+                    });
+                  } else {
+                    setState(() {
+                      _isNavigatingToDiagnosis = false;
+                      _submitErrorMessage = state.message;
+                    });
+                  }
                 }
 
                 if (state is QuizSubmitSuccessState) {
-                  context.go(
-                    '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
-                  );
+                  if (_isNavigatingToDiagnosis) {
+                    return;
+                  }
+
+                  setState(() {
+                    _isNavigatingToDiagnosis = true;
+                    _submitErrorMessage = null;
+                  });
+
+                  final router = GoRouter.of(context);
+                  Future<void>.delayed(const Duration(milliseconds: 900), () {
+                    if (!mounted) {
+                      return;
+                    }
+
+                    router.go(
+                      '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
+                    );
+                  });
+                  return;
                 }
 
                 if (state is QuizRecoveryTriggeredState) {
+                  setState(() {
+                    _isNavigatingToDiagnosis = false;
+                  });
+
                   context.go(
                     '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
                   );
@@ -862,6 +970,9 @@ class _QuizPageState extends State<QuizPage> {
               },
               builder: (context, state) {
                 final isLoading = state is QuizSubmittingState;
+                final showSubmitTransition =
+                    state is QuizSubmitSuccessState || _isNavigatingToDiagnosis;
+                final disableSubmit = isLoading || _isNavigatingToDiagnosis;
                 final theme = Theme.of(context);
                 final formulaText = _activeQuestion!.metadata['formula']
                     ?.toString();
@@ -1169,7 +1280,7 @@ class _QuizPageState extends State<QuizPage> {
                           color: theme.colorScheme.surfaceContainerLowest,
                           child: QuizAnswerWidgetFactory(
                             question: _activeQuestion!,
-                            enabled: !isLoading,
+                            enabled: !disableSubmit,
                             showHints: _showHint,
                             textController: _answerController,
                             textFocusNode: _answerFocusNode,
@@ -1192,7 +1303,7 @@ class _QuizPageState extends State<QuizPage> {
                         Align(
                           alignment: Alignment.centerRight,
                           child: TextButton.icon(
-                            onPressed: _toggleHint,
+                            onPressed: disableSubmit ? null : _toggleHint,
                             icon: Icon(
                               _showHint
                                   ? Icons.visibility_off_rounded
@@ -1246,15 +1357,40 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                             ),
                           ),
+                        if (_submitErrorMessage != null) ...[
+                          const SizedBox(height: GrowMateLayout.space12),
+                          ZenErrorCard(
+                            message: _submitErrorMessage!,
+                            onRetry: disableSubmit
+                                ? null
+                                : _submitCurrentAnswer,
+                            onDismiss: () {
+                              setState(() {
+                                _submitErrorMessage = null;
+                              });
+                            },
+                          ),
+                        ],
+                        if (showSubmitTransition) ...[
+                          const SizedBox(height: GrowMateLayout.space12),
+                          _buildSubmitTransitionCard(context),
+                        ],
                         const SizedBox(height: GrowMateLayout.space16),
                         ZenButton(
-                          label: isLoading
+                          label: showSubmitTransition
+                              ? context.t(
+                                  vi: 'AI đang phân tích...',
+                                  en: 'AI is analyzing...',
+                                )
+                              : disableSubmit
                               ? context.t(
                                   vi: 'Đang gửi...',
                                   en: 'Submitting...',
                                 )
                               : context.t(vi: 'Gửi bài', en: 'Submit'),
-                          onPressed: isLoading ? null : _submitCurrentAnswer,
+                          onPressed: disableSubmit
+                              ? null
+                              : _submitCurrentAnswer,
                           trailing: const Icon(
                             Icons.arrow_forward_rounded,
                             color: Colors.white,

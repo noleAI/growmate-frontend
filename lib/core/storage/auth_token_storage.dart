@@ -11,6 +11,10 @@ import '../network/api_config.dart';
 /// - iOS: Keychain
 /// - Web: localStorage (không mã hóa, cẩn thận!)
 class AuthTokenStorage {
+  static const String authTokenKey = 'auth_token';
+  static const String authEmailKey = 'auth_email';
+  static const String authNameKey = 'auth_name';
+
   AuthTokenStorage({FlutterSecureStorage? secureStorage})
     : _storage =
           secureStorage ??
@@ -115,6 +119,59 @@ class AuthTokenStorage {
       debugPrint('🗑️ Auth tokens cleared');
     } catch (e) {
       debugPrint('❌ Lỗi xóa auth tokens: $e');
+      rethrow;
+    }
+  }
+
+  /// Lưu phiên auth cơ bản cho flow app-level.
+  Future<void> saveAuthSession({
+    required String token,
+    required String email,
+    required String displayName,
+  }) async {
+    if (kIsWeb) return;
+
+    try {
+      await _storage.write(key: authTokenKey, value: token);
+      await _storage.write(key: authEmailKey, value: email);
+      await _storage.write(key: authNameKey, value: displayName);
+    } catch (e) {
+      debugPrint('❌ Lỗi lưu auth session: $e');
+      rethrow;
+    }
+  }
+
+  /// Đọc phiên auth cơ bản.
+  Future<Map<String, String>?> readAuthSession() async {
+    if (kIsWeb) return null;
+
+    try {
+      final token = await _storage.read(key: authTokenKey);
+      if (token == null || token.isEmpty) {
+        return null;
+      }
+
+      return <String, String>{
+        'token': token,
+        'email': await _storage.read(key: authEmailKey) ?? '',
+        'displayName': await _storage.read(key: authNameKey) ?? '',
+      };
+    } catch (e) {
+      debugPrint('❌ Lỗi đọc auth session: $e');
+      return null;
+    }
+  }
+
+  /// Xóa phiên auth cơ bản.
+  Future<void> clearAuthSession() async {
+    if (kIsWeb) return;
+
+    try {
+      await _storage.delete(key: authTokenKey);
+      await _storage.delete(key: authEmailKey);
+      await _storage.delete(key: authNameKey);
+    } catch (e) {
+      debugPrint('❌ Lỗi xóa auth session: $e');
       rethrow;
     }
   }

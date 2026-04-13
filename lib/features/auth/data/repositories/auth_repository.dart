@@ -1,3 +1,4 @@
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 
@@ -29,26 +30,55 @@ class AuthRepository {
 
   static final RegExp _emailPattern = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
 
-  AuthRepository({SupabaseClient? supabaseClient})
-    : _supabaseClient = supabaseClient ?? _tryResolveSupabaseClient();
+  AuthRepository({
+    SupabaseClient? supabaseClient,
+    FlutterSecureStorage? secureStorage,
+  }) : _supabaseClient = supabaseClient ?? _tryResolveSupabaseClient(),
+       _secureStorage =
+           secureStorage ??
+           const FlutterSecureStorage(
+             aOptions: AndroidOptions(encryptedSharedPreferences: true),
+           );
 
   final SupabaseClient? _supabaseClient;
+  final FlutterSecureStorage _secureStorage;
+
+  bool get _isMockMode => _supabaseClient == null;
 
   Future<AuthSession?> restoreSession() async {
     final client = _supabaseClient;
     if (client != null) {
       final currentSession = client.auth.currentSession;
-      if (currentSession == null) {
-        return null;
+      if (currentSession != null) {
+        final resolved = _sessionFromSupabase(
+          session: currentSession,
+          user: client.auth.currentUser,
+        );
+        await _persistSecureSession(resolved);
+        return resolved;
       }
 
-      return _sessionFromSupabase(
-        session: currentSession,
-        user: client.auth.currentUser,
-      );
+      return _restoreSecureSession();
     }
 
     return _restoreMockSession();
+  }
+
+  Future<AuthSession?> _restoreSecureSession() async {
+    try {
+      final token = await _secureStorage.read(key: _tokenKey);
+      if (token == null || token.isEmpty) {
+        return null;
+      }
+
+      final email =
+          (await _secureStorage.read(key: _emailKey)) ?? 'learner@growmate.vn';
+      final displayName = (await _secureStorage.read(key: _nameKey)) ?? 'Bạn';
+
+      return AuthSession(token: token, email: email, displayName: displayName);
+    } catch (_) {
+      return null;
+    }
   }
 
   Future<AuthSession?> _restoreMockSession() async {
@@ -98,7 +128,12 @@ class AuthRepository {
           );
         }
 
-        return _sessionFromSupabase(session: session, user: response.user);
+        final resolved = _sessionFromSupabase(
+          session: session,
+          user: response.user,
+        );
+        await _persistSecureSession(resolved);
+        return resolved;
       } on AuthException catch (error) {
         throw AuthFailure(_mapSupabaseError(error.message));
       } on AuthFailure {
@@ -125,7 +160,7 @@ class AuthRepository {
       displayName: displayName,
     );
 
-    await _persistSession(session);
+    await _persistMockSession(session);
     return session;
   }
 
@@ -176,7 +211,12 @@ class AuthRepository {
           );
         }
 
-        return _sessionFromSupabase(session: session, user: response.user);
+        final resolved = _sessionFromSupabase(
+          session: session,
+          user: response.user,
+        );
+        await _persistSecureSession(resolved);
+        return resolved;
       } on AuthException catch (error) {
         throw AuthFailure(_mapSupabaseError(error.message));
       } on AuthFailure {
@@ -206,7 +246,7 @@ class AuthRepository {
       displayName: displayName,
     );
 
-    await _persistSession(session);
+    await _persistMockSession(session);
     return session;
   }
 
@@ -246,21 +286,51 @@ class AuthRepository {
   Future<void> logout() async {
     final client = _supabaseClient;
     if (client != null) {
-      await client.auth.signOut();
-      return;
+      try {
+        await client.auth.signOut();
+      } catch (_) {
+        // Still clear local storage below.
+      }
     }
 
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.remove(_tokenKey);
-    await prefs.remove(_emailKey);
-    await prefs.remove(_nameKey);
+    await _clearSecureSession();
+    await _clearMockSession();
   }
 
-  Future<void> _persistSession(AuthSession session) async {
+  Future<void> _persistSecureSession(AuthSession session) async {
+    try {
+      await _secureStorage.write(key: _tokenKey, value: session.token);
+      await _secureStorage.write(key: _emailKey, value: session.email);
+      await _secureStorage.write(key: _nameKey, value: session.displayName);
+    } catch (_) {
+      if (_isMockMode) {
+        await _persistMockSession(session);
+      }
+    }
+  }
+
+  Future<void> _persistMockSession(AuthSession session) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_tokenKey, session.token);
     await prefs.setString(_emailKey, session.email);
     await prefs.setString(_nameKey, session.displayName);
+  }
+
+  Future<void> _clearSecureSession() async {
+    try {
+      await _secureStorage.delete(key: _tokenKey);
+      await _secureStorage.delete(key: _emailKey);
+      await _secureStorage.delete(key: _nameKey);
+    } catch (_) {
+      // Ignore storage cleanup failures.
+    }
+  }
+
+  Future<void> _clearMockSession() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_tokenKey);
+    await prefs.remove(_emailKey);
+    await prefs.remove(_nameKey);
   }
 
   AuthSession _sessionFromSupabase({

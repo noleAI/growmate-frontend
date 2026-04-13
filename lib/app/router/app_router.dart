@@ -9,8 +9,10 @@ import '../../data/repositories/profile_repository.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../features/achievement/presentation/pages/achievements_page.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
+import '../../features/auth/data/repositories/data_consent_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
+import '../../features/auth/presentation/pages/data_consent_page.dart';
 import '../../features/auth/presentation/pages/forgot_password_page.dart';
 import '../../features/auth/presentation/pages/login_page.dart';
 import '../../features/auth/presentation/pages/register_page.dart';
@@ -48,6 +50,7 @@ class AppRouter {
     required NotificationRepository notificationRepository,
     required SessionHistoryRepository sessionHistoryRepository,
     required PrivacyRepository privacyRepository,
+    required DataConsentRepository dataConsentRepository,
   }) : _authBloc = authBloc,
        _authRepository = authRepository,
        _profileRepository = profileRepository,
@@ -56,12 +59,14 @@ class AppRouter {
        _interventionRepository = interventionRepository,
        _notificationRepository = notificationRepository,
        _sessionHistoryRepository = sessionHistoryRepository,
-       _privacyRepository = privacyRepository;
+       _privacyRepository = privacyRepository,
+       _dataConsentRepository = dataConsentRepository;
 
   static const String welcomePath = AppRoutes.welcome;
   static const String loginPath = AppRoutes.login;
   static const String registerPath = AppRoutes.register;
   static const String forgotPasswordPath = AppRoutes.forgotPassword;
+  static const String consentPath = AppRoutes.dataConsent;
 
   static const String homePath = AppRoutes.home;
 
@@ -91,6 +96,11 @@ class AppRouter {
     registerPath,
     forgotPasswordPath,
   };
+  static const Set<String> _consentBypassPaths = <String>{
+    consentPath,
+    termsOfServicePath,
+    privacyPolicyPath,
+  };
 
   final AuthBloc _authBloc;
   final AuthRepository _authRepository;
@@ -101,18 +111,23 @@ class AppRouter {
   final NotificationRepository _notificationRepository;
   final SessionHistoryRepository _sessionHistoryRepository;
   final PrivacyRepository _privacyRepository;
+  final DataConsentRepository _dataConsentRepository;
   bool _isSessionResolved = false;
   bool _hasAuthenticatedSession = false;
 
   late final GoRouter router = GoRouter(
     initialLocation: homePath,
     refreshListenable: _GoRouterRefreshStream(_authBloc.stream),
-    redirect: (context, state) {
+    redirect: (context, state) async {
       final authState = _authBloc.state;
       _syncAuthSnapshot(authState);
 
       final currentLocation = state.matchedLocation;
       final visitingAuthFlow = _authOnlyPaths.contains(currentLocation);
+      final visitingConsentFlow = currentLocation == consentPath;
+      final visitingConsentBypassPath = _consentBypassPaths.contains(
+        currentLocation,
+      );
 
       if (!_isSessionResolved) {
         if (visitingAuthFlow) {
@@ -127,8 +142,28 @@ class AppRouter {
         return welcomePath;
       }
 
-      if (isAuthenticated && visitingAuthFlow) {
-        return homePath;
+      if (!isAuthenticated && visitingConsentFlow) {
+        return welcomePath;
+      }
+
+      if (isAuthenticated) {
+        final hasConsent = await _dataConsentRepository.isAccepted();
+
+        if (!hasConsent && !visitingConsentBypassPath) {
+          return consentPath;
+        }
+
+        if (hasConsent && visitingConsentFlow) {
+          return homePath;
+        }
+
+        if (hasConsent && visitingAuthFlow) {
+          return homePath;
+        }
+
+        if (!hasConsent && visitingAuthFlow) {
+          return consentPath;
+        }
       }
 
       return null;
@@ -156,6 +191,12 @@ class AppRouter {
         path: forgotPasswordPath,
         builder: (context, state) {
           return ForgotPasswordPage(authRepository: _authRepository);
+        },
+      ),
+      GoRoute(
+        path: consentPath,
+        builder: (context, state) {
+          return DataConsentPage(dataConsentRepository: _dataConsentRepository);
         },
       ),
       GoRoute(

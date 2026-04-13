@@ -5,6 +5,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:growmate_frontend/app/router/app_router.dart';
 import 'package:growmate_frontend/data/repositories/profile_repository.dart';
 import 'package:growmate_frontend/features/auth/data/repositories/auth_repository.dart';
+import 'package:growmate_frontend/features/auth/data/repositories/data_consent_repository.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_event.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_state.dart';
@@ -28,6 +29,7 @@ void main() {
         'auth_token': 'mock_token_e2e',
         'auth_email': 'learner@growmate.vn',
         'auth_name': 'Learner',
+        DataConsentRepository.consentAcceptedKey: true,
       });
 
       tester.view.physicalSize = const Size(430, 932);
@@ -79,6 +81,7 @@ void main() {
         notificationRepository: notificationRepository,
         sessionHistoryRepository: sessionHistoryRepository,
         privacyRepository: privacyRepository,
+        dataConsentRepository: DataConsentRepository.instance,
       );
 
       await tester.pumpWidget(

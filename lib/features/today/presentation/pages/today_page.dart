@@ -13,10 +13,13 @@ import '../../../schedule/data/models/study_schedule_item.dart';
 import '../../../schedule/data/repositories/study_schedule_repository.dart';
 import '../../../session/data/models/session_history_entry.dart';
 import '../../../session/data/repositories/session_history_repository.dart';
+import '../../../diagnosis/data/repositories/diagnosis_snapshot_cache_repository.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
+import '../../../../shared/widgets/zen_button.dart';
+import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
 import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
@@ -57,107 +60,114 @@ class _TodayPageState extends State<TodayPage> {
     final colors = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
 
-    return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
-      body: ZenPageContainer(
-        includeBottomSafeArea: false,
-        child: ListView(
-          children: [
-            _buildTopAppBar(context),
-            const SizedBox(height: GrowMateLayout.space16),
-            Text(
-              _dateLabel(context, DateTime.now()),
-              style: theme.textTheme.bodyMedium?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-            const SizedBox(height: GrowMateLayout.contentGap),
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 240),
-              switchInCurve: Curves.easeOut,
-              switchOutCurve: Curves.easeOut,
-              child: _aiReady
-                  ? AIHero(
-                      key: const ValueKey<String>('ai-hero-ready'),
-                      title: context.t(
-                        vi: 'Bắt đầu phiên mới với',
-                        en: 'Start a new session with',
-                      ),
-                      topic: context.t(
-                        vi: 'Ứng dụng đạo hàm',
-                        en: 'Derivative applications',
-                      ),
-                      reason: context.t(
-                        vi: 'AI ghi nhận độ chính xác câu tính giờ đang giảm trong 2 phiên gần nhất.',
-                        en: 'AI detected decreasing timed-answer accuracy over your last 2 sessions.',
-                      ),
-                      confidence: 0.87,
-                      ctaLabel: context.t(
-                        vi: 'Bắt đầu phiên AI gợi ý',
-                        en: 'Start AI-guided session',
-                      ),
-                      onPressed: () => context.push(AppRoutes.quiz),
-                    )
-                  : _ThinkingHero(theme: theme),
-            ),
-            const SizedBox(height: GrowMateLayout.space12),
-            const _PhaseTwoQuickPanel(),
-            const SizedBox(height: GrowMateLayout.space16),
-            Section(
-              title: context.t(vi: 'Tóm tắt', en: 'Summary'),
-              subtitle: context.t(
-                vi: 'Nhịp học hôm nay',
-                en: 'Today learning rhythm',
-              ),
-              backgroundColor: isDark
-                  ? colors.surfaceContainerLow.withValues(alpha: 0.98)
-                  : colors.surfaceContainerLow,
-              trailing: Container(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: GrowMateLayout.space12,
-                  vertical: GrowMateLayout.space8,
-                ),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: colors.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Text(
-                  context.t(vi: 'Trang chủ', en: 'Home'),
-                  style: theme.textTheme.bodySmall?.copyWith(
+    return StreamBuilder<List<SessionHistoryEntry>>(
+      stream: SessionHistoryRepository.instance.watchHistory(),
+      builder: (context, snapshot) {
+        final history = snapshot.data ?? const <SessionHistoryEntry>[];
+        final latestSession = history.isEmpty ? null : history.first;
+
+        return Scaffold(
+          backgroundColor: theme.scaffoldBackgroundColor,
+          body: ZenPageContainer(
+            includeBottomSafeArea: false,
+            child: ListView(
+              children: [
+                _buildTopAppBar(context),
+                const SizedBox(height: GrowMateLayout.space16),
+                Text(
+                  _dateLabel(context, DateTime.now()),
+                  style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [_CompactStats()],
-              ),
+                const SizedBox(height: GrowMateLayout.contentGap),
+                AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 240),
+                  switchInCurve: Curves.easeOut,
+                  switchOutCurve: Curves.easeOut,
+                  child: _aiReady
+                      ? _buildHero(context, latestSession)
+                      : _ThinkingHero(theme: theme),
+                ),
+                const SizedBox(height: GrowMateLayout.space12),
+                const _PhaseTwoQuickPanel(),
+                const SizedBox(height: GrowMateLayout.space16),
+                Section(
+                  title: context.t(vi: 'Tóm tắt', en: 'Summary'),
+                  subtitle: context.t(
+                    vi: 'Nhịp học hôm nay',
+                    en: 'Today learning rhythm',
+                  ),
+                  backgroundColor: isDark
+                      ? colors.surfaceContainerLow.withValues(alpha: 0.98)
+                      : colors.surfaceContainerLow,
+                  trailing: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: GrowMateLayout.space12,
+                      vertical: GrowMateLayout.space8,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHigh,
+                      borderRadius: BorderRadius.circular(999),
+                      border: Border.all(
+                        color: colors.outlineVariant.withValues(alpha: 0.5),
+                      ),
+                    ),
+                    child: Text(
+                      context.t(vi: 'Trang ch?', en: 'Home'),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [_CompactStats(history: history)],
+                  ),
+                ),
+                const SizedBox(height: GrowMateLayout.space16),
+                const _AiAnalysisSection(),
+                const SizedBox(height: GrowMateLayout.sectionGap),
+              ],
             ),
-            const SizedBox(height: GrowMateLayout.space16),
-            Section(
-              title: context.t(
-                vi: 'Phân tích AI hoàn tất',
-                en: 'AI analysis complete',
-              ),
-              subtitle: context.t(
-                vi: 'Độ tự tin 74% · Rủi ro TRUNG BÌNH',
-                en: 'Confidence 74% · Risk MEDIUM',
-              ),
-              child: const _AiSystemPanel(),
-            ),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-          ],
-        ),
+          ),
+          bottomNavigationBar: GrowMateBottomNavBar(
+            currentTab: GrowMateTab.today,
+            onTabSelected: (tab) => handleTabNavigation(context, tab),
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildHero(BuildContext context, SessionHistoryEntry? latestSession) {
+    if (latestSession == null) {
+      return const _EmptyHeroCard();
+    }
+
+    return AIHero(
+      key: const ValueKey<String>('ai-hero-ready'),
+      title: context.t(
+        vi: 'Bắt đầu phiên mới với',
+        en: 'Start a new session with',
       ),
-      bottomNavigationBar: GrowMateBottomNavBar(
-        currentTab: GrowMateTab.today,
-        onTabSelected: (tab) => handleTabNavigation(context, tab),
+      topic: latestSession.topic.trim().isEmpty
+          ? context.t(vi: 'Lộ trình cá nhân hóa', en: 'Personalized roadmap')
+          : latestSession.topic,
+      reason: latestSession.nextAction.trim().isEmpty
+          ? context.t(
+              vi: 'AI sẽ cập nhật gợi ý ngay sau khi bạn hoàn thành phiên mới.',
+              en: 'AI will refresh guidance right after your next session.',
+            )
+          : latestSession.nextAction,
+      confidence: latestSession.confidenceScore.clamp(0.0, 1.0),
+      ctaLabel: context.t(
+        vi: 'Bắt đầu phiên AI gợi ý',
+        en: 'Start AI-guided session',
       ),
+      onPressed: () => context.push(AppRoutes.quiz),
     );
   }
 
@@ -291,14 +301,112 @@ class _ThinkingHero extends StatelessWidget {
   }
 }
 
+class _EmptyHeroCard extends StatelessWidget {
+  const _EmptyHeroCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      key: const ValueKey<String>('ai-hero-empty'),
+      radius: 22,
+      color: colors.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.auto_awesome_rounded, size: 18, color: colors.primary),
+              const SizedBox(width: GrowMateLayout.space8),
+              Text(
+                context.t(
+                  vi: 'AI gợi ý phiên mới',
+                  en: 'AI session suggestion',
+                ),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            context.t(
+              vi: 'AI chưa có dữ liệu. Làm bài đầu tiên để AI phân tích!',
+              en: 'AI has no data yet. Complete your first session to unlock insights!',
+            ),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.onSurface,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(
+              vi: 'Bắt đầu phiên đầu tiên',
+              en: 'Start your first session',
+            ),
+            onPressed: () => context.push(AppRoutes.quiz),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AiAnalysisSection extends StatelessWidget {
+  const _AiAnalysisSection();
+
+  @override
+  Widget build(BuildContext context) {
+    return FutureBuilder<DiagnosisSnapshot?>(
+      future: DiagnosisSnapshotCacheRepository.instance.readSnapshot(),
+      builder: (context, snapshot) {
+        final cached = snapshot.data;
+        final subtitle = cached == null
+            ? context.t(
+                vi: 'Chưa có dữ liệu phân tích',
+                en: 'No AI analysis yet',
+              )
+            : context.t(
+                vi: 'Độ tự tin ${(cached.confidenceScore.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
+                en: 'Confidence ${(cached.confidenceScore.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
+              );
+
+        return Section(
+          title: context.t(
+            vi: 'Phân tích AI gần nhất',
+            en: 'Latest AI analysis',
+          ),
+          subtitle: subtitle,
+          child: snapshot.connectionState == ConnectionState.waiting
+              ? const _LoadingStateWidget()
+              : _AiSystemPanel(snapshot: cached),
+        );
+      },
+    );
+  }
+}
+
 class _CompactStats extends StatelessWidget {
-  const _CompactStats();
+  const _CompactStats({required this.history});
+
+  final List<SessionHistoryEntry> history;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isDark = theme.brightness == Brightness.dark;
+    final now = DateTime.now();
+
+    final streak = _calculateStreak(history, now);
+    final sessionsToday = _sessionsToday(history, now);
+    final sessionsLast24h = _sessionsLast24Hours(history, now);
+    final focusLabel = _focusLabel(context, history, now);
 
     return Container(
       width: double.infinity,
@@ -332,21 +440,21 @@ class _CompactStats extends StatelessWidget {
               children: [
                 StatItem(
                   label: context.t(vi: 'ngày', en: 'days'),
-                  value: '6',
+                  value: '$streak',
                   icon: Icons.local_fire_department_rounded,
                   accent: colors.tertiary,
                 ),
-                SizedBox(width: GrowMateLayout.space12),
+                const SizedBox(width: GrowMateLayout.space12),
                 StatItem(
                   label: context.t(vi: 'hoàn thành', en: 'completed'),
-                  value: '4/5',
+                  value: '$sessionsToday/$sessionsLast24h',
                   icon: Icons.task_alt_rounded,
                   accent: colors.tertiary,
                 ),
-                SizedBox(width: GrowMateLayout.space12),
+                const SizedBox(width: GrowMateLayout.space12),
                 StatItem(
                   label: context.t(vi: 'Tập trung', en: 'Focus'),
-                  value: context.t(vi: 'Tốt', en: 'Good'),
+                  value: focusLabel,
                   icon: Icons.bolt_rounded,
                   accent: colors.primary,
                 ),
@@ -357,15 +465,117 @@ class _CompactStats extends StatelessWidget {
       ),
     );
   }
+
+  static int _calculateStreak(List<SessionHistoryEntry> entries, DateTime now) {
+    if (entries.isEmpty) {
+      return 0;
+    }
+
+    final activeDays = entries
+        .map((entry) => _dateOnly(entry.completedAt.toLocal()))
+        .toSet();
+
+    var streak = 0;
+    var cursor = _dateOnly(now);
+    while (activeDays.contains(cursor)) {
+      streak += 1;
+      cursor = cursor.subtract(const Duration(days: 1));
+    }
+    return streak;
+  }
+
+  static int _sessionsToday(List<SessionHistoryEntry> entries, DateTime now) {
+    final today = _dateOnly(now);
+    return entries.where((entry) {
+      final entryDay = _dateOnly(entry.completedAt.toLocal());
+      return entryDay == today;
+    }).length;
+  }
+
+  static int _sessionsLast24Hours(
+    List<SessionHistoryEntry> entries,
+    DateTime now,
+  ) {
+    final threshold = now.toUtc().subtract(const Duration(hours: 24));
+    return entries
+        .where((entry) => !entry.completedAt.toUtc().isBefore(threshold))
+        .length;
+  }
+
+  static String _focusLabel(
+    BuildContext context,
+    List<SessionHistoryEntry> entries,
+    DateTime now,
+  ) {
+    final threshold = now.toUtc().subtract(const Duration(hours: 24));
+    final recent = entries
+        .where((entry) => !entry.completedAt.toUtc().isBefore(threshold))
+        .toList(growable: false);
+
+    if (recent.isEmpty) {
+      return '—';
+    }
+
+    final average =
+        recent.map((entry) => entry.focusScore).reduce((a, b) => a + b) /
+        recent.length;
+
+    if (average >= 3.5) {
+      return context.t(vi: 'Tốt', en: 'Good');
+    }
+
+    if (average >= 2.5) {
+      return context.t(vi: 'Ổn', en: 'Okay');
+    }
+
+    return context.t(vi: 'Cần nghỉ', en: 'Need rest');
+  }
+
+  static DateTime _dateOnly(DateTime value) {
+    return DateTime(value.year, value.month, value.day);
+  }
 }
 
 class _AiSystemPanel extends StatelessWidget {
-  const _AiSystemPanel();
+  const _AiSystemPanel({required this.snapshot});
+
+  final DiagnosisSnapshot? snapshot;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+
+    if (snapshot == null) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(
+          horizontal: GrowMateLayout.space12,
+          vertical: GrowMateLayout.space12,
+        ),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHigh,
+          borderRadius: BorderRadius.circular(12),
+        ),
+        child: Text(
+          context.t(
+            vi: 'Chưa có phân tích AI. Hoàn thành phiên đầu tiên để AI đánh giá.',
+            en: 'No AI analysis yet. Complete your first session to unlock insights.',
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.4,
+          ),
+        ),
+      );
+    }
+
+    final safeConfidence = snapshot!.confidenceScore.clamp(0.0, 1.0);
+    final strength = _firstOrDash(snapshot!.strengths);
+    final needReview = _firstOrDash(snapshot!.needsReview);
+    final nextStep = snapshot!.nextSuggestedTopic.trim().isEmpty
+        ? '—'
+        : snapshot!.nextSuggestedTopic;
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -374,7 +584,7 @@ class _AiSystemPanel extends StatelessWidget {
           borderRadius: BorderRadius.circular(999),
           child: LinearProgressIndicator(
             minHeight: 6,
-            value: 0.74,
+            value: safeConfidence,
             backgroundColor: colors.surfaceContainerHigh,
             valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
           ),
@@ -387,20 +597,14 @@ class _AiSystemPanel extends StatelessWidget {
             vi: 'Bạn làm tốt ở điểm nào',
             en: 'What you did well',
           ),
-          subtitle: context.t(
-            vi: 'Quy tắc đạo hàm cơ bản',
-            en: 'Basic derivative rules',
-          ),
+          subtitle: strength,
         ),
         const SizedBox(height: GrowMateLayout.space12),
         _InsightTile(
           icon: Icons.warning_amber_rounded,
           iconColor: colors.secondary,
           title: context.t(vi: 'Điểm cần cải thiện', en: 'Needs improvement'),
-          subtitle: context.t(
-            vi: 'Đạo hàm hàm số hợp',
-            en: 'Derivative of composite functions',
-          ),
+          subtitle: needReview,
         ),
         const SizedBox(height: GrowMateLayout.space12),
         _InsightTile(
@@ -410,10 +614,19 @@ class _AiSystemPanel extends StatelessWidget {
             vi: 'Bước tiếp theo AI gợi ý',
             en: 'Suggested next step',
           ),
-          subtitle: context.t(vi: 'Ôn đạo hàm', en: 'Review derivatives'),
+          subtitle: nextStep,
         ),
       ],
     );
+  }
+
+  static String _firstOrDash(List<String> values) {
+    if (values.isEmpty) {
+      return '—';
+    }
+
+    final first = values.first.trim();
+    return first.isEmpty ? '—' : first;
   }
 }
 

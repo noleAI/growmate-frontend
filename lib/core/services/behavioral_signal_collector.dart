@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 
 class BehavioralSignalCollector with WidgetsBindingObserver {
   BehavioralSignalCollector._internal({http.Client? httpClient})
@@ -24,10 +25,12 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   Stopwatch? _questionStopwatch;
   Uri? _apiEndpoint;
 
+  static const String _consentAcceptedKey = 'data_consent_accepted';
   bool _isObserverAttached = false;
   bool _isPaused = false;
   // Privacy-first default: collection is disabled until user explicitly opts in.
   bool _collectionEnabled = false;
+  bool _hasActiveConsent = false;
   bool _responseCaptured = false;
 
   double? _responseTimeSeconds;
@@ -49,10 +52,12 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     _collectionEnabled = enabled;
 
     if (!_collectionEnabled) {
+      _hasActiveConsent = false;
       _stopCollection();
       return;
     }
 
+    unawaited(_syncConsentState(forceRefresh: true));
     _ensureInitialized();
   }
 
@@ -68,6 +73,15 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
       return;
     }
 
+    unawaited(_startQuestionTimerIfConsented());
+  }
+
+  Future<void> _startQuestionTimerIfConsented() async {
+    final hasConsent = await _syncConsentState(forceRefresh: true);
+    if (!hasConsent || !_collectionEnabled) {
+      return;
+    }
+
     _ensureInitialized();
     _questionStopwatch = Stopwatch()..start();
     _responseCaptured = false;
@@ -76,11 +90,9 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void recordKeystroke({int characterCount = 1}) {
-    if (!_collectionEnabled) {
+    if (!_canCollect) {
       return;
     }
-
-    _ensureInitialized();
 
     if (characterCount <= 0) {
       return;
@@ -99,7 +111,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void recordCorrection() {
-    if (!_collectionEnabled) {
+    if (!_canCollect) {
       return;
     }
 
@@ -109,7 +121,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void recordSubmit() {
-    if (!_collectionEnabled) {
+    if (!_canCollect) {
       return;
     }
 
@@ -125,7 +137,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void resetIdleTimer() {
-    if (!_collectionEnabled) {
+    if (!_canCollect) {
       return;
     }
 
@@ -137,7 +149,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
   @override
   void didChangeAppLifecycleState(AppLifecycleState state) {
-    if (!_collectionEnabled) {
+    if (!_canCollect) {
       return;
     }
 
@@ -154,7 +166,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   }
 
   void _ensureInitialized() {
-    if (!_collectionEnabled) {
+    if (!_collectionEnabled || !_hasActiveConsent) {
       return;
     }
 
@@ -264,6 +276,13 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
       return;
     }
 
+    final hasConsent = await _syncConsentState();
+    if (!hasConsent) {
+      _pendingSignals.clear();
+      _stopCollection();
+      return;
+    }
+
     if (_pendingSignals.isEmpty) {
       return;
     }
@@ -353,6 +372,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
     _isPaused = false;
     _collectionEnabled = false;
+    _hasActiveConsent = false;
     _responseCaptured = false;
     _responseTimeSeconds = null;
     _batchElapsedSecondsOverrideForTest = null;
@@ -380,6 +400,27 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     _responseCaptured = false;
     _responseTimeSeconds = null;
   }
+
+  Future<bool> _syncConsentState({bool forceRefresh = false}) async {
+    if (!_collectionEnabled) {
+      _hasActiveConsent = false;
+      return false;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasConsent = prefs.getBool(_consentAcceptedKey) == true;
+      _hasActiveConsent = hasConsent;
+      return hasConsent;
+    } catch (_) {
+      if (forceRefresh) {
+        _hasActiveConsent = false;
+      }
+      return _hasActiveConsent;
+    }
+  }
+
+  bool get _canCollect => _collectionEnabled && _hasActiveConsent;
 
   @visibleForTesting
   void setElapsedOverridesForTest({

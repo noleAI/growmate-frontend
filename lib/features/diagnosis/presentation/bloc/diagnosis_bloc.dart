@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../data/models/api_models.dart';
 import '../../data/repositories/diagnosis_repository.dart';
 import 'diagnosis_event.dart';
 import 'diagnosis_state.dart';
@@ -28,30 +29,32 @@ class DiagnosisBloc extends Bloc<DiagnosisEvent, DiagnosisState> {
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
+      final diagnosis = DiagnosisResponse.fromJson(data);
 
       emit(
         DiagnosisSuccess(
           submissionId: event.submissionId,
-          diagnosisId: data['diagnosisId']?.toString() ?? '',
-          headline:
-              data['title']?.toString() ??
-              'Có vẻ bạn đang hơi yếu phần Đạo hàm nè',
-          gapAnalysis:
-              data['gapAnalysis']?.toString() ??
-              data['summary']?.toString() ??
-              'Cần bổ trợ Đạo hàm bậc cao',
+          diagnosisId: diagnosis.diagnosisId,
+          headline: diagnosis.title.isEmpty
+              ? 'Có vẻ bạn đang hơi yếu phần Đạo hàm nè'
+              : diagnosis.title,
+          gapAnalysis: diagnosis.gapAnalysis.isNotEmpty
+              ? diagnosis.gapAnalysis
+              : diagnosis.summary.isNotEmpty
+              ? diagnosis.summary
+              : 'Cần bổ trợ Đạo hàm bậc cao',
           strengths: _extractStringList(
-            data['strengths'],
+            diagnosis.strengths,
           ).ifEmpty(['Quy tắc đạo hàm cơ bản']),
           needsReview: _extractStringList(
-            data['needsReview'],
+            diagnosis.needsReview,
           ).ifEmpty(['Đạo hàm hàm số hợp']),
-          diagnosisReason:
-              data['diagnosisReason']?.toString() ??
-              'Entropy giảm, belief hội tụ về H_DERIV_GAP',
-          interventionPlan: _extractPlanList(data['interventionPlan']),
-          finalMode: data['mode']?.toString() ?? 'normal',
-          requiresHitl: data['requiresHITL'] == true,
+          diagnosisReason: diagnosis.diagnosisReason.isEmpty
+              ? 'Entropy giảm, belief hội tụ về H_DERIV_GAP'
+              : diagnosis.diagnosisReason,
+          interventionPlan: _extractPlanList(diagnosis.interventionPlan),
+          finalMode: diagnosis.mode.isEmpty ? 'normal' : diagnosis.mode,
+          requiresHitl: diagnosis.requiresHitl,
         ),
       );
     } catch (_) {
@@ -84,14 +87,17 @@ class DiagnosisBloc extends Bloc<DiagnosisEvent, DiagnosisState> {
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
-      final updatedPlan = _extractPlanList(data['interventionPlan']);
+      final hitlResponse = HITLConfirmResponse.fromJson(data);
+      final updatedPlan = _extractPlanList(hitlResponse.interventionPlan);
 
       emit(
         current.copyWith(
           isConfirming: false,
           hitlConfirmed: true,
           requiresHitl: false,
-          finalMode: data['finalMode']?.toString() ?? current.finalMode,
+          finalMode: hitlResponse.finalMode.isEmpty
+              ? current.finalMode
+              : hitlResponse.finalMode,
           interventionPlan: updatedPlan.isEmpty
               ? current.interventionPlan
               : updatedPlan,

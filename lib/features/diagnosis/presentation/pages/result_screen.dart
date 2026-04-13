@@ -8,7 +8,7 @@ import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
-import '../../../../shared/widgets/zen_button.dart';
+import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/repositories/diagnosis_repository.dart';
 import '../cubit/result_cubit.dart';
@@ -701,17 +701,7 @@ class _ResultErrorView extends StatelessWidget {
         children: [
           const GrowMateTopAppBar(),
           const SizedBox(height: GrowMateLayout.sectionGap),
-          Section(
-            title: context.t(
-              vi: 'Không tải được kết quả',
-              en: 'Unable to load result',
-            ),
-            subtitle: message,
-            child: ZenButton(
-              label: context.t(vi: 'Thử lại', en: 'Retry'),
-              onPressed: onRetry,
-            ),
-          ),
+          ZenErrorCard(message: message, onRetry: onRetry),
         ],
       ),
     );

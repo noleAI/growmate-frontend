@@ -20,6 +20,7 @@ import 'core/storage/auth_token_storage.dart';
 import 'core/widgets/network_status_indicator.dart';
 import 'data/repositories/profile_repository.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
+import 'features/auth/data/repositories/data_consent_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
 import 'features/diagnosis/data/repositories/diagnosis_repository.dart';
@@ -76,6 +77,7 @@ class GrowMateApp extends StatefulWidget {
 class _GrowMateAppState extends State<GrowMateApp> {
   late final ApiService _apiService;
   late final AuthRepository _authRepository;
+  late final DataConsentRepository _dataConsentRepository;
   late final ProfileRepository _profileRepository;
   late final NotificationRepository _notificationRepository;
   late final OfflineModeRepository _offlineModeRepository;
@@ -108,6 +110,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
       notificationRepository: _notificationRepository,
       sessionHistoryRepository: _sessionHistoryRepository,
       privacyRepository: _privacyRepository,
+      dataConsentRepository: _dataConsentRepository,
     );
   }
 
@@ -204,6 +207,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
     _sessionManager = SessionManager.instance;
     _apiService = _buildApiService();
     _authRepository = AuthRepository();
+    _dataConsentRepository = DataConsentRepository.instance;
     _profileRepository = ProfileRepository();
     _notificationRepository = NotificationRepository.instance;
     _offlineModeRepository = OfflineModeRepository.instance;

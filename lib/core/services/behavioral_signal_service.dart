@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../models/signal_batch.dart';
 
@@ -22,11 +23,13 @@ class BehavioralSignalService with WidgetsBindingObserver {
   Timer? _batchTimer;
   Stopwatch? _questionStopwatch;
 
+  static const String _consentAcceptedKey = 'data_consent_accepted';
   bool _observerAttached = false;
   bool _isPaused = false;
   bool _isCollecting = false;
   // Privacy-first default: collection is disabled until user explicitly opts in.
   bool _collectionEnabled = false;
+  bool _hasActiveConsent = false;
   bool _firstInputCaptured = false;
   double _lastIdleSeconds = 0;
 
@@ -53,7 +56,11 @@ class BehavioralSignalService with WidgetsBindingObserver {
     }
 
     _collectionEnabled = enabled;
+    if (_collectionEnabled) {
+      unawaited(_syncConsentState(forceRefresh: true));
+    }
     if (!_collectionEnabled) {
+      _hasActiveConsent = false;
       stop(flush: false);
     }
   }
@@ -66,6 +73,15 @@ class BehavioralSignalService with WidgetsBindingObserver {
 
   void startQuestion({required String questionId}) {
     if (!_collectionEnabled) {
+      return;
+    }
+
+    unawaited(_startQuestionIfConsented(questionId: questionId));
+  }
+
+  Future<void> _startQuestionIfConsented({required String questionId}) async {
+    final hasConsent = await _syncConsentState(forceRefresh: true);
+    if (!hasConsent || !_collectionEnabled) {
       return;
     }
 
@@ -207,7 +223,8 @@ class BehavioralSignalService with WidgetsBindingObserver {
     _batchSubmitter = null;
   }
 
-  bool get _canCollect => _collectionEnabled && _isCollecting && !_isPaused;
+  bool get _canCollect =>
+      _collectionEnabled && _hasActiveConsent && _isCollecting && !_isPaused;
 
   void _ensureObserver() {
     if (_observerAttached) {
@@ -326,6 +343,13 @@ class BehavioralSignalService with WidgetsBindingObserver {
       return;
     }
 
+    final hasConsent = await _syncConsentState();
+    if (!hasConsent) {
+      _pendingBatches.clear();
+      stop(flush: false);
+      return;
+    }
+
     final batchPayload = List<SignalBatch>.from(_pendingBatches);
     _pendingBatches.clear();
 
@@ -349,6 +373,25 @@ class BehavioralSignalService with WidgetsBindingObserver {
       }
 
       _pendingBatches.insertAll(0, batchPayload);
+    }
+  }
+
+  Future<bool> _syncConsentState({bool forceRefresh = false}) async {
+    if (!_collectionEnabled) {
+      _hasActiveConsent = false;
+      return false;
+    }
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final hasConsent = prefs.getBool(_consentAcceptedKey) == true;
+      _hasActiveConsent = hasConsent;
+      return hasConsent;
+    } catch (_) {
+      if (forceRefresh) {
+        _hasActiveConsent = false;
+      }
+      return _hasActiveConsent;
     }
   }
 }
