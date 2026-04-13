@@ -26,7 +26,8 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
 
   bool _isObserverAttached = false;
   bool _isPaused = false;
-  bool _collectionEnabled = true;
+  // Privacy-first default: collection is disabled until user explicitly opts in.
+  bool _collectionEnabled = false;
   bool _responseCaptured = false;
 
   double? _responseTimeSeconds;
@@ -351,7 +352,7 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     _batchSubmitter = null;
 
     _isPaused = false;
-    _collectionEnabled = true;
+    _collectionEnabled = false;
     _responseCaptured = false;
     _responseTimeSeconds = null;
     _batchElapsedSecondsOverrideForTest = null;

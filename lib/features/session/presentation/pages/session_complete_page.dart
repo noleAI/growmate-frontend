@@ -161,10 +161,15 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                       height: heroHeight,
                       child: ZenCard(
                         radius: 36,
-                        gradient: const LinearGradient(
+                        gradient: LinearGradient(
                           begin: Alignment.topLeft,
                           end: Alignment.bottomRight,
-                          colors: [Color(0xFFEFF7ED), Color(0xFFE5F0EA)],
+                          colors: [
+                            theme.colorScheme.primaryContainer,
+                            theme.colorScheme.primaryContainer.withValues(
+                              alpha: 0.85,
+                            ),
+                          ],
                         ),
                         child: Center(
                           child: Container(
@@ -172,10 +177,17 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                             height: 142,
                             decoration: BoxDecoration(
                               shape: BoxShape.circle,
-                              gradient: const LinearGradient(
+                              gradient: LinearGradient(
                                 begin: Alignment.topCenter,
                                 end: Alignment.bottomCenter,
-                                colors: [Color(0xFFD7E9CF), Color(0xFFC1DDC1)],
+                                colors: [
+                                  theme.colorScheme.primaryContainer.withValues(
+                                    alpha: 0.7,
+                                  ),
+                                  theme.colorScheme.primaryContainer.withValues(
+                                    alpha: 0.55,
+                                  ),
+                                ],
                               ),
                               boxShadow: [
                                 BoxShadow(
@@ -291,13 +303,13 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                 const SizedBox(height: GrowMateLayout.space12),
                 ZenCard(
                   radius: GrowMateLayout.cardRadius,
-                  color: const Color(0xFFEAF0EE),
+                  color: theme.colorScheme.surfaceContainerLow,
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       _RoundedInfoIcon(
                         icon: Icons.favorite_rounded,
-                        color: Color(0xFFD4E2DF),
+                        color: theme.colorScheme.surfaceContainerHigh,
                         iconColor: Theme.of(context).colorScheme.primary,
                       ),
                       const SizedBox(width: 14),
@@ -445,12 +457,12 @@ class _RoundedInfoIcon extends StatelessWidget {
   const _RoundedInfoIcon({
     required this.icon,
     required this.color,
-    this.iconColor = const Color(0xFF1E8E5B),
+    this.iconColor,
   });
 
   final IconData icon;
   final Color color;
-  final Color iconColor;
+  final Color? iconColor;
 
   @override
   Widget build(BuildContext context) {
@@ -460,9 +472,15 @@ class _RoundedInfoIcon extends StatelessWidget {
       decoration: BoxDecoration(
         color: color,
         shape: BoxShape.circle,
-        border: Border.all(color: Colors.white.withValues(alpha: 0.55)),
+        border: Border.all(
+          color: Theme.of(context).colorScheme.surface.withValues(alpha: 0.55),
+        ),
       ),
-      child: Icon(icon, color: iconColor, size: 28),
+      child: Icon(
+        icon,
+        color: iconColor ?? Theme.of(context).colorScheme.primary,
+        size: 28,
+      ),
     );
   }
 }

@@ -25,7 +25,8 @@ class BehavioralSignalService with WidgetsBindingObserver {
   bool _observerAttached = false;
   bool _isPaused = false;
   bool _isCollecting = false;
-  bool _collectionEnabled = true;
+  // Privacy-first default: collection is disabled until user explicitly opts in.
+  bool _collectionEnabled = false;
   bool _firstInputCaptured = false;
   double _lastIdleSeconds = 0;
 

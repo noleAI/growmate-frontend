@@ -7,6 +7,7 @@ import '../i18n/build_context_i18n.dart';
 import 'app_routes.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../presentation/screens/profile_screen.dart';
+import '../../features/achievement/presentation/pages/achievements_page.dart';
 import '../../features/auth/data/repositories/auth_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_state.dart';
@@ -28,6 +29,7 @@ import '../../features/progress/presentation/pages/progress_page.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
+import '../../features/review/presentation/pages/spaced_review_page.dart';
 import '../../features/roadmap/presentation/pages/thpt_roadmap_page.dart';
 import '../../features/schedule/presentation/pages/smart_schedule_page.dart';
 import '../../features/session/data/repositories/session_history_repository.dart';
@@ -76,6 +78,8 @@ class AppRouter {
   static const String mindfulBreakPath = AppRoutes.mindfulBreak;
 
   static const String quizPath = AppRoutes.quiz;
+  static const String spacedReviewPath = AppRoutes.spacedReview;
+  static const String achievementsPath = AppRoutes.achievements;
   static const String recoveryPath = AppRoutes.recovery;
   static const String diagnosisPath = AppRoutes.diagnosis;
   static const String interventionPath = AppRoutes.intervention;
@@ -249,6 +253,18 @@ class AppRouter {
         path: quizPath,
         builder: (context, state) {
           return QuizPage(quizRepository: _quizRepository);
+        },
+      ),
+      GoRoute(
+        path: spacedReviewPath,
+        builder: (context, state) {
+          return const SpacedReviewPage();
+        },
+      ),
+      GoRoute(
+        path: achievementsPath,
+        builder: (context, state) {
+          return const AchievementsPage();
         },
       ),
       GoRoute(

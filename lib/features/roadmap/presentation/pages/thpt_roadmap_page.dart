@@ -4,6 +4,7 @@ import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 
 class ThptRoadmapPage extends StatelessWidget {
@@ -27,21 +28,32 @@ class ThptRoadmapPage extends StatelessWidget {
             },
             child: ListView(
               children: [
-                Text(
-                  context.t(vi: 'Roadmap THPT', en: 'THPT Roadmap'),
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: GrowMateLayout.space8),
-                Text(
-                  context.t(
-                    vi: 'Tổng hợp cơ cấu môn thi, dạng đề, dạng bài và lộ trình học theo từng môn cho kỳ thi THPT.',
-                    en: 'Overview of exam structure, formats, question types, and subject-by-subject study roadmap for the THPT exam.',
-                  ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    height: 1.45,
+                const GrowMateTopAppBar(avatarNotificationOnly: true),
+                const SizedBox(height: GrowMateLayout.sectionGap),
+                Padding(
+                  padding: const EdgeInsets.only(top: 16.0, bottom: 16.0),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        context.t(vi: 'Roadmap THPT', en: 'THPT Roadmap'),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        context.t(
+                          vi: 'Cơ cấu môn thi, dạng đề và lộ trình học theo từng môn.',
+                          en: 'Exam structure, question formats, and subject-by-subject roadmap.',
+                        ),
+                        style: theme.textTheme.bodyLarge?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          height: 1.5,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 const SizedBox(height: GrowMateLayout.space12),

@@ -3,12 +3,14 @@ import 'package:flutter/material.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../../domain/entities/quiz_question_template.dart';
+import 'quiz_math_text.dart';
 
 class QuizAnswerWidgetFactory extends StatelessWidget {
   const QuizAnswerWidgetFactory({
     super.key,
     required this.question,
     required this.enabled,
+    required this.showHints,
     required this.textController,
     required this.textFocusNode,
     required this.onTextChanged,
@@ -21,6 +23,7 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
 
   final QuizQuestionTemplate question;
   final bool enabled;
+  final bool showHints;
 
   final TextEditingController textController;
   final FocusNode textFocusNode;
@@ -69,8 +72,8 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                 child: Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 12,
+                    horizontal: 14,
+                    vertical: 14,
                   ),
                   decoration: BoxDecoration(
                     color: selectedOptionId == option.id
@@ -109,11 +112,12 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
                       ),
                       const SizedBox(width: 10),
                       Expanded(
-                        child: Text(
-                          option.text,
+                        child: QuizMathText(
+                          text: option.text,
                           style: theme.textTheme.bodyMedium?.copyWith(
                             color: theme.colorScheme.onSurface,
                             fontWeight: FontWeight.w600,
+                            height: 1.4,
                           ),
                         ),
                       ),
@@ -142,7 +146,7 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
 
     return Column(
       children: [
-        if (payload.generalHint.trim().isNotEmpty)
+        if (showHints && payload.generalHint.trim().isNotEmpty)
           Container(
             width: double.infinity,
             margin: const EdgeInsets.only(bottom: 10),
@@ -174,13 +178,28 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(
-                  '${statement.id.toLowerCase()}) ${statement.text}',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: theme.colorScheme.onSurface,
-                    fontWeight: FontWeight.w600,
-                    height: 1.4,
-                  ),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '${statement.id.toLowerCase()}) ',
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: theme.colorScheme.onSurface,
+                        fontWeight: FontWeight.w600,
+                        height: 1.4,
+                      ),
+                    ),
+                    Expanded(
+                      child: QuizMathText(
+                        text: statement.text,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurface,
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 8),
                 Row(

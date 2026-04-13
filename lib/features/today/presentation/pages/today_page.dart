@@ -171,7 +171,7 @@ class _TodayPageState extends State<TodayPage> {
     }
 
     if (inspectionCubit == null) {
-      return const GrowMateTopAppBar();
+      return const GrowMateTopAppBar(appleStyle: true);
     }
 
     return StreamBuilder<InspectionState>(
@@ -197,6 +197,8 @@ class _TodayPageState extends State<TodayPage> {
         final state = snapshot.data ?? inspectionCubit!.state;
 
         return GrowMateTopAppBar(
+          appleStyle: true,
+          showInsightInDev: state.devModeEnabled,
           onInspectionTap: state.canInspect
               ? () {
                   InspectionBottomSheet.show(context);
@@ -332,7 +334,7 @@ class _CompactStats extends StatelessWidget {
                   label: context.t(vi: 'ngày', en: 'days'),
                   value: '6',
                   icon: Icons.local_fire_department_rounded,
-                  accent: Color(0xFFEA580C),
+                  accent: colors.tertiary,
                 ),
                 SizedBox(width: GrowMateLayout.space12),
                 StatItem(
@@ -374,7 +376,7 @@ class _AiSystemPanel extends StatelessWidget {
             minHeight: 6,
             value: 0.74,
             backgroundColor: colors.surfaceContainerHigh,
-            valueColor: const AlwaysStoppedAnimation<Color>(Color(0xFF2DA5A8)),
+            valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
           ),
         ),
         const SizedBox(height: GrowMateLayout.contentGap),
@@ -409,39 +411,6 @@ class _AiSystemPanel extends StatelessWidget {
             en: 'Suggested next step',
           ),
           subtitle: context.t(vi: 'Ôn đạo hàm', en: 'Review derivatives'),
-        ),
-        const SizedBox(height: GrowMateLayout.contentGap),
-        Container(
-          width: double.infinity,
-          padding: const EdgeInsets.symmetric(
-            horizontal: GrowMateLayout.contentGap,
-            vertical: GrowMateLayout.space12,
-          ),
-          decoration: BoxDecoration(
-            color: colors.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(12),
-          ),
-          child: Row(
-            children: [
-              Expanded(
-                child: Text(
-                  context.t(
-                    vi: 'Giữ lộ trình hiện tại',
-                    en: 'Keep current plan',
-                  ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-              ),
-              Icon(
-                Icons.chevron_right_rounded,
-                color: colors.onSurfaceVariant,
-                size: 20,
-              ),
-            ],
-          ),
         ),
       ],
     );
@@ -539,23 +508,26 @@ class _ReviewDueStrip extends StatelessWidget {
             .where((item) => !item.dueAt.isAfter(now))
             .toList(growable: false);
 
+        // Hide card if no topics exist at all
+        if (items.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
         final title = dueItems.isEmpty
-            ? context.t(
-                vi: 'Ôn tập ngắt quãng hôm nay',
-                en: 'Spaced Review today',
-              )
+            ? context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Review')
             : context.t(
-                vi: 'Có ${dueItems.length} chủ đề đến lịch ôn',
-                en: '${dueItems.length} topics due for review',
+                vi: 'Ôn tập ngắt quãng (${dueItems.length})',
+                en: 'Spaced Review (${dueItems.length})',
               );
+
         final subtitle = dueItems.isEmpty
             ? context.t(
-                vi: 'Bạn đang giữ nhịp đều. Có thể bắt đầu phiên mới.',
-                en: 'You are keeping a steady rhythm. Ready for a new session.',
+                vi: 'Không có chủ đề nào cần ôn hôm nay. Tiếp tục giữ nhịp!',
+                en: 'No topics to review today. Keep up the streak!',
               )
             : context.t(
-                vi: 'Ưu tiên ôn: ${dueItems.first.topic}',
-                en: 'Prioritize review: ${dueItems.first.topic}',
+                vi: 'Ưu tiên: ${dueItems.first.topic}',
+                en: 'Priority: ${dueItems.first.topic}',
               );
 
         return _QuickStrip(
@@ -563,7 +535,7 @@ class _ReviewDueStrip extends StatelessWidget {
           title: title,
           subtitle: subtitle,
           onTap: () {
-            context.push(AppRoutes.progress);
+            context.push(AppRoutes.spacedReview);
           },
         );
       },

@@ -45,7 +45,7 @@ class ProgressPage extends StatelessWidget {
   }
 }
 
-class ProgressScreen extends StatelessWidget {
+class ProgressScreen extends StatefulWidget {
   const ProgressScreen({
     super.key,
     this.profile,
@@ -58,86 +58,105 @@ class ProgressScreen extends StatelessWidget {
   final SessionHistoryRepository sessionHistoryRepository;
 
   @override
+  State<ProgressScreen> createState() => _ProgressScreenState();
+}
+
+class _ProgressScreenState extends State<ProgressScreen> {
+  // Key để force rebuild khi user tap retry
+  UniqueKey _streamKey = UniqueKey();
+
+  void refresh() {
+    setState(() {
+      _streamKey = UniqueKey();
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
     final progress = MockUserProgressGenerator.fromUserProfile(
-      profile,
-      forceEmptyState: forceEmptyState,
+      widget.profile,
+      forceEmptyState: widget.forceEmptyState,
     );
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       body: ZenPageContainer(
         includeBottomSafeArea: false,
-        child: StreamBuilder<List<SessionHistoryEntry>>(
-          stream: sessionHistoryRepository.watchHistory(),
-          builder: (context, snapshot) {
-            if (snapshot.hasError) {
-              return _ErrorStateWidget(
-                message: context.t(
-                  vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
-                  en: 'Unable to load data. Please try again.',
-                ),
-                onRetry: () {
-                  // Force rebuild - typically setState or re-subscribe
-                },
-              );
-            }
-
-            if (!snapshot.hasData) {
-              return const _LoadingStateWidget();
-            }
-
-            final history = snapshot.data ?? const <SessionHistoryEntry>[];
-
-            return ListView(
-              children: [
-                const GrowMateTopAppBar(),
-                const SizedBox(height: GrowMateLayout.sectionGap),
-                Text(
-                  context.t(
-                    vi: 'Tiến trình tuần này',
-                    en: 'This week\'s progress',
+        child: KeyedSubtree(
+          key: _streamKey,
+          child: StreamBuilder<List<SessionHistoryEntry>>(
+            stream: widget.sessionHistoryRepository.watchHistory(),
+            builder: (context, snapshot) {
+              if (snapshot.hasError) {
+                return _ErrorStateWidget(
+                  message: context.t(
+                    vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
+                    en: 'Unable to load data. Please try again.',
                   ),
-                  style: theme.textTheme.headlineLarge,
-                ),
-                const SizedBox(height: GrowMateLayout.space8),
-                Text(
-                  context.t(
-                    vi: 'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
-                    en: 'Focus on the most important topic to accelerate your next session.',
+                  onRetry: () {
+                    context
+                        .findAncestorStateOfType<_ProgressScreenState>()
+                        ?.refresh();
+                  },
+                );
+              }
+
+              if (!snapshot.hasData) {
+                return const _LoadingStateWidget();
+              }
+
+              final history = snapshot.data ?? const <SessionHistoryEntry>[];
+
+              return ListView(
+                children: [
+                  const GrowMateTopAppBar(avatarNotificationOnly: true),
+                  const SizedBox(height: GrowMateLayout.sectionGap),
+                  Text(
+                    context.t(
+                      vi: 'Tiến trình tuần này',
+                      en: 'This week\'s progress',
+                    ),
+                    style: theme.textTheme.headlineLarge,
                   ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colors.onSurfaceVariant,
+                  const SizedBox(height: GrowMateLayout.space8),
+                  Text(
+                    context.t(
+                      vi: 'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
+                      en: 'Focus on the most important topic to accelerate your next session.',
+                    ),
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
-                ),
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                if (progress.isEmpty)
-                  const _ProgressEmptyState()
-                else ...[
-                  _SummarySection(progress: progress),
                   const SizedBox(height: GrowMateLayout.sectionGapLg),
-                  _StrengthSection(progress: progress),
+                  if (progress.isEmpty)
+                    const _ProgressEmptyState()
+                  else ...[
+                    _SummarySection(progress: progress),
+                    const SizedBox(height: GrowMateLayout.sectionGapLg),
+                    _StrengthSection(progress: progress),
+                    const SizedBox(height: GrowMateLayout.sectionGapLg),
+                    _WeaknessSection(progress: progress),
+                  ],
                   const SizedBox(height: GrowMateLayout.sectionGapLg),
-                  _WeaknessSection(progress: progress),
+                  const _SpacedReviewSection(),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  const _AchievementSection(),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  const _SmartScheduleInsightSection(),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  _SessionTimelineSection(history: history),
+                  const SizedBox(height: GrowMateLayout.sectionGapLg),
+                  _WeeklyMomentumSection(history: history, progress: progress),
+                  const SizedBox(height: GrowMateLayout.sectionGap),
                 ],
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                const _SpacedReviewSection(),
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                const _AchievementSection(),
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                const _SmartScheduleInsightSection(),
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                _SessionTimelineSection(history: history),
-                const SizedBox(height: GrowMateLayout.sectionGapLg),
-                _WeeklyMomentumSection(history: history, progress: progress),
-                const SizedBox(height: GrowMateLayout.sectionGap),
-              ],
-            );
-          },
-        ),
+              );
+            },
+          ),
+        ), // KeyedSubtree
       ),
       bottomNavigationBar: GrowMateBottomNavBar(
         currentTab: GrowMateTab.progress,
@@ -213,9 +232,7 @@ class _SummarySection extends StatelessWidget {
                     minHeight: 6,
                     value: ratio,
                     backgroundColor: colors.surfaceContainerLow,
-                    valueColor: const AlwaysStoppedAnimation<Color>(
-                      Color(0xFF2DA5A8),
-                    ),
+                    valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
                   ),
                 ),
               ],
@@ -488,7 +505,9 @@ class _SpacedReviewSection extends StatelessWidget {
               en: 'Unable to load data. Please try again.',
             ),
             onRetry: () {
-              // Force rebuild - typically setState or re-subscribe
+              context
+                  .findAncestorStateOfType<_ProgressScreenState>()
+                  ?.refresh();
             },
           );
         }
@@ -580,7 +599,9 @@ class _AchievementSection extends StatelessWidget {
               en: 'Unable to load data. Please try again.',
             ),
             onRetry: () {
-              // Force rebuild - typically setState or re-subscribe
+              context
+                  .findAncestorStateOfType<_ProgressScreenState>()
+                  ?.refresh();
             },
           );
         }
@@ -682,7 +703,9 @@ class _SmartScheduleInsightSection extends StatelessWidget {
               en: 'Unable to load data. Please try again.',
             ),
             onRetry: () {
-              // Force rebuild - typically setState or re-subscribe
+              context
+                  .findAncestorStateOfType<_ProgressScreenState>()
+                  ?.refresh();
             },
           );
         }
@@ -766,6 +789,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final now = DateTime.now();
     final days = List<DateTime>.generate(
       7,
@@ -865,7 +889,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
                             toY: count.toDouble(),
                             width: 16,
                             borderRadius: BorderRadius.circular(8),
-                            color: const Color(0xFF5A94FF),
+                            color: colors.primary,
                             backDrawRodData: BackgroundBarChartRodData(
                               show: true,
                               toY: 4,
@@ -971,7 +995,7 @@ class _ProgressEmptyState extends StatelessWidget {
               en: 'Start first quiz',
             ),
             onPressed: () => context.go(AppRoutes.quiz),
-            trailing: const Icon(Icons.play_arrow_rounded, color: Colors.white),
+            trailing: Icon(Icons.play_arrow_rounded, color: colors.onPrimary),
           ),
         ],
       ),

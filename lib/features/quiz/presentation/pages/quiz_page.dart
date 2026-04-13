@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
@@ -17,6 +18,7 @@ import '../../domain/entities/quiz_question_template.dart';
 import '../../domain/usecases/thpt_math_2026_scoring.dart';
 import '../cubit/quiz_cubit.dart';
 import '../widgets/quiz_answer_widget_factory.dart';
+import '../widgets/quiz_math_text.dart';
 
 class QuizPage extends StatefulWidget {
   const QuizPage({super.key, required this.quizRepository});
@@ -28,18 +30,28 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
-  static const Duration _totalQuizDuration = Duration(minutes: 12, seconds: 45);
+  static const int _secondsPerMultipleChoice = 35;
+  static const int _secondsPerTrueFalseCluster = 60;
+  static const int _secondsPerShortAnswer = 70;
+  static const int _mvpDemoTotalQuestions = 20;
+  static const int _multipleChoiceQuestionCount = 12;
+  static const int _trueFalseClusterQuestionCount = 3;
+  static const int _shortAnswerQuestionCount = 5;
+  static const int _extraQuestionCount = 0;
+  static const int _initialQuizDurationSeconds =
+      (_multipleChoiceQuestionCount * _secondsPerMultipleChoice) +
+      (_trueFalseClusterQuestionCount * _secondsPerTrueFalseCluster) +
+      (_shortAnswerQuestionCount * _secondsPerShortAnswer);
 
   final BehavioralSignalService _signalService =
       BehavioralSignalService.instance;
   final TextEditingController _answerController = TextEditingController();
   final FocusNode _answerFocusNode = FocusNode();
-  late final QuizCubit _quizCubit;
-  late QuizQuestionTemplate _activeQuestion;
+  QuizCubit? _quizCubit;
+  QuizQuestionTemplate? _activeQuestion;
 
-  List<QuizQuestionTemplate> _questionPool = List<QuizQuestionTemplate>.from(
-    _fallbackUiQuestions,
-  );
+  // Start with empty pool — will load from Supabase
+  List<QuizQuestionTemplate> _questionPool = <QuizQuestionTemplate>[];
   String? _selectedOptionId;
   Map<String, bool> _trueFalseAnswers = <String, bool>{};
   final Map<String, String> _shortAnswerDraftByQuestion = <String, String>{};
@@ -47,25 +59,20 @@ class _QuizPageState extends State<QuizPage> {
   final Map<String, Map<String, bool>> _trueFalseDraftByQuestion =
       <String, Map<String, bool>>{};
 
-  Duration _remainingTime = _totalQuizDuration;
+  Duration _remainingTime = const Duration(
+    seconds: _initialQuizDurationSeconds,
+  );
+  Duration _quizDuration = const Duration(seconds: _initialQuizDurationSeconds);
   bool _showHint = false;
-  bool _isFetchingRemote = false;
+  bool _isLoadingQuestions = true;
+  String? _fetchError;
 
   Timer? _countdownTimer;
-  Timer? _hintTimer;
   int _previousLength = 0;
 
   @override
   void initState() {
     super.initState();
-
-    _activeQuestion = _questionPool.first;
-
-    _quizCubit = QuizCubit(
-      quizRepository: widget.quizRepository,
-      questionId: _activeQuestion.id,
-      questionText: _activeQuestion.content,
-    );
 
     _answerFocusNode.addListener(_onAnswerFocusChanged);
 
@@ -80,7 +87,6 @@ class _QuizPageState extends State<QuizPage> {
             .toList(growable: false),
       );
     });
-    _signalService.startQuestion(questionId: _activeQuestion.id);
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _remainingTime.inSeconds <= 0) {
@@ -92,20 +98,198 @@ class _QuizPageState extends State<QuizPage> {
       });
     });
 
-    _restartHintTimer();
-    unawaited(_loadRemoteQuestions());
+    // Load questions from Supabase first, then initialize quiz
+    unawaited(_loadQuestionsAndInit());
+  }
+
+  Future<void> _loadQuestionsAndInit() async {
+    setState(() {
+      _isLoadingQuestions = true;
+      _fetchError = null;
+    });
+
+    try {
+      final remoteQuestions = await widget.quizRepository
+          .fetchQuestionTemplates(limit: 80);
+
+      if (!mounted) return;
+
+      if (remoteQuestions.isEmpty) {
+        setState(() {
+          _isLoadingQuestions = false;
+          _fetchError = 'Không có câu hỏi nào. Vui lòng liên hệ quản trị viên.';
+        });
+        return;
+      }
+
+      // Build a stable MVP demo pool with target distribution:
+      // Multiple choice 12, true/false cluster 3, short answer 5 (total 20).
+      final mvpDemoPool = _buildMvpDemoQuestionPool(remoteQuestions);
+      final quizDuration = _buildQuizDuration(mvpDemoPool);
+
+      // Success: initialize quiz with real data
+      _questionPool = mvpDemoPool;
+      _activeQuestion = mvpDemoPool.first;
+
+      _quizCubit = QuizCubit(
+        quizRepository: widget.quizRepository,
+        questionId: _activeQuestion!.id,
+        questionText: _activeQuestion!.content,
+      );
+
+      _signalService.startQuestion(questionId: _activeQuestion!.id);
+
+      setState(() {
+        _quizDuration = quizDuration;
+        _remainingTime = quizDuration;
+        _isLoadingQuestions = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        _isLoadingQuestions = false;
+        _fetchError =
+            'Không kết nối được với server. Kiểm tra mạng và thử lại.';
+      });
+    }
+  }
+
+  List<QuizQuestionTemplate> _buildMvpDemoQuestionPool(
+    List<QuizQuestionTemplate> source,
+  ) {
+    final selectedById = <String>{};
+    final selected = <QuizQuestionTemplate>[];
+
+    void pickFrom(List<QuizQuestionTemplate> candidates, int count) {
+      var picked = 0;
+      for (final question in candidates) {
+        if (selected.length >= _mvpDemoTotalQuestions || picked >= count) {
+          break;
+        }
+        if (selectedById.contains(question.id)) {
+          continue;
+        }
+        selected.add(question);
+        selectedById.add(question.id);
+        picked += 1;
+      }
+    }
+
+    final sorted = List<QuizQuestionTemplate>.from(source)
+      ..sort((a, b) {
+        final partCompare = a.partNo.compareTo(b.partNo);
+        if (partCompare != 0) return partCompare;
+
+        final difficultyCompare = a.difficultyLevel.compareTo(
+          b.difficultyLevel,
+        );
+        if (difficultyCompare != 0) return difficultyCompare;
+
+        return a.id.compareTo(b.id);
+      });
+
+    final multipleChoice = sorted
+        .where((q) => q.questionType == QuizQuestionType.multipleChoice)
+        .toList(growable: false);
+    final trueFalseCluster = sorted
+        .where((q) => q.questionType == QuizQuestionType.trueFalseCluster)
+        .toList(growable: false);
+    final shortAnswer = sorted
+        .where((q) => q.questionType == QuizQuestionType.shortAnswer)
+        .toList(growable: false);
+
+    final multipleChoiceTarget = math.min(
+      _multipleChoiceQuestionCount,
+      multipleChoice.length,
+    );
+    final trueFalseTarget = math.min(
+      _trueFalseClusterQuestionCount,
+      trueFalseCluster.length,
+    );
+    final shortAnswerTarget = math.min(
+      _shortAnswerQuestionCount,
+      shortAnswer.length,
+    );
+
+    final allocatedCore =
+        multipleChoiceTarget + trueFalseTarget + shortAnswerTarget;
+    final extraTarget = math.max(
+      _extraQuestionCount,
+      _mvpDemoTotalQuestions - allocatedCore,
+    );
+
+    // Bucket 1: Multiple-choice questions (prefer low/medium difficulty).
+    final multipleChoiceCandidates = multipleChoice
+        .where((q) => q.difficultyLevel <= 2)
+        .toList(growable: false);
+    pickFrom(multipleChoiceCandidates, multipleChoiceTarget);
+
+    // Bucket 2: True/false cluster questions.
+    pickFrom(trueFalseCluster, trueFalseTarget);
+
+    // Bucket 3: Short-answer questions.
+    pickFrom(shortAnswer, shortAnswerTarget);
+
+    // Bucket 4: Fill remaining slots from harder/remaining questions.
+    final remainingHard =
+        sorted
+            .where(
+              (q) =>
+                  !selectedById.contains(q.id) &&
+                  (q.difficultyLevel >= 2 ||
+                      q.questionType == QuizQuestionType.shortAnswer),
+            )
+            .toList(growable: false)
+          ..sort((a, b) {
+            final difficultyCompare = b.difficultyLevel.compareTo(
+              a.difficultyLevel,
+            );
+            if (difficultyCompare != 0) return difficultyCompare;
+            return a.id.compareTo(b.id);
+          });
+    pickFrom(remainingHard, extraTarget);
+
+    // Fallback: fill any missing slots from the remaining ordered pool.
+    if (selected.length < _mvpDemoTotalQuestions) {
+      for (final question in sorted) {
+        if (selected.length >= _mvpDemoTotalQuestions) break;
+        if (selectedById.contains(question.id)) continue;
+        selected.add(question);
+        selectedById.add(question.id);
+      }
+    }
+
+    return selected;
+  }
+
+  Duration _buildQuizDuration(List<QuizQuestionTemplate> questions) {
+    var totalSeconds = 0;
+    for (final question in questions) {
+      switch (question.questionType) {
+        case QuizQuestionType.multipleChoice:
+          totalSeconds += _secondsPerMultipleChoice;
+          break;
+        case QuizQuestionType.trueFalseCluster:
+          totalSeconds += _secondsPerTrueFalseCluster;
+          break;
+        case QuizQuestionType.shortAnswer:
+          totalSeconds += _secondsPerShortAnswer;
+          break;
+      }
+    }
+
+    return Duration(seconds: totalSeconds);
   }
 
   @override
   void dispose() {
     _countdownTimer?.cancel();
-    _hintTimer?.cancel();
     _signalService.stop();
     _answerFocusNode
       ..removeListener(_onAnswerFocusChanged)
       ..dispose();
     _answerController.dispose();
-    _quizCubit.close();
+    _quizCubit?.close();
     super.dispose();
   }
 
@@ -182,10 +366,10 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _onAnswerChanged(String value) {
-    _quizCubit.onAnswerChanged(value);
+    _quizCubit?.onAnswerChanged(value);
 
-    if (_activeQuestion.questionType == QuizQuestionType.shortAnswer) {
-      _shortAnswerDraftByQuestion[_activeQuestion.id] = value;
+    if (_activeQuestion!.questionType == QuizQuestionType.shortAnswer) {
+      _shortAnswerDraftByQuestion[_activeQuestion!.id] = value;
     }
 
     final currentLength = value.length;
@@ -201,53 +385,8 @@ class _QuizPageState extends State<QuizPage> {
     _signalService.registerInteraction();
   }
 
-  Future<void> _loadRemoteQuestions() async {
-    setState(() {
-      _isFetchingRemote = true;
-    });
-
-    try {
-      final remoteQuestions = await widget.quizRepository
-          .fetchQuestionTemplates(limit: 9);
-
-      if (!mounted || remoteQuestions.isEmpty) {
-        return;
-      }
-
-      setState(() {
-        _isFetchingRemote = false;
-        _shortAnswerDraftByQuestion.clear();
-        _selectedOptionByQuestion.clear();
-        _trueFalseDraftByQuestion.clear();
-        _questionPool = remoteQuestions;
-        _activeQuestion = remoteQuestions.first;
-        _restoreDraftForActiveQuestion();
-        _showHint = false;
-      });
-
-      _signalService.startQuestion(questionId: _activeQuestion.id);
-      _restartHintTimer();
-    } catch (_) {
-      if (!mounted) return;
-      setState(() {
-        _isFetchingRemote = false;
-      });
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(
-              vi: 'Không tải được câu hỏi từ server. Dùng bộ câu hỏi mẫu tạm thời.',
-              en: 'Could not fetch questions from server. Using sample questions for now.',
-            ),
-          ),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-    }
-  }
-
   void _selectQuestion(QuizQuestionTemplate question) {
-    if (_activeQuestion.id == question.id) {
+    if (_activeQuestion?.id == question.id) {
       return;
     }
 
@@ -261,7 +400,6 @@ class _QuizPageState extends State<QuizPage> {
     });
 
     _signalService.startQuestion(questionId: question.id);
-    _restartHintTimer();
   }
 
   void _onTrueFalseChanged(String statementId, bool value) {
@@ -272,48 +410,48 @@ class _QuizPageState extends State<QuizPage> {
         statementId: value,
       };
 
-      _trueFalseDraftByQuestion[_activeQuestion.id] = Map<String, bool>.from(
+      _trueFalseDraftByQuestion[_activeQuestion!.id] = Map<String, bool>.from(
         _trueFalseAnswers,
       );
     });
   }
 
   void _persistDraftForActiveQuestion() {
-    switch (_activeQuestion.questionType) {
+    switch (_activeQuestion!.questionType) {
       case QuizQuestionType.multipleChoice:
         final selected = _selectedOptionId;
         if (selected == null || selected.isEmpty) {
-          _selectedOptionByQuestion.remove(_activeQuestion.id);
+          _selectedOptionByQuestion.remove(_activeQuestion!.id);
         } else {
-          _selectedOptionByQuestion[_activeQuestion.id] = selected;
+          _selectedOptionByQuestion[_activeQuestion!.id] = selected;
         }
         break;
       case QuizQuestionType.trueFalseCluster:
         if (_trueFalseAnswers.isEmpty) {
-          _trueFalseDraftByQuestion.remove(_activeQuestion.id);
+          _trueFalseDraftByQuestion.remove(_activeQuestion!.id);
         } else {
-          _trueFalseDraftByQuestion[_activeQuestion.id] =
+          _trueFalseDraftByQuestion[_activeQuestion!.id] =
               Map<String, bool>.from(_trueFalseAnswers);
         }
         break;
       case QuizQuestionType.shortAnswer:
         final answer = _answerController.text;
         if (answer.trim().isEmpty) {
-          _shortAnswerDraftByQuestion.remove(_activeQuestion.id);
+          _shortAnswerDraftByQuestion.remove(_activeQuestion!.id);
         } else {
-          _shortAnswerDraftByQuestion[_activeQuestion.id] = answer;
+          _shortAnswerDraftByQuestion[_activeQuestion!.id] = answer;
         }
         break;
     }
   }
 
   void _restoreDraftForActiveQuestion() {
-    _selectedOptionId = _selectedOptionByQuestion[_activeQuestion.id];
+    _selectedOptionId = _selectedOptionByQuestion[_activeQuestion!.id];
     _trueFalseAnswers = Map<String, bool>.from(
-      _trueFalseDraftByQuestion[_activeQuestion.id] ?? <String, bool>{},
+      _trueFalseDraftByQuestion[_activeQuestion!.id] ?? <String, bool>{},
     );
 
-    final shortAnswer = _shortAnswerDraftByQuestion[_activeQuestion.id] ?? '';
+    final shortAnswer = _shortAnswerDraftByQuestion[_activeQuestion!.id] ?? '';
     _answerController
       ..text = shortAnswer
       ..selection = TextSelection.collapsed(offset: shortAnswer.length);
@@ -321,20 +459,25 @@ class _QuizPageState extends State<QuizPage> {
     _previousLength = shortAnswer.length;
   }
 
-  void _restartHintTimer() {
-    _hintTimer?.cancel();
-    _hintTimer = Timer(const Duration(seconds: 10), () {
-      if (!mounted) {
-        return;
-      }
-      setState(() {
-        _showHint = true;
-      });
+  void _toggleHint() {
+    _signalService.registerInteraction();
+    setState(() {
+      _showHint = !_showHint;
     });
   }
 
+  bool _hasInlineGeneralHint() {
+    if (_activeQuestion?.questionType != QuizQuestionType.trueFalseCluster) {
+      return false;
+    }
+
+    final payload = _activeQuestion?.payload;
+    return payload is TrueFalseClusterPayload &&
+        payload.generalHint.trim().isNotEmpty;
+  }
+
   QuizQuestionUserAnswer? _buildUserAnswer(BuildContext context) {
-    switch (_activeQuestion.questionType) {
+    switch (_activeQuestion!.questionType) {
       case QuizQuestionType.multipleChoice:
         final selected = _selectedOptionId;
         if (selected == null || selected.trim().isEmpty) {
@@ -349,7 +492,7 @@ class _QuizPageState extends State<QuizPage> {
         }
         return MultipleChoiceUserAnswer(selectedOptionId: selected);
       case QuizQuestionType.trueFalseCluster:
-        final payload = _activeQuestion.payload;
+        final payload = _activeQuestion!.payload;
         if (payload is! TrueFalseClusterPayload) {
           _showInputWarning(
             context,
@@ -405,16 +548,279 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     _signalService.markSubmitted();
-    _quizCubit.submitTypedAnswer(
-      question: _activeQuestion,
+    _quizCubit?.submitTypedAnswer(
+      question: _activeQuestion!,
       userAnswer: userAnswer,
+    );
+  }
+
+  TextStyle _questionContentStyle(ThemeData theme, String content) {
+    final length = content.runes.length;
+    final fontSize = switch (length) {
+      >= 220 => 18.0,
+      >= 140 => 20.0,
+      _ => 24.0,
+    };
+
+    return theme.textTheme.headlineSmall?.copyWith(
+          color: theme.colorScheme.onSurface,
+          fontSize: fontSize,
+          height: 1.3,
+          fontWeight: FontWeight.w700,
+        ) ??
+        TextStyle(
+          color: theme.colorScheme.onSurface,
+          fontSize: fontSize,
+          height: 1.3,
+          fontWeight: FontWeight.w700,
+        );
+  }
+
+  bool _questionHasAnswer(QuizQuestionTemplate question) {
+    return switch (question.questionType) {
+      QuizQuestionType.multipleChoice =>
+        (_selectedOptionByQuestion[question.id]?.isNotEmpty ?? false) ||
+            (question.id == _activeQuestion?.id &&
+                (_selectedOptionId?.isNotEmpty ?? false)),
+      QuizQuestionType.trueFalseCluster =>
+        (_trueFalseDraftByQuestion[question.id]?.isNotEmpty ?? false) ||
+            (question.id == _activeQuestion?.id &&
+                _trueFalseAnswers.isNotEmpty),
+      QuizQuestionType.shortAnswer =>
+        (_shortAnswerDraftByQuestion[question.id]?.trim().isNotEmpty ??
+                false) ||
+            (question.id == _activeQuestion?.id &&
+                _answerController.text.trim().isNotEmpty),
+    };
+  }
+
+  void _moveToAdjacentQuestion(int offset) {
+    if (_questionPool.length <= 1 || _activeQuestion == null) {
+      return;
+    }
+
+    final currentIndex = _questionPool.indexWhere(
+      (item) => item.id == _activeQuestion!.id,
+    );
+    if (currentIndex < 0) {
+      return;
+    }
+
+    final nextIndex = (currentIndex + offset).clamp(
+      0,
+      _questionPool.length - 1,
+    );
+    if (nextIndex == currentIndex) {
+      return;
+    }
+
+    _selectQuestion(_questionPool[nextIndex]);
+  }
+
+  Future<void> _openQuestionNavigatorSheet(BuildContext context) async {
+    if (_questionPool.length <= 1) {
+      return;
+    }
+
+    _persistDraftForActiveQuestion();
+
+    await showModalBottomSheet<void>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      useSafeArea: true,
+      backgroundColor: Theme.of(context).colorScheme.surface,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (sheetContext) {
+        final sheetTheme = Theme.of(sheetContext);
+        final mediaQuery = MediaQuery.of(sheetContext);
+        final sheetHeight = math.min(mediaQuery.size.height * 0.75, 460.0);
+        final crossAxisCount = mediaQuery.size.width < 360 ? 4 : 5;
+
+        return SizedBox(
+          height: sheetHeight,
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  sheetContext.t(vi: 'Danh sách câu hỏi', en: 'Question list'),
+                  style: sheetTheme.textTheme.titleMedium?.copyWith(
+                    color: sheetTheme.colorScheme.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  sheetContext.t(
+                    vi: 'Chạm vào câu để chuyển nhanh.',
+                    en: 'Tap a question to jump quickly.',
+                  ),
+                  style: sheetTheme.textTheme.bodySmall?.copyWith(
+                    color: sheetTheme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 12),
+                Expanded(
+                  child: GridView.builder(
+                    itemCount: _questionPool.length,
+                    gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                      crossAxisCount: crossAxisCount,
+                      crossAxisSpacing: 10,
+                      mainAxisSpacing: 10,
+                      childAspectRatio: 2.2,
+                    ),
+                    itemBuilder: (itemContext, index) {
+                      final question = _questionPool[index];
+                      final isSelected = question.id == _activeQuestion!.id;
+                      final isAnswered = _questionHasAnswer(question);
+
+                      final backgroundColor = isSelected
+                          ? sheetTheme.colorScheme.tertiaryContainer
+                          : isAnswered
+                          ? sheetTheme.colorScheme.primaryContainer.withValues(
+                              alpha: 0.44,
+                            )
+                          : sheetTheme.colorScheme.surfaceContainerLow;
+                      final foregroundColor = isSelected
+                          ? sheetTheme.colorScheme.onTertiaryContainer
+                          : sheetTheme.colorScheme.onSurfaceVariant;
+
+                      return InkWell(
+                        onTap: () {
+                          Navigator.of(sheetContext).pop();
+                          _selectQuestion(question);
+                        },
+                        borderRadius: BorderRadius.circular(999),
+                        child: AnimatedContainer(
+                          duration: const Duration(milliseconds: 180),
+                          curve: Curves.easeOut,
+                          padding: const EdgeInsets.symmetric(horizontal: 10),
+                          decoration: BoxDecoration(
+                            color: backgroundColor,
+                            borderRadius: BorderRadius.circular(999),
+                            border: Border.all(
+                              color: isSelected
+                                  ? sheetTheme.colorScheme.primary
+                                  : sheetTheme.colorScheme.surfaceContainerHigh,
+                            ),
+                          ),
+                          child: Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              if (isAnswered) ...[
+                                Icon(
+                                  Icons.check_rounded,
+                                  size: 16,
+                                  color: foregroundColor,
+                                ),
+                                const SizedBox(width: 4),
+                              ],
+                              Flexible(
+                                child: Text(
+                                  sheetContext.t(
+                                    vi: 'Câu ${index + 1}',
+                                    en: 'Q${index + 1}',
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: sheetTheme.textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: foregroundColor,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      );
+                    },
+                  ),
+                ),
+              ],
+            ),
+          ),
+        );
+      },
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    // Show loading state while fetching questions from Supabase
+    if (_isLoadingQuestions) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              CircularProgressIndicator(
+                color: Theme.of(context).colorScheme.primary,
+              ),
+              const SizedBox(height: 24),
+              Text(
+                context.t(
+                  vi: 'Đang tải câu hỏi...',
+                  en: 'Loading questions...',
+                ),
+                style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
+    // Show error state if fetch failed
+    if (_fetchError != null || _questionPool.isEmpty) {
+      return Scaffold(
+        backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        body: Center(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                Icons.cloud_off_rounded,
+                size: 64,
+                color: Theme.of(context).colorScheme.error,
+              ),
+              const SizedBox(height: 16),
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 32),
+                child: Text(
+                  _fetchError ?? 'Không có câu hỏi nào.',
+                  textAlign: TextAlign.center,
+                  style: Theme.of(context).textTheme.bodyLarge,
+                ),
+              ),
+              const SizedBox(height: 24),
+              FilledButton.icon(
+                onPressed: _loadQuestionsAndInit,
+                icon: const Icon(Icons.refresh_rounded),
+                label: Text(context.t(vi: 'Thử lại', en: 'Retry')),
+              ),
+              const SizedBox(height: 12),
+              TextButton.icon(
+                onPressed: () => context.go(AppRoutes.home),
+                icon: const Icon(Icons.home_outlined),
+                label: Text(context.t(vi: 'Về trang chủ', en: 'Go Home')),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+
     return BlocProvider<QuizCubit>.value(
-      value: _quizCubit,
+      value: _quizCubit!,
       child: GestureDetector(
         behavior: HitTestBehavior.translucent,
         onTap: () {
@@ -457,20 +863,34 @@ class _QuizPageState extends State<QuizPage> {
               builder: (context, state) {
                 final isLoading = state is QuizSubmittingState;
                 final theme = Theme.of(context);
-                final formulaText = _activeQuestion.metadata['formula']
+                final formulaText = _activeQuestion!.metadata['formula']
                     ?.toString();
                 final currentIndex = _questionPool.indexWhere(
-                  (item) => item.id == _activeQuestion.id,
+                  (item) => item.id == _activeQuestion!.id,
                 );
-                final questionNumber =
-                    (currentIndex >= 0 ? currentIndex + 1 : 1).toString();
-                final progress =
-                    (_remainingTime.inSeconds / _totalQuizDuration.inSeconds)
-                        .clamp(0.0, 1.0)
-                        .toDouble();
+                final currentNumber = currentIndex >= 0 ? currentIndex + 1 : 1;
+                final questionNumber = currentNumber.toString();
+                final questionText = _activeQuestion!.content.trim();
+                final isLongQuestion = questionText.runes.length >= 140;
+                final answeredCount = _questionPool
+                    .where(_questionHasAnswer)
+                    .length;
+                final totalQuizSeconds = _quizDuration.inSeconds > 0
+                    ? _quizDuration.inSeconds
+                    : _initialQuizDurationSeconds;
+                final progress = (_remainingTime.inSeconds / totalQuizSeconds)
+                    .clamp(0.0, 1.0)
+                    .toDouble();
+                final screenWidth = MediaQuery.of(context).size.width;
+                final horizontalPadding = screenWidth < 390 ? 14.0 : 20.0;
 
                 return ZenPageContainer(
-                  padding: const EdgeInsets.fromLTRB(24, 10, 24, 18),
+                  padding: EdgeInsets.fromLTRB(
+                    horizontalPadding,
+                    10,
+                    horizontalPadding,
+                    18,
+                  ),
                   child: ScrollConfiguration(
                     behavior: const MaterialScrollBehavior().copyWith(
                       scrollbars: false,
@@ -503,17 +923,6 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                             ),
                             const SizedBox(width: 6),
-                            if (_isFetchingRemote) ...[
-                              SizedBox(
-                                width: 16,
-                                height: 16,
-                                child: CircularProgressIndicator(
-                                  strokeWidth: 2,
-                                  color: theme.colorScheme.primary,
-                                ),
-                              ),
-                              const SizedBox(width: 4),
-                            ],
                             Expanded(
                               child: Text(
                                 context.t(
@@ -554,15 +963,16 @@ class _QuizPageState extends State<QuizPage> {
                                     end: Alignment.centerRight,
                                     colors: [
                                       HSLColor.fromColor(
-                                              theme.colorScheme.primary)
-                                          .withLightness((
-                                                  HSLColor.fromColor(theme
-                                                              .colorScheme
-                                                              .primary)
-                                                      .lightness -
-                                                  0.06)
-                                              .clamp(0.0, 1.0)
-                                              .toDouble())
+                                            theme.colorScheme.primary,
+                                          )
+                                          .withLightness(
+                                            (HSLColor.fromColor(
+                                                      theme.colorScheme.primary,
+                                                    ).lightness -
+                                                    0.06)
+                                                .clamp(0.0, 1.0)
+                                                .toDouble(),
+                                          )
                                           .toColor(),
                                       theme.colorScheme.primary,
                                     ],
@@ -574,98 +984,182 @@ class _QuizPageState extends State<QuizPage> {
                         ),
                         const SizedBox(height: 24),
                         if (_questionPool.length > 1)
-                          Padding(
-                            padding: const EdgeInsets.only(bottom: 12),
-                            child: Wrap(
-                              spacing: 8,
-                              runSpacing: 8,
-                              children: _questionPool
-                                  .asMap()
-                                  .entries
-                                  .map((entry) {
-                                    final isSelected =
-                                        entry.value.id == _activeQuestion.id;
-
-                                    return ChoiceChip(
-                                      label: Text(
+                          Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            padding: const EdgeInsets.fromLTRB(12, 12, 12, 10),
+                            decoration: BoxDecoration(
+                              color: theme.colorScheme.surfaceContainerLow,
+                              borderRadius: BorderRadius.circular(18),
+                              border: Border.all(
+                                color: theme.colorScheme.surfaceContainerHigh,
+                              ),
+                            ),
+                            child: Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: Text(
                                         context.t(
-                                          vi: 'Câu ${entry.key + 1}',
-                                          en: 'Q${entry.key + 1}',
+                                          vi: 'Câu $currentNumber/${_questionPool.length}',
+                                          en: 'Question $currentNumber/${_questionPool.length}',
                                         ),
-                                        style: theme.textTheme.labelLarge
+                                        style: theme.textTheme.titleSmall
                                             ?.copyWith(
-                                              color: isSelected
-                                                  ? theme.colorScheme.onSurface
-                                                  : theme
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
+                                              color:
+                                                  theme.colorScheme.onSurface,
                                               fontWeight: FontWeight.w700,
                                             ),
                                       ),
-                                      selected: isSelected,
-                                      checkmarkColor:
-                                          theme.colorScheme.onSurface,
-                                      backgroundColor:
-                                          theme.colorScheme.surfaceContainerLow,
-                                      selectedColor:
-                                          theme.colorScheme.tertiaryContainer,
-                                      side: BorderSide.none,
-                                      onSelected: (_) =>
-                                          _selectQuestion(entry.value),
-                                    );
-                                  })
-                                  .toList(growable: false),
+                                    ),
+                                    TextButton.icon(
+                                      onPressed: () =>
+                                          _openQuestionNavigatorSheet(context),
+                                      icon: const Icon(
+                                        Icons.grid_view_rounded,
+                                        size: 18,
+                                      ),
+                                      label: Text(
+                                        context.t(vi: 'Danh sách', en: 'All'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: FilledButton.tonalIcon(
+                                        onPressed: currentIndex > 0
+                                            ? () => _moveToAdjacentQuestion(-1)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.chevron_left_rounded,
+                                        ),
+                                        label: Text(
+                                          context.t(vi: 'Trước', en: 'Prev'),
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: FilledButton.tonalIcon(
+                                        onPressed:
+                                            currentIndex <
+                                                _questionPool.length - 1
+                                            ? () => _moveToAdjacentQuestion(1)
+                                            : null,
+                                        icon: const Icon(
+                                          Icons.chevron_right_rounded,
+                                        ),
+                                        label: Text(
+                                          context.t(vi: 'Sau', en: 'Next'),
+                                        ),
+                                        style: FilledButton.styleFrom(
+                                          padding: const EdgeInsets.symmetric(
+                                            vertical: 10,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                                const SizedBox(height: 8),
+                                Align(
+                                  alignment: Alignment.centerLeft,
+                                  child: Text(
+                                    context.t(
+                                      vi: 'Đã trả lời: $answeredCount/${_questionPool.length}',
+                                      en: 'Answered: $answeredCount/${_questionPool.length}',
+                                    ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: theme.colorScheme.onSurfaceVariant,
+                                      fontWeight: FontWeight.w600,
+                                    ),
+                                  ),
+                                ),
+                              ],
                             ),
                           ),
                         ZenCard(
-                          radius: 30,
+                          radius: 28,
+                          padding: const EdgeInsets.fromLTRB(18, 16, 18, 16),
                           gradient: LinearGradient(
                             begin: Alignment.topLeft,
                             end: Alignment.bottomRight,
                             colors: [
                               theme.colorScheme.surface,
-                              theme.colorScheme.surfaceContainerHigh
-                                  .withValues(alpha: 0.5),
+                              theme.colorScheme.surfaceContainerHigh.withValues(
+                                alpha: 0.5,
+                              ),
                             ],
                           ),
-                          child: Column(
-                            children: [
-                              Text(
-                                context.t(
-                                  vi: 'CÂU HỎI SỐ $questionNumber',
-                                  en: 'QUESTION $questionNumber',
-                                ),
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w700,
-                                  letterSpacing: 0.85,
-                                ),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                _activeQuestion.content,
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.headlineLarge?.copyWith(
-                                  color: theme.colorScheme.onSurface,
-                                  fontSize: 30,
-                                  height: 1.18,
-                                ),
-                              ),
-                              if (formulaText != null &&
-                                  formulaText.isNotEmpty) ...[
-                                const SizedBox(height: GrowMateLayout.space12),
+                          child: ConstrainedBox(
+                            constraints: const BoxConstraints(maxWidth: 620),
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
                                 Text(
-                                  formulaText,
-                                  style: theme.textTheme.titleLarge?.copyWith(
-                                    color: theme.colorScheme.primary,
-                                    fontStyle: FontStyle.italic,
-                                    fontSize: 32,
-                                    height: 1.2,
-                                    fontWeight: FontWeight.w600,
+                                  context.t(
+                                    vi: 'CÂU HỎI SỐ $questionNumber',
+                                    en: 'QUESTION $questionNumber',
+                                  ),
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w700,
+                                    letterSpacing: 0.85,
                                   ),
                                 ),
+                                const SizedBox(height: 10),
+                                QuizMathText(
+                                  text: _activeQuestion!.content,
+                                  textAlign: isLongQuestion
+                                      ? TextAlign.left
+                                      : TextAlign.center,
+                                  style: _questionContentStyle(
+                                    theme,
+                                    questionText,
+                                  ),
+                                ),
+                                if (formulaText != null &&
+                                    formulaText.isNotEmpty) ...[
+                                  const SizedBox(
+                                    height: GrowMateLayout.space12,
+                                  ),
+                                  Container(
+                                    width: double.infinity,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 12,
+                                      vertical: 10,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: theme.colorScheme.surface
+                                          .withValues(alpha: 0.85),
+                                      borderRadius: BorderRadius.circular(14),
+                                      border: Border.all(
+                                        color: theme.colorScheme.primary
+                                            .withValues(alpha: 0.14),
+                                      ),
+                                    ),
+                                    child: QuizMathText(
+                                      text: formulaText,
+                                      renderAsLatex: true,
+                                      textAlign: TextAlign.center,
+                                      style: theme.textTheme.titleLarge
+                                          ?.copyWith(
+                                            color: theme.colorScheme.primary,
+                                            fontWeight: FontWeight.w600,
+                                          ),
+                                    ),
+                                  ),
+                                ],
                               ],
-                            ],
+                            ),
                           ),
                         ),
                         const SizedBox(height: GrowMateLayout.space12),
@@ -674,8 +1168,9 @@ class _QuizPageState extends State<QuizPage> {
                           padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
                           color: theme.colorScheme.surfaceContainerLowest,
                           child: QuizAnswerWidgetFactory(
-                            question: _activeQuestion,
+                            question: _activeQuestion!,
                             enabled: !isLoading,
+                            showHints: _showHint,
                             textController: _answerController,
                             textFocusNode: _answerFocusNode,
                             onTextChanged: _onAnswerChanged,
@@ -685,7 +1180,7 @@ class _QuizPageState extends State<QuizPage> {
                               _signalService.registerInteraction();
                               setState(() {
                                 _selectedOptionId = optionId;
-                                _selectedOptionByQuestion[_activeQuestion.id] =
+                                _selectedOptionByQuestion[_activeQuestion!.id] =
                                     optionId;
                               });
                             },
@@ -694,44 +1189,63 @@ class _QuizPageState extends State<QuizPage> {
                           ),
                         ),
                         const SizedBox(height: GrowMateLayout.space12),
-                        AnimatedOpacity(
-                          opacity: _showHint ? 1 : 0,
-                          duration: const Duration(milliseconds: 420),
-                          curve: Curves.easeOut,
-                          child: AnimatedSlide(
-                            duration: const Duration(milliseconds: 420),
+                        Align(
+                          alignment: Alignment.centerRight,
+                          child: TextButton.icon(
+                            onPressed: _toggleHint,
+                            icon: Icon(
+                              _showHint
+                                  ? Icons.visibility_off_rounded
+                                  : Icons.lightbulb_outline_rounded,
+                              size: 18,
+                            ),
+                            label: Text(
+                              _showHint
+                                  ? context.t(vi: 'Ẩn gợi ý', en: 'Hide hint')
+                                  : context.t(
+                                      vi: 'Hiện gợi ý',
+                                      en: 'Show hint',
+                                    ),
+                            ),
+                          ),
+                        ),
+                        if (_showHint && !_hasInlineGeneralHint())
+                          AnimatedOpacity(
+                            opacity: 1,
+                            duration: const Duration(milliseconds: 250),
                             curve: Curves.easeOut,
-                            offset: _showHint
-                                ? Offset.zero
-                                : const Offset(0, 0.08),
-                            child: Container(
-                              width: double.infinity,
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 14,
-                                vertical: 10,
-                              ),
-                              decoration: BoxDecoration(
-                                color: theme.colorScheme.secondaryContainer
-                                    .withValues(alpha: 0.42),
-                                borderRadius: BorderRadius.circular(16),
-                                border: Border.all(
-                                  color: theme.colorScheme.primary.withValues(
-                                    alpha: 0.08,
+                            child: AnimatedSlide(
+                              duration: const Duration(milliseconds: 250),
+                              curve: Curves.easeOut,
+                              offset: Offset.zero,
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: theme.colorScheme.secondaryContainer
+                                      .withValues(alpha: 0.42),
+                                  borderRadius: BorderRadius.circular(16),
+                                  border: Border.all(
+                                    color: theme.colorScheme.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
                                   ),
                                 ),
-                              ),
-                              child: Text(
-                                _hintText(context),
-                                textAlign: TextAlign.center,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  color: theme.colorScheme.onSurfaceVariant,
-                                  fontWeight: FontWeight.w600,
-                                  height: 1.42,
+                                child: Text(
+                                  _hintText(context),
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    fontWeight: FontWeight.w600,
+                                    height: 1.42,
+                                  ),
                                 ),
                               ),
                             ),
                           ),
-                        ),
                         const SizedBox(height: GrowMateLayout.space16),
                         ZenButton(
                           label: isLoading
@@ -781,9 +1295,9 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   String _hintText(BuildContext context) {
-    final payload = _activeQuestion.payload;
+    final payload = _activeQuestion!.payload;
 
-    return switch (_activeQuestion.questionType) {
+    return switch (_activeQuestion!.questionType) {
       QuizQuestionType.multipleChoice => context.t(
         vi: 'Đọc kỹ đáp án nhiễu trước khi chọn, tránh chọn theo cảm giác.',
         en: 'Check distractors carefully before selecting.',
@@ -803,87 +1317,3 @@ class _QuizPageState extends State<QuizPage> {
     };
   }
 }
-
-const _fallbackUiQuestions = <QuizQuestionTemplate>[
-  QuizQuestionTemplate(
-    id: '11111111-1111-4111-8111-111111111111',
-    subject: 'math',
-    topicCode: 'derivative',
-    topicName: 'Đạo hàm',
-    examYear: 2026,
-    questionType: QuizQuestionType.shortAnswer,
-    partNo: 3,
-    difficultyLevel: 2,
-    content: 'Tính đạo hàm của hàm số',
-    payload: ShortAnswerPayload(
-      exactAnswer: '12x^2 + 4x',
-      acceptedAnswers: <String>['12x^2+4x', '4x+12x^2', '12x²+4x'],
-      explanation: 'y\' = 12x^2 + 4x',
-    ),
-    metadata: <String, dynamic>{'formula': 'y = 4x³ + 2x² - 5'},
-    isActive: true,
-  ),
-  QuizQuestionTemplate(
-    id: '22222222-2222-4222-8222-222222222222',
-    subject: 'math',
-    topicCode: 'logarithm',
-    topicName: 'Logarit',
-    examYear: 2026,
-    questionType: QuizQuestionType.multipleChoice,
-    partNo: 1,
-    difficultyLevel: 1,
-    content: 'Hàm số nào đồng biến trên R?',
-    payload: MultipleChoicePayload(
-      options: <MultipleChoiceOption>[
-        MultipleChoiceOption(id: 'A', text: 'y = 2^x'),
-        MultipleChoiceOption(id: 'B', text: 'y = (1/2)^x'),
-        MultipleChoiceOption(id: 'C', text: 'y = -x^2'),
-        MultipleChoiceOption(id: 'D', text: 'y = -|x|'),
-      ],
-      correctOptionId: 'A',
-      explanation: 'Cơ số 2 > 1 nên 2^x đồng biến trên R.',
-    ),
-    isActive: true,
-  ),
-  QuizQuestionTemplate(
-    id: '33333333-3333-4333-8333-333333333333',
-    subject: 'math',
-    topicCode: 'function_analysis',
-    topicName: 'Khảo sát hàm số',
-    examYear: 2026,
-    questionType: QuizQuestionType.trueFalseCluster,
-    partNo: 2,
-    difficultyLevel: 3,
-    content: 'Xét tính đúng sai của các mệnh đề về hàm số đã cho.',
-    payload: TrueFalseClusterPayload(
-      subQuestions: <TrueFalseStatement>[
-        TrueFalseStatement(
-          id: 'a',
-          text: 'Hàm số đạt cực đại tại x = 1.',
-          isTrue: true,
-          explanation: 'Đạo hàm đổi dấu từ + sang - tại x = 1.',
-        ),
-        TrueFalseStatement(
-          id: 'b',
-          text: 'Giá trị nhỏ nhất trên [-1;2] bằng -3.',
-          isTrue: false,
-          explanation: 'Tính tại các mốc cho min = -5.',
-        ),
-        TrueFalseStatement(
-          id: 'c',
-          text: 'Đồ thị có đúng 2 đường tiệm cận.',
-          isTrue: true,
-          explanation: 'Có 1 đứng và 1 ngang.',
-        ),
-        TrueFalseStatement(
-          id: 'd',
-          text: 'y\' < 0 với mọi x trong (1;3).',
-          isTrue: true,
-          explanation: 'Bảng biến thiên cho thấy hàm giảm trên khoảng này.',
-        ),
-      ],
-      generalHint: 'Chú ý lập bảng biến thiên trước khi kết luận từng mệnh đề.',
-    ),
-    isActive: true,
-  ),
-];

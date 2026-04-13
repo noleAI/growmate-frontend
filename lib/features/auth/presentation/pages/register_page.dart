@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -63,31 +64,66 @@ class _RegisterPageState extends State<RegisterPage> {
     bool hasError = false;
 
     if (name.isEmpty) {
-      setState(() => _nameError = 'Vui lòng nhập tên của bạn');
+      setState(() {
+        _nameError = context.t(
+          vi: 'Vui lòng nhập tên của bạn',
+          en: 'Please enter your name',
+        );
+      });
       hasError = true;
     }
 
     if (email.isEmpty) {
-      setState(() => _emailError = 'Vui lòng nhập email');
+      setState(() {
+        _emailError = context.t(
+          vi: 'Vui lòng nhập email',
+          en: 'Please enter your email',
+        );
+      });
       hasError = true;
     } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      setState(() => _emailError = 'Email không hợp lệ');
+      setState(() {
+        _emailError = context.t(
+          vi: 'Email không hợp lệ',
+          en: 'Invalid email address',
+        );
+      });
       hasError = true;
     }
 
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Vui lòng nhập mật khẩu');
+      setState(() {
+        _passwordError = context.t(
+          vi: 'Vui lòng nhập mật khẩu',
+          en: 'Please enter your password',
+        );
+      });
       hasError = true;
     } else if (password.length < 6) {
-      setState(() => _passwordError = 'Mật khẩu phải có ít nhất 6 ký tự');
+      setState(() {
+        _passwordError = context.t(
+          vi: 'Mật khẩu phải có ít nhất 6 ký tự',
+          en: 'Password must have at least 6 characters',
+        );
+      });
       hasError = true;
     }
 
     if (confirmPassword.isEmpty) {
-      setState(() => _confirmPasswordError = 'Vui lòng xác nhận mật khẩu');
+      setState(() {
+        _confirmPasswordError = context.t(
+          vi: 'Vui lòng xác nhận mật khẩu',
+          en: 'Please confirm your password',
+        );
+      });
       hasError = true;
     } else if (password != confirmPassword) {
-      setState(() => _confirmPasswordError = 'Mật khẩu xác nhận không khớp');
+      setState(() {
+        _confirmPasswordError = context.t(
+          vi: 'Mật khẩu xác nhận không khớp',
+          en: 'Password confirmation does not match',
+        );
+      });
       hasError = true;
     }
 
@@ -120,7 +156,10 @@ class _RegisterPageState extends State<RegisterPage> {
           if (state is AuthAuthenticated) {
             _showSoftMessage(
               context,
-              'Tài khoản đã sẵn sàng, cùng bắt đầu nhé ${state.session.displayName} 🌱',
+              context.t(
+                vi: 'Tài khoản đã sẵn sàng, cùng bắt đầu nhé ${state.session.displayName} 🌱',
+                en: 'Your account is ready. Let\'s get started, ${state.session.displayName} 🌱',
+              ),
             );
           }
         },
@@ -144,12 +183,18 @@ class _RegisterPageState extends State<RegisterPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Tạo tài khoản mới',
+                  context.t(
+                    vi: 'Tạo tài khoản mới',
+                    en: 'Create a new account',
+                  ),
                   style: theme.textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Bắt đầu hành trình học tập nhẹ nhàng',
+                  context.t(
+                    vi: 'Bắt đầu hành trình học tập nhẹ nhàng',
+                    en: 'Start your gentle learning journey',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -160,15 +205,16 @@ class _RegisterPageState extends State<RegisterPage> {
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
                   showShadow: true,
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant
-                        .withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.6),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildTextField(
                         controller: _nameController,
-                        hintText: 'Tên của bạn',
+                        hintText: context.t(vi: 'Tên của bạn', en: 'Your name'),
                         enabled: !isLoading,
                         error: _nameError,
                         textInputAction: TextInputAction.next,
@@ -176,7 +222,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 12),
                       _buildTextField(
                         controller: _emailController,
-                        hintText: 'Email',
+                        hintText: context.t(vi: 'Email', en: 'Email'),
                         enabled: !isLoading,
                         error: _emailError,
                         keyboardType: TextInputType.emailAddress,
@@ -185,7 +231,7 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 12),
                       _buildPasswordField(
                         controller: _passwordController,
-                        hintText: 'Mật khẩu',
+                        hintText: context.t(vi: 'Mật khẩu', en: 'Password'),
                         enabled: !isLoading,
                         error: _passwordError,
                         obscureText: _obscurePassword,
@@ -199,7 +245,10 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 12),
                       _buildPasswordField(
                         controller: _confirmPasswordController,
-                        hintText: 'Xác nhận mật khẩu',
+                        hintText: context.t(
+                          vi: 'Xác nhận mật khẩu',
+                          en: 'Confirm password',
+                        ),
                         enabled: !isLoading,
                         error: _confirmPasswordError,
                         obscureText: _obscureConfirmPassword,
@@ -214,8 +263,14 @@ class _RegisterPageState extends State<RegisterPage> {
                       const SizedBox(height: 16),
                       ZenButton(
                         label: isLoading
-                            ? 'Đang tạo tài khoản...'
-                            : 'Tạo tài khoản',
+                            ? context.t(
+                                vi: 'Đang tạo tài khoản...',
+                                en: 'Creating account...',
+                              )
+                            : context.t(
+                                vi: 'Tạo tài khoản',
+                                en: 'Create account',
+                              ),
                         onPressed: isLoading ? null : _submit,
                         trailing: isLoading
                             ? const SizedBox(
@@ -240,7 +295,10 @@ class _RegisterPageState extends State<RegisterPage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        'Đã có tài khoản?',
+                        context.t(
+                          vi: 'Đã có tài khoản?',
+                          en: 'Already have an account?',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -255,7 +313,7 @@ class _RegisterPageState extends State<RegisterPage> {
                             ? null
                             : () => context.pushReplacement(AppRoutes.login),
                         child: Text(
-                          'Đăng nhập',
+                          context.t(vi: 'Đăng nhập', en: 'Log in'),
                           style: TextStyle(
                             color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w700,

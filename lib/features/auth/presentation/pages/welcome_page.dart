@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -78,13 +79,19 @@ class WelcomePage extends StatelessWidget {
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGap),
                   Text(
-                    'Chào bạn đến với GrowMate',
+                    context.t(
+                      vi: 'Chào bạn đến với GrowMate',
+                      en: 'Welcome to GrowMate',
+                    ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineMedium,
                   ),
                   const SizedBox(height: GrowMateLayout.space16),
                   Text(
-                    'Học nhẹ hơn, đều hơn, và vẫn hiệu quả từng ngày.',
+                    context.t(
+                      vi: 'Học nhẹ hơn, đều hơn, và vẫn hiệu quả từng ngày.',
+                      en: 'Study gently, stay consistent, and keep improving every day.',
+                    ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: theme.colorScheme.onSurfaceVariant,
@@ -101,40 +108,24 @@ class WelcomePage extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   ZenButton(
-                    label: 'Đăng nhập',
+                    label: context.t(vi: 'Đăng nhập', en: 'Log in'),
                     onPressed: () => context.push(AppRoutes.login),
                   ),
                   const SizedBox(height: 12),
                   ZenButton(
-                    label: 'Tạo tài khoản',
+                    label: context.t(vi: 'Tạo tài khoản', en: 'Create account'),
                     variant: ZenButtonVariant.secondary,
                     onPressed: () => context.push(AppRoutes.register),
-                  ),
-                  const SizedBox(height: 10),
-                  ZenButton(
-                    label: 'Tiếp tục với Google',
-                    variant: ZenButtonVariant.text,
-                    leading: Icon(
-                      Icons.g_mobiledata_rounded,
-                      color: theme.colorScheme.primary,
-                      size: 30,
-                    ),
-                    onPressed: () {
-                      ScaffoldMessenger.of(context).showSnackBar(
-                        const SnackBar(
-                          content: Text(
-                            'Tính năng Google Sign-In sẽ sớm có trong bản tiếp theo ✨',
-                          ),
-                        ),
-                      );
-                    },
                   ),
                 ],
               ),
             ),
             const SizedBox(height: GrowMateLayout.space16),
             Text(
-              'Mỗi phiên học chỉ cần một nhịp nhỏ, bạn đang làm rất tốt rồi.',
+              context.t(
+                vi: 'Mỗi phiên học chỉ cần một nhịp nhỏ, bạn đang làm rất tốt rồi.',
+                en: 'Each study session only needs a small step, and you are doing great.',
+              ),
               textAlign: TextAlign.center,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,

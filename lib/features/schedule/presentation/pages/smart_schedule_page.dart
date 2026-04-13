@@ -197,9 +197,7 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
                   ),
                 ),
                 IconButton(
-                  onPressed: () {
-                    _repository.deleteItem(item.id);
-                  },
+                  onPressed: () => _confirmDelete(context, item),
                   icon: Icon(
                     Icons.delete_outline_rounded,
                     color: theme.colorScheme.onSurfaceVariant,
@@ -212,6 +210,62 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
         ),
       ),
     );
+  }
+
+  Future<void> _confirmDelete(
+    BuildContext context,
+    StudyScheduleItem item,
+  ) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (dialogContext) => AlertDialog(
+        icon: Icon(
+          Icons.warning_amber_rounded,
+          color: Theme.of(context).colorScheme.error,
+        ),
+        title: Text(context.t(vi: 'Xóa mốc?', en: 'Delete milestone?')),
+        content: Text(
+          context.t(
+            vi: 'Bạn có chắc muốn xóa "${item.title}"? Hành động này không thể hoàn tác.',
+            en: 'Are you sure you want to delete "${item.title}"? This action cannot be undone.',
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(dialogContext).pop(false),
+            child: Text(
+              context.t(vi: 'Hủy', en: 'Cancel'),
+              style: TextStyle(color: Theme.of(context).colorScheme.primary),
+            ),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(dialogContext).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(context).colorScheme.error,
+              foregroundColor: Theme.of(context).colorScheme.onError,
+            ),
+            child: Text(context.t(vi: 'Xóa', en: 'Delete')),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed == true && context.mounted) {
+      await _repository.deleteItem(item.id);
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(
+              context.t(
+                vi: 'Đã xóa mốc "${item.title}"',
+                en: 'Deleted "${item.title}"',
+              ),
+            ),
+            behavior: SnackBarBehavior.floating,
+          ),
+        );
+      }
+    }
   }
 
   Future<void> _showCreateDialog() async {

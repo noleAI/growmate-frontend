@@ -3,9 +3,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/i18n/app_language_cubit.dart';
 import '../../app/i18n/app_strings.dart';
 import '../../app/router/app_routes.dart';
+import '../../app/theme/app_theme.dart';
 import '../../app/theme/color_palette_cubit.dart';
 import '../../app/theme/theme_mode_cubit.dart';
 import '../../core/constants/layout.dart';
@@ -101,16 +101,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   Color _successSnackBackground(BuildContext context) {
-    return const Color(0xFF14532D);
+    return Theme.of(context).colorScheme.primary;
   }
 
   Color _errorSnackBackground(BuildContext context) {
-    return const Color(0xFF7F1D1D);
+    return Theme.of(context).colorScheme.error;
   }
 
-  TextStyle? _snackTextStyle(BuildContext context) {
+  TextStyle? _snackTextStyle(
+    BuildContext context, {
+    bool isError = false,
+    Color? colorOverride,
+  }) {
+    final colors = Theme.of(context).colorScheme;
     return Theme.of(context).textTheme.bodyMedium?.copyWith(
-      color: Colors.white,
+      color: colorOverride ?? (isError ? colors.onError : colors.onPrimary),
       fontWeight: FontWeight.w600,
     );
   }
@@ -204,48 +209,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  String _languageLabel(BuildContext context, AppLanguage language) {
-    final strings = AppStrings.of(context);
-    switch (language) {
-      case AppLanguage.vietnamese:
-        return strings.languageVietnamese;
-      case AppLanguage.english:
-        return strings.languageEnglish;
-    }
-  }
-
-  String _languageChangedMessage(BuildContext context, AppLanguage language) {
-    switch (language) {
-      case AppLanguage.vietnamese:
-        return 'Đã chuyển sang Tiếng Việt.';
-      case AppLanguage.english:
-        return 'Switched to English.';
-    }
-  }
-
-  void _showAvatarComingSoon() {
-    if (!mounted) {
-      return;
-    }
-
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            _t(
-              context,
-              vi: 'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
-              en: 'Avatar customization will arrive in a future release.',
-            ),
-            style: _snackTextStyle(context),
-          ),
-          backgroundColor: _successSnackBackground(context),
-          behavior: SnackBarBehavior.floating,
-        ),
-      );
-  }
-
   @override
   void dispose() {
     _fullNameController.dispose();
@@ -333,7 +296,10 @@ class _ProfileScreenState extends State<ProfileScreen> {
               ..hideCurrentSnackBar()
               ..showSnackBar(
                 SnackBar(
-                  content: Text(state.message, style: _snackTextStyle(context)),
+                  content: Text(
+                    state.message,
+                    style: _snackTextStyle(context, isError: true),
+                  ),
                   backgroundColor: _errorSnackBackground(context),
                   behavior: SnackBarBehavior.floating,
                 ),
@@ -531,13 +497,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final avatarUrl = profile?.avatarUrl?.trim();
     final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
     final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'B';
+    final theme = Theme.of(context);
     final colors = Theme.of(context).colorScheme;
 
     return Row(
       children: [
         InkWell(
           borderRadius: BorderRadius.circular(999),
-          onTap: _showAvatarComingSoon,
+          onTap: null,
           child: Container(
             width: 52,
             height: 52,
@@ -569,12 +536,30 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
         const SizedBox(width: 12),
         Expanded(
-          child: Text(
-            _t(context, vi: 'Chào $name', en: 'Hi $name'),
-            style: Theme.of(context).textTheme.titleLarge?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _t(context, vi: 'CHÀO MỪNG TRỞ LẠI', en: 'WELCOME BACK'),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 1.0,
+                ),
+              ),
+              const SizedBox(height: 2),
+              Text(
+                name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
           ),
         ),
         _IconCircleButton(
@@ -998,7 +983,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       tier == 'free'
                           ? _toTierLabel(tier)
-                          : '${_toTierLabel(tier)} (${_t(context, vi: 'Sắp có', en: 'Coming soon')})',
+                          : '${_toTierLabel(tier)} (${_t(context, vi: 'Chưa khả dụng', en: 'Unavailable')})',
                     ),
                   ),
                 )
@@ -1027,8 +1012,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             content: Text(
                               _t(
                                 context,
-                                vi: 'Gói ${_toTierLabel(value)} sẽ có trong bản cập nhật sau.',
-                                en: '${_toTierLabel(value)} plan will be available in a future update.',
+                                vi: 'Gói ${_toTierLabel(value)} chưa khả dụng trong phiên bản hiện tại.',
+                                en: '${_toTierLabel(value)} plan is not available in the current version.',
                               ),
                               style: _snackTextStyle(context),
                             ),
@@ -1098,7 +1083,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     final inspectionCubit = _tryGetInspectionCubit(context);
     final themeModeCubit = context.read<ThemeModeCubit>();
     final colorPaletteCubit = context.read<ColorPaletteCubit>();
-    final languageCubit = context.read<AppLanguageCubit>();
     final offlineRepository = OfflineModeRepository.instance;
     const settingContentInset = 46.0;
 
@@ -1216,91 +1200,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           const Divider(height: 1, color: Color(0x1464748B)),
-          BlocBuilder<AppLanguageCubit, AppLanguage>(
-            builder: (context, language) {
-              return Padding(
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 2,
-                  vertical: 16,
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _settingFieldHeader(
-                      icon: Icons.language_rounded,
-                      title: _t(context, vi: 'Ngôn ngữ', en: 'Language'),
-                    ),
-                    const SizedBox(height: 6),
-                    Padding(
-                      padding: const EdgeInsets.only(left: settingContentInset),
-                      child: Text(
-                        _t(
-                          context,
-                          vi: 'Chuyển nhanh giữa Tiếng Việt và English.',
-                          en: 'Switch quickly between Vietnamese and English.',
-                        ),
-                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 12),
-                    Padding(
-                      padding: const EdgeInsets.only(left: settingContentInset),
-                      child: DropdownButtonFormField<AppLanguage>(
-                        initialValue: language,
-                        decoration: _softFieldDecoration(),
-                        style: _dropdownValueStyle(context),
-                        icon: Icon(
-                          Icons.keyboard_arrow_down_rounded,
-                          color: theme.colorScheme.onSurfaceVariant,
-                        ),
-                        items: AppLanguage.values
-                            .map(
-                              (option) => DropdownMenuItem<AppLanguage>(
-                                value: option,
-                                child: _dropdownOptionText(
-                                  context,
-                                  _languageLabel(context, option),
-                                ),
-                              ),
-                            )
-                            .toList(growable: false),
-                        onChanged: isProcessing
-                            ? null
-                            : (value) async {
-                                if (value == null) {
-                                  return;
-                                }
-
-                                await languageCubit.setLanguage(value);
-
-                                if (!context.mounted) {
-                                  return;
-                                }
-
-                                ScaffoldMessenger.of(context)
-                                  ..hideCurrentSnackBar()
-                                  ..showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        _languageChangedMessage(context, value),
-                                        style: _snackTextStyle(context),
-                                      ),
-                                      backgroundColor: _successSnackBackground(
-                                        context,
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                              },
-                      ),
-                    ),
-                  ],
-                ),
-              );
-            },
-          ),
           const Divider(height: 1, color: Color(0x1464748B)),
           BlocBuilder<ColorPaletteCubit, AppColorPalette>(
             builder: (context, palette) {
@@ -1365,9 +1264,20 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                                 await colorPaletteCubit.setPalette(value);
 
+                                // Wait one frame so ThemeData reflects the newly selected palette.
+                                await WidgetsBinding.instance.endOfFrame;
+
                                 if (!context.mounted) {
                                   return;
                                 }
+
+                                final isDarkMode =
+                                    Theme.of(context).brightness ==
+                                    Brightness.dark;
+                                final nextTheme = isDarkMode
+                                    ? AppTheme.darkThemeFor(value)
+                                    : AppTheme.lightThemeFor(value);
+                                final nextColorScheme = nextTheme.colorScheme;
 
                                 ScaffoldMessenger.of(context)
                                   ..hideCurrentSnackBar()
@@ -1375,11 +1285,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                     SnackBar(
                                       content: Text(
                                         _paletteChangedMessage(context, value),
-                                        style: _snackTextStyle(context),
+                                        style: _snackTextStyle(
+                                          context,
+                                          colorOverride:
+                                              nextColorScheme.onPrimary,
+                                        ),
                                       ),
-                                      backgroundColor: _successSnackBackground(
-                                        context,
-                                      ),
+                                      backgroundColor: nextColorScheme.primary,
                                       behavior: SnackBarBehavior.floating,
                                     ),
                                   );
@@ -1768,7 +1680,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 vi: 'Mình chưa xóa được tài khoản lúc này, bạn thử lại giúp mình nhé.',
                 en: 'Unable to delete the account right now. Please try again.',
               ),
-              style: _snackTextStyle(context),
+              style: _snackTextStyle(context, isError: true),
             ),
             backgroundColor: _errorSnackBackground(context),
             behavior: SnackBarBehavior.floating,

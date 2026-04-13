@@ -15,6 +15,9 @@ import 'core/network/api_service.dart';
 import 'core/network/mock_api_service.dart';
 import 'core/services/real_api_service.dart';
 import 'core/services/supabase_hybrid_api_service.dart';
+import 'core/services/learning_session_manager.dart';
+import 'core/storage/auth_token_storage.dart';
+import 'core/widgets/network_status_indicator.dart';
 import 'data/repositories/profile_repository.dart';
 import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
@@ -28,6 +31,8 @@ import 'features/privacy/data/repositories/privacy_repository.dart';
 import 'features/quiz/data/repositories/quiz_repository.dart';
 import 'features/session/data/repositories/session_history_repository.dart';
 
+// ===== Feature Flags =====
+// Chuyển useMockApi = false khi backend REST API sẵn sàng
 const bool useMockApi = true;
 const bool useSupabaseRpcDataPlane = true;
 const String _supabaseUrlFromDefine = String.fromEnvironment('SUPABASE_URL');
@@ -76,11 +81,15 @@ class _GrowMateAppState extends State<GrowMateApp> {
   late final OfflineModeRepository _offlineModeRepository;
   late final SessionHistoryRepository _sessionHistoryRepository;
   late final PrivacyRepository _privacyRepository;
+  late final LearningSessionManager _sessionManager;
   InspectionCubit? _inspectionCubit;
   late final AuthBloc _authBloc;
   ThemeModeCubit? _themeModeCubit;
   ColorPaletteCubit? _colorPaletteCubit;
   AppLanguageCubit? _appLanguageCubit;
+
+  // Session ID sẽ được lấy động từ SessionManager
+  String? _activeSessionId;
 
   late final QuizRepository _quizRepository;
   late final DiagnosisRepository _diagnosisRepository;
@@ -114,20 +123,86 @@ class _GrowMateAppState extends State<GrowMateApp> {
   AppLanguageCubit get _resolvedAppLanguageCubit =>
       _appLanguageCubit ??= AppLanguageCubit()..loadLanguage();
 
-  @override
-  void initState() {
-    super.initState();
-
+  /// Khởi tạo API service với token injection (cho production REST API)
+  ApiService _buildApiService() {
     final mockApiService = MockApiService(
       scenario: MockDiagnosisScenario.autoCycle,
     );
 
-    _apiService = useMockApi
-        ? (useSupabaseRpcDataPlane
-              ? SupabaseHybridApiService(fallbackApiService: mockApiService)
-              : mockApiService)
-        : RealApiService(baseUrl: 'https://api.example.com/v1');
+    if (useMockApi) {
+      return useSupabaseRpcDataPlane
+          ? SupabaseHybridApiService(fallbackApiService: mockApiService)
+          : mockApiService;
+    }
 
+    // Production REST API với token injection
+    return RealApiService(
+      getAccessToken: GlobalTokenStorage.instance.getAccessToken,
+      getRefreshToken: GlobalTokenStorage.instance.getRefreshToken,
+      onTokenRefresh: (newAccess, newRefresh) async {
+        // Supabase tự handle token refresh, nhưng nếu dùng custom backend:
+        // Lưu tokens mới vào secure storage
+        debugPrint('🔄 Tokens refreshed');
+      },
+    );
+  }
+
+  /// Khởi tạo repositories với session ID động
+  Future<void> _initializeRepositories() async {
+    // Lấy hoặc tạo learning session
+    _activeSessionId = await _sessionManager.getActiveSessionId();
+
+    _quizRepository = QuizRepository(
+      apiService: _apiService,
+      sessionId: _activeSessionId!,
+    );
+
+    _diagnosisRepository = DiagnosisRepository(
+      apiService: _apiService,
+      sessionId: _activeSessionId!,
+    );
+
+    _interventionRepository = InterventionRepository(
+      apiService: _apiService,
+      sessionId: _activeSessionId!,
+    );
+
+    // Flush queued signals từ offline mode
+    unawaited(
+      _offlineModeRepository.flushQueuedSignals(
+        submitter: (queuedSignals) {
+          return _apiService.submitSignals(
+            sessionId: _activeSessionId!,
+            signals: queuedSignals,
+          );
+        },
+      ),
+    );
+  }
+
+  Future<void> _bootstrapDependencies() async {
+    try {
+      await _initializeRepositories();
+    } catch (error) {
+      debugPrint('❌ Lỗi khởi tạo repositories: $error');
+    }
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _appRouter = _buildAppRouter();
+      _didInitializeDependencies = true;
+    });
+  }
+
+  @override
+  void initState() {
+    super.initState();
+
+    _sessionManager = SessionManager.instance;
+    _apiService = _buildApiService();
     _authRepository = AuthRepository();
     _profileRepository = ProfileRepository();
     _notificationRepository = NotificationRepository.instance;
@@ -144,34 +219,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
     unawaited(_notificationRepository.bootstrap());
 
-    _quizRepository = QuizRepository(
-      apiService: _apiService,
-      sessionId: 'session_demo_001',
-    );
-
-    _diagnosisRepository = DiagnosisRepository(
-      apiService: _apiService,
-      sessionId: 'session_demo_001',
-    );
-
-    _interventionRepository = InterventionRepository(
-      apiService: _apiService,
-      sessionId: 'session_demo_001',
-    );
-
-    unawaited(
-      _offlineModeRepository.flushQueuedSignals(
-        submitter: (queuedSignals) {
-          return _apiService.submitSignals(
-            sessionId: 'session_demo_001',
-            signals: queuedSignals,
-          );
-        },
-      ),
-    );
-
-    _appRouter = _buildAppRouter();
-    _didInitializeDependencies = true;
+    // Khởi tạo repositories với session ID động
+    unawaited(_bootstrapDependencies());
   }
 
   @override
@@ -198,6 +247,13 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
   @override
   Widget build(BuildContext context) {
+    // Chờ initialization hoàn tất
+    if (!_didInitializeDependencies) {
+      return const MaterialApp(
+        home: Scaffold(body: Center(child: CircularProgressIndicator())),
+      );
+    }
+
     return MultiBlocProvider(
       providers: [
         BlocProvider<AuthBloc>.value(value: _authBloc),
@@ -228,6 +284,19 @@ class _GrowMateAppState extends State<GrowMateApp> {
                     darkTheme: AppTheme.darkThemeFor(palette),
                     themeMode: themeMode,
                     routerConfig: _appRouter.router,
+                    builder: (context, child) {
+                      return Stack(
+                        children: [
+                          child ?? const SizedBox.shrink(),
+                          const Positioned(
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            child: NetworkStatusIndicator(),
+                          ),
+                        ],
+                      );
+                    },
                   );
                 },
               );

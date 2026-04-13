@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../app/i18n/app_language_cubit.dart';
 import '../../app/i18n/build_context_i18n.dart';
 import '../../app/router/app_routes.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
@@ -15,11 +16,17 @@ class GrowMateTopAppBar extends StatelessWidget {
     this.userName,
     this.onNotificationTap,
     this.onInspectionTap,
+    this.appleStyle = false,
+    this.avatarNotificationOnly = false,
+    this.showInsightInDev = false,
   });
 
   final String? userName;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onInspectionTap;
+  final bool appleStyle;
+  final bool avatarNotificationOnly;
+  final bool showInsightInDev;
 
   @override
   Widget build(BuildContext context) {
@@ -35,6 +42,9 @@ class GrowMateTopAppBar extends StatelessWidget {
         userName: _normalizeDisplayName(userName),
         onNotificationTap: onNotificationTap,
         onInspectionTap: onInspectionTap,
+        appleStyle: appleStyle,
+        avatarNotificationOnly: avatarNotificationOnly,
+        showInsightInDev: showInsightInDev,
       );
     }
 
@@ -58,6 +68,9 @@ class GrowMateTopAppBar extends StatelessWidget {
           userName: _normalizeDisplayName(userName ?? nameFromState),
           onNotificationTap: onNotificationTap,
           onInspectionTap: onInspectionTap,
+          appleStyle: appleStyle,
+          avatarNotificationOnly: avatarNotificationOnly,
+          showInsightInDev: showInsightInDev,
         );
       },
     );
@@ -82,42 +95,178 @@ class GrowMateTopAppBar extends StatelessWidget {
 class _TopAppBarBody extends StatelessWidget {
   const _TopAppBarBody({
     required this.userName,
+    required this.appleStyle,
+    required this.avatarNotificationOnly,
+    required this.showInsightInDev,
     this.onNotificationTap,
     this.onInspectionTap,
   });
 
   final String userName;
+  final bool appleStyle;
+  final bool avatarNotificationOnly;
+  final bool showInsightInDev;
   final VoidCallback? onNotificationTap;
   final VoidCallback? onInspectionTap;
   static final NotificationRepository _notificationRepository =
       NotificationRepository.instance;
 
-  void _showAvatarComingSoon(BuildContext context) {
+  Widget _buildAvatar(BuildContext context, {double size = 40}) {
     final theme = Theme.of(context);
-    ScaffoldMessenger.of(context)
-      ..hideCurrentSnackBar()
-      ..showSnackBar(
-        SnackBar(
-          content: Text(
-            context.t(
-              vi: 'Tính năng avatar sẽ phát triển trong bản ra mắt sau.',
-              en: 'Avatar customization will be available in a future release.',
-            ),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: theme.colorScheme.onSurface,
-              fontWeight: FontWeight.w600,
+    final colors = theme.colorScheme;
+
+    return InkWell(
+      borderRadius: BorderRadius.circular(999),
+      onTap: () => context.push(AppRoutes.profile),
+      child: Semantics(
+        label: context.t(vi: 'Avatar tài khoản', en: 'Account avatar'),
+        child: Container(
+          width: size,
+          height: size,
+          decoration: BoxDecoration(
+            shape: BoxShape.circle,
+            color: colors.primaryContainer,
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: 0.08),
+                blurRadius: 14,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          alignment: Alignment.center,
+          child: Text(
+            userName.isEmpty ? 'B' : userName.substring(0, 1).toUpperCase(),
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colors.onPrimaryContainer,
+              fontWeight: FontWeight.w800,
             ),
           ),
-          backgroundColor: theme.colorScheme.surfaceContainerHigh,
-          behavior: SnackBarBehavior.floating,
         ),
-      );
+      ),
+    );
+  }
+
+  Widget _buildNotificationButton(BuildContext context) {
+    return StreamBuilder<List<AppNotification>>(
+      stream: _notificationRepository.watchNotifications(),
+      builder: (context, snapshot) {
+        final notifications = snapshot.data ?? const <AppNotification>[];
+        final hasUnread = notifications.any((item) => !item.isRead);
+
+        return _AppBarIconButton(
+          onPressed:
+              onNotificationTap ??
+              () {
+                context.push(AppRoutes.notifications);
+              },
+          icon: Icons.notifications_none_rounded,
+          showBadge: hasUnread,
+        );
+      },
+    );
   }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final screenWidth = MediaQuery.of(context).size.width;
+    final languageSwitchWidth = screenWidth < 410 ? 96.0 : 120.0;
+
+    if (appleStyle) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            _buildAvatar(context, size: 42),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.t(vi: 'CHÀO MỪNG TRỞ LẠI', en: 'WELCOME BACK'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w800,
+                      height: 1.05,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(width: 8),
+            _LanguageSegmentedSwitch(width: languageSwitchWidth),
+            if (showInsightInDev && onInspectionTap != null) ...[
+              const SizedBox(width: 6),
+              _AppBarIconButton(
+                onPressed: onInspectionTap,
+                icon: Icons.insights_rounded,
+              ),
+            ],
+            const SizedBox(width: 2),
+            _buildNotificationButton(context),
+          ],
+        ),
+      );
+    }
+
+    if (avatarNotificationOnly) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 2),
+        child: Row(
+          children: [
+            _buildAvatar(context, size: 42),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    context.t(vi: 'CHÀO MỪNG TRỞ LẠI', en: 'WELCOME BACK'),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 1.0,
+                    ),
+                  ),
+                  const SizedBox(height: 1),
+                  Text(
+                    userName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onSurface,
+                      fontWeight: FontWeight.w800,
+                      height: 1.05,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+            _buildNotificationButton(context),
+          ],
+        ),
+      );
+    }
 
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 13),
@@ -136,7 +285,7 @@ class _TopAppBarBody extends StatelessWidget {
         children: [
           InkWell(
             borderRadius: BorderRadius.circular(999),
-            onTap: () => _showAvatarComingSoon(context),
+            onTap: () => context.push(AppRoutes.profile),
             child: Semantics(
               label: context.t(vi: 'Avatar tài khoản', en: 'Account avatar'),
               child: Container(
@@ -189,25 +338,114 @@ class _TopAppBarBody extends StatelessWidget {
               onPressed: onInspectionTap,
               icon: Icons.insights_rounded,
             ),
-          StreamBuilder<List<AppNotification>>(
-            stream: _notificationRepository.watchNotifications(),
-            builder: (context, snapshot) {
-              final notifications = snapshot.data ?? const <AppNotification>[];
-              final hasUnread = notifications.any((item) => !item.isRead);
-
-              return _AppBarIconButton(
-                onPressed:
-                    onNotificationTap ??
-                    () {
-                      context.push(AppRoutes.notifications);
-                    },
-                icon: Icons.notifications_none_rounded,
-                showBadge: hasUnread,
-              );
-            },
-          ),
+          _buildNotificationButton(context),
         ],
       ),
+    );
+  }
+}
+
+class _LanguageSegmentedSwitch extends StatelessWidget {
+  const _LanguageSegmentedSwitch({this.width = 120});
+
+  final double width;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isDark = Theme.of(context).brightness == Brightness.dark;
+    final locale = Localizations.localeOf(context);
+    final fallbackLanguage = locale.languageCode.toLowerCase().startsWith('en')
+        ? AppLanguage.english
+        : AppLanguage.vietnamese;
+
+    AppLanguageCubit? languageCubit;
+    try {
+      languageCubit = context.read<AppLanguageCubit>();
+    } catch (_) {
+      languageCubit = null;
+    }
+
+    Widget buildSwitch({
+      required AppLanguage language,
+      required ValueChanged<AppLanguage>? onChanged,
+    }) {
+      Widget buildOption({required AppLanguage value, required String label}) {
+        final selected = language == value;
+
+        return Expanded(
+          child: GestureDetector(
+            behavior: HitTestBehavior.opaque,
+            onTap: selected || onChanged == null
+                ? null
+                : () {
+                    onChanged(value);
+                  },
+            child: AnimatedContainer(
+              duration: const Duration(milliseconds: 180),
+              curve: Curves.easeOut,
+              margin: const EdgeInsets.all(4),
+              decoration: BoxDecoration(
+                color: selected ? colors.primary : Colors.transparent,
+                borderRadius: BorderRadius.circular(16),
+              ),
+              alignment: Alignment.center,
+              child: Text(
+                label,
+                style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                  color: selected ? colors.onPrimary : colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                  letterSpacing: 0.4,
+                ),
+              ),
+            ),
+          ),
+        );
+      }
+
+      return Semantics(
+        label: context.t(vi: 'Chuyển ngôn ngữ', en: 'Switch language'),
+        child: Container(
+          width: width,
+          height: 48,
+          decoration: BoxDecoration(
+            color: Colors.white.withValues(alpha: isDark ? 0.24 : 0.96),
+            borderRadius: BorderRadius.circular(24),
+            border: Border.all(
+              color: Colors.white.withValues(alpha: isDark ? 0.36 : 0.92),
+            ),
+            boxShadow: [
+              BoxShadow(
+                color: colors.shadow.withValues(alpha: isDark ? 0.22 : 0.08),
+                blurRadius: 16,
+                offset: Offset(0, 6),
+              ),
+            ],
+          ),
+          child: Row(
+            children: [
+              buildOption(value: AppLanguage.vietnamese, label: 'VI'),
+              buildOption(value: AppLanguage.english, label: 'EN'),
+            ],
+          ),
+        ),
+      );
+    }
+
+    if (languageCubit == null) {
+      return buildSwitch(language: fallbackLanguage, onChanged: null);
+    }
+
+    return BlocBuilder<AppLanguageCubit, AppLanguage>(
+      bloc: languageCubit,
+      builder: (context, language) {
+        return buildSwitch(
+          language: language,
+          onChanged: (value) {
+            languageCubit?.setLanguage(value);
+          },
+        );
+      },
     );
   }
 }

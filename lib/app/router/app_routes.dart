@@ -21,6 +21,8 @@ class AppRoutes {
   static const String mindfulBreak = '/mindful-break';
 
   static const String quiz = '/quiz';
+  static const String spacedReview = '/review';
+  static const String achievements = '/achievements';
   static const String recovery = '/recovery';
   static const String diagnosis = '/diagnosis';
   static const String intervention = '/intervention';

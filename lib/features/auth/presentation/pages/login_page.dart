@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
+import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -50,15 +51,30 @@ class _LoginPageState extends State<LoginPage> {
     bool hasError = false;
 
     if (email.isEmpty) {
-      setState(() => _emailError = 'Vui lòng nhập email');
+      setState(() {
+        _emailError = context.t(
+          vi: 'Vui lòng nhập email',
+          en: 'Please enter your email',
+        );
+      });
       hasError = true;
     } else if (!RegExp(r'^[\w-\.]+@([\w-]+\.)+[\w-]{2,4}$').hasMatch(email)) {
-      setState(() => _emailError = 'Email không hợp lệ');
+      setState(() {
+        _emailError = context.t(
+          vi: 'Email không hợp lệ',
+          en: 'Invalid email address',
+        );
+      });
       hasError = true;
     }
 
     if (password.isEmpty) {
-      setState(() => _passwordError = 'Vui lòng nhập mật khẩu');
+      setState(() {
+        _passwordError = context.t(
+          vi: 'Vui lòng nhập mật khẩu',
+          en: 'Please enter your password',
+        );
+      });
       hasError = true;
     }
 
@@ -89,7 +105,10 @@ class _LoginPageState extends State<LoginPage> {
           if (state is AuthAuthenticated) {
             _showSoftMessage(
               context,
-              'Chào mừng bạn quay lại, ${state.session.displayName} ✨',
+              context.t(
+                vi: 'Chào mừng bạn quay lại, ${state.session.displayName} ✨',
+                en: 'Welcome back, ${state.session.displayName} ✨',
+              ),
             );
           }
         },
@@ -113,12 +132,15 @@ class _LoginPageState extends State<LoginPage> {
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'Chào mừng bạn quay lại',
+                  context.t(vi: 'Chào mừng bạn quay lại', en: 'Welcome back'),
                   style: theme.textTheme.headlineMedium,
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  'Mình tiếp tục hành trình nhé',
+                  context.t(
+                    vi: 'Mình tiếp tục hành trình nhé',
+                    en: 'Let us continue your learning journey',
+                  ),
                   style: theme.textTheme.bodyLarge?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
@@ -129,15 +151,16 @@ class _LoginPageState extends State<LoginPage> {
                   padding: const EdgeInsets.fromLTRB(18, 18, 18, 14),
                   showShadow: true,
                   border: Border.all(
-                    color: Theme.of(context).colorScheme.outlineVariant
-                        .withValues(alpha: 0.6),
+                    color: Theme.of(
+                      context,
+                    ).colorScheme.outlineVariant.withValues(alpha: 0.6),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       _buildTextField(
                         controller: _emailController,
-                        hintText: 'Email',
+                        hintText: context.t(vi: 'Email', en: 'Email'),
                         enabled: !isLoading,
                         error: _emailError,
                         keyboardType: TextInputType.emailAddress,
@@ -146,7 +169,7 @@ class _LoginPageState extends State<LoginPage> {
                       const SizedBox(height: 12),
                       _buildTextField(
                         controller: _passwordController,
-                        hintText: 'Mật khẩu',
+                        hintText: context.t(vi: 'Mật khẩu', en: 'Password'),
                         enabled: !isLoading,
                         error: _passwordError,
                         obscureText: _obscurePassword,
@@ -166,7 +189,10 @@ class _LoginPageState extends State<LoginPage> {
                               ? null
                               : () => context.push(AppRoutes.forgotPassword),
                           child: Text(
-                            'Quên mật khẩu?',
+                            context.t(
+                              vi: 'Quên mật khẩu?',
+                              en: 'Forgot password?',
+                            ),
                             style: TextStyle(
                               color: theme.colorScheme.primary,
                               fontWeight: FontWeight.w700,
@@ -176,7 +202,12 @@ class _LoginPageState extends State<LoginPage> {
                         ),
                       ),
                       ZenButton(
-                        label: isLoading ? 'Đang đăng nhập...' : 'Đăng nhập',
+                        label: isLoading
+                            ? context.t(
+                                vi: 'Đang đăng nhập...',
+                                en: 'Signing in...',
+                              )
+                            : context.t(vi: 'Đăng nhập', en: 'Log in'),
                         onPressed: isLoading ? null : _submit,
                         trailing: isLoading
                             ? const SizedBox(
@@ -201,7 +232,10 @@ class _LoginPageState extends State<LoginPage> {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       Text(
-                        'Chưa có tài khoản?',
+                        context.t(
+                          vi: 'Chưa có tài khoản?',
+                          en: 'Do not have an account?',
+                        ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
@@ -216,7 +250,7 @@ class _LoginPageState extends State<LoginPage> {
                             ? null
                             : () => context.pushReplacement(AppRoutes.register),
                         child: Text(
-                          'Đăng ký',
+                          context.t(vi: 'Đăng ký', en: 'Sign up'),
                           style: TextStyle(
                             color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w700,

@@ -59,11 +59,15 @@ class _RecoveryScreenState extends State<RecoveryScreen>
 
     return Scaffold(
       body: Container(
-        decoration: const BoxDecoration(
+        decoration: BoxDecoration(
           gradient: LinearGradient(
             begin: Alignment.topCenter,
             end: Alignment.bottomCenter,
-            colors: [Color(0xFFFFF9EF), Color(0xFFFFF2DD), Color(0xFFFFECCC)],
+            colors: [
+              theme.colorScheme.surfaceContainerLow,
+              theme.colorScheme.surface,
+              theme.colorScheme.surfaceContainerHigh,
+            ],
           ),
         ),
         child: SafeArea(
@@ -71,10 +75,20 @@ class _RecoveryScreenState extends State<RecoveryScreen>
             padding: const EdgeInsets.fromLTRB(24, 24, 24, 28),
             child: Column(
               children: [
+                // Back button
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: IconButton.filledTonal(
+                    onPressed: () => context.pop(),
+                    icon: const Icon(Icons.close_rounded),
+                    tooltip: context.t(vi: 'Đóng', en: 'Close'),
+                  ),
+                ),
+                const SizedBox(height: 8),
                 Text(
                   context.t(vi: 'Chế độ phục hồi', en: 'Recovery mode'),
                   style: theme.textTheme.headlineLarge?.copyWith(
-                    color: const Color(0xFF7C4A14),
+                    color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
                 const SizedBox(height: 8),
@@ -85,7 +99,7 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                   ),
                   textAlign: TextAlign.center,
                   style: theme.textTheme.bodyLarge?.copyWith(
-                    color: const Color(0xFF8B5E2F),
+                    color: theme.colorScheme.onSurfaceVariant,
                     height: 1.45,
                   ),
                 ),
@@ -112,14 +126,19 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                           height: 228,
                           decoration: BoxDecoration(
                             shape: BoxShape.circle,
-                            gradient: const RadialGradient(
-                              colors: [Color(0xFFFFD7A5), Color(0xFFF5B971)],
+                            gradient: RadialGradient(
+                              colors: [
+                                theme.colorScheme.secondaryContainer,
+                                theme.colorScheme.secondaryContainer.withValues(
+                                  alpha: 0.85,
+                                ),
+                              ],
                             ),
                             boxShadow: [
                               BoxShadow(
-                                color: const Color(
-                                  0xFFF59E0B,
-                                ).withValues(alpha: 0.28),
+                                color: theme.colorScheme.secondary.withValues(
+                                  alpha: 0.28,
+                                ),
                                 blurRadius: 28,
                                 spreadRadius: 6,
                               ),
@@ -130,7 +149,7 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                             message,
                             textAlign: TextAlign.center,
                             style: theme.textTheme.titleLarge?.copyWith(
-                              color: const Color(0xFF7C4A14),
+                              color: theme.colorScheme.onSurfaceVariant,
                               fontSize: 27,
                               fontWeight: FontWeight.w700,
                               height: 1.2,
@@ -150,7 +169,7 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                     ),
                     textAlign: TextAlign.center,
                     style: theme.textTheme.bodyMedium?.copyWith(
-                      color: const Color(0xFF9A6634),
+                      color: theme.colorScheme.onSurfaceVariant,
                       fontWeight: FontWeight.w700,
                     ),
                   ),
@@ -161,12 +180,12 @@ class _RecoveryScreenState extends State<RecoveryScreen>
                     en: 'I am ready to return',
                   ),
                   onPressed: _finishRecovery,
-                  backgroundColor: const Color(0xFFF59E0B),
-                  shadowColor: const Color(0xFFF59E0B),
-                  textColor: Colors.white,
-                  trailing: const Icon(
+                  backgroundColor: theme.colorScheme.secondary,
+                  shadowColor: theme.colorScheme.secondary,
+                  textColor: theme.colorScheme.onSecondary,
+                  trailing: Icon(
                     Icons.arrow_forward_rounded,
-                    color: Colors.white,
+                    color: theme.colorScheme.onSecondary,
                   ),
                 ),
               ],
@@ -190,7 +209,10 @@ class _RecoveryScreenState extends State<RecoveryScreen>
           en: 'You hit a sequence of difficult questions',
         );
       default:
-        return reason;
+        return context.t(
+          vi: 'AI phát hiện bạn cần nghỉ ngơi một chút',
+          en: 'AI detected you could use a short break',
+        );
     }
   }
 }

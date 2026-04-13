@@ -20,6 +20,31 @@ void main() {
     collector.resetForTest();
   });
 
+  test('mac dinh khong thu thap khi chua co consent', () {
+    final isolatedCollector = BehavioralSignalCollector.instance;
+    isolatedCollector.resetForTest();
+
+    final isolatedBatches = <List<Map<String, dynamic>>>[];
+
+    fakeAsync((async) {
+      isolatedCollector.attachBatchSubmitter((batch) async {
+        isolatedBatches.add(
+          batch
+              .map((item) => Map<String, dynamic>.from(item))
+              .toList(growable: false),
+        );
+      });
+
+      isolatedCollector.startQuestionTimer();
+      isolatedCollector.recordKeystroke(characterCount: 5);
+
+      async.elapse(const Duration(seconds: 6));
+      async.flushMicrotasks();
+
+      expect(isolatedBatches, isEmpty);
+    });
+  });
+
   test('gom batch dung chu ky 5 giay', () {
     fakeAsync((async) {
       collector.attachBatchSubmitter((batch) async {
@@ -29,6 +54,7 @@ void main() {
               .toList(growable: false),
         );
       });
+      collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
       collector.recordKeystroke(characterCount: 5);
 
@@ -55,6 +81,7 @@ void main() {
               .toList(growable: false),
         );
       });
+      collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
       collector.recordKeystroke(characterCount: 10);
       collector.recordCorrection();
@@ -86,6 +113,7 @@ void main() {
               .toList(growable: false),
         );
       });
+      collector.setCollectionEnabled(true);
       collector.startQuestionTimer();
       collector.recordKeystroke(characterCount: 4);
 
