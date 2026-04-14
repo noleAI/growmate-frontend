@@ -32,10 +32,22 @@ import 'features/privacy/data/repositories/privacy_repository.dart';
 import 'features/quiz/data/repositories/quiz_repository.dart';
 import 'features/session/data/repositories/session_history_repository.dart';
 
+// ===== Agentic Backend Integration =====
+import 'core/network/agentic_api_service.dart';
+import 'core/network/ws_service.dart';
+import 'core/services/real_agentic_api_service.dart';
+import 'features/agentic_session/data/repositories/agentic_session_repository.dart';
+import 'features/agentic_session/presentation/cubit/agentic_session_cubit.dart';
+import 'features/agentic_session/presentation/cubit/agentic_session_state.dart';
+
 // ===== Feature Flags =====
 // Chuyển useMockApi = false khi backend REST API sẵn sàng
 const bool useMockApi = true;
 const bool useSupabaseRpcDataPlane = true;
+
+/// Bật để sử dụng agentic backend (FastAPI multi-agent).
+/// Khi true, AgenticSessionCubit sẽ được cung cấp qua BlocProvider.
+const bool useAgenticBackend = false;
 const String _supabaseUrlFromDefine = String.fromEnvironment('SUPABASE_URL');
 const String _supabaseAnonKeyFromDefine = String.fromEnvironment(
   'SUPABASE_ANON_KEY',
@@ -89,6 +101,14 @@ class _GrowMateAppState extends State<GrowMateApp> {
   ThemeModeCubit? _themeModeCubit;
   ColorPaletteCubit? _colorPaletteCubit;
   AppLanguageCubit? _appLanguageCubit;
+
+  // ===== Agentic Backend =====
+  AgenticApiService? _agenticApiService;
+  AgenticWsService? _agenticWsService;
+  AgenticSessionRepository? _agenticSessionRepository;
+  AgenticSessionCubit? _agenticSessionCubit;
+  StreamSubscription<AgenticSessionState>? _agenticPaletteSub;
+  AppColorPalette? _preRecoveryPalette;
 
   // Session ID sẽ được lấy động từ SessionManager
   String? _activeSessionId;
@@ -223,6 +243,37 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
     unawaited(_notificationRepository.bootstrap());
 
+    // ===== Agentic Backend Initialization =====
+    if (useAgenticBackend) {
+      _agenticWsService = AgenticWsService();
+      _agenticApiService = RealAgenticApiService(
+        getAccessToken: GlobalTokenStorage.instance.getAccessToken,
+        getRefreshToken: GlobalTokenStorage.instance.getRefreshToken,
+        onTokenRefresh: (newAccess, newRefresh) async {
+          debugPrint('🔄 Agentic tokens refreshed');
+        },
+      );
+      _agenticSessionRepository = AgenticSessionRepository(
+        apiService: _agenticApiService!,
+        wsService: _agenticWsService!,
+      );
+      _agenticSessionCubit = AgenticSessionCubit(
+        repository: _agenticSessionRepository!,
+      );
+      // Auto-switch to mintCream (De-Stress palette) when recovery is triggered
+      _agenticPaletteSub = _agenticSessionCubit!.stream.listen((state) {
+        final paletteCubit = _colorPaletteCubit;
+        if (paletteCubit == null) return;
+        if (state.isRecovery && _preRecoveryPalette == null) {
+          _preRecoveryPalette = paletteCubit.state;
+          unawaited(paletteCubit.setPalette(AppColorPalette.mintCream));
+        } else if (!state.isRecovery && _preRecoveryPalette != null) {
+          unawaited(paletteCubit.setPalette(_preRecoveryPalette!));
+          _preRecoveryPalette = null;
+        }
+      });
+    }
+
     // Khởi tạo repositories với session ID động
     unawaited(_bootstrapDependencies());
   }
@@ -241,6 +292,10 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
   @override
   void dispose() {
+    _agenticPaletteSub?.cancel();
+    _agenticSessionCubit?.close();
+    _agenticSessionRepository?.dispose();
+    _agenticWsService?.dispose();
     _inspectionCubit?.close();
     _authBloc.close();
     _themeModeCubit?.close();
@@ -267,6 +322,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
           value: _resolvedColorPaletteCubit,
         ),
         BlocProvider<AppLanguageCubit>.value(value: _resolvedAppLanguageCubit),
+        if (_agenticSessionCubit != null)
+          BlocProvider<AgenticSessionCubit>.value(value: _agenticSessionCubit!),
       ],
       child: BlocBuilder<ThemeModeCubit, ThemeMode>(
         builder: (context, themeMode) {

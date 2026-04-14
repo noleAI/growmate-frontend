@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
@@ -14,6 +15,8 @@ import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
+import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../data/repositories/quiz_repository.dart';
 import '../../domain/entities/quiz_question_template.dart';
 import '../../domain/usecases/thpt_math_2026_scoring.dart';
@@ -74,6 +77,8 @@ class _QuizPageState extends State<QuizPage> {
 
   Timer? _countdownTimer;
   int _previousLength = 0;
+  AgenticSessionCubit? _agenticCubit;
+  StreamSubscription<AgenticSessionState>? _agenticSub;
 
   @override
   void initState() {
@@ -111,6 +116,20 @@ class _QuizPageState extends State<QuizPage> {
 
     // Load questions from Supabase first, then initialize quiz
     unawaited(_loadQuestionsAndInit());
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Safely try to obtain AgenticSessionCubit — only present when useAgenticBackend = true.
+    if (_agenticCubit == null) {
+      try {
+        _agenticCubit = context.read<AgenticSessionCubit>();
+        _agenticSub = _agenticCubit!.stream.listen(_onAgenticStateChanged);
+      } catch (_) {
+        _agenticCubit = null;
+      }
+    }
   }
 
   Future<void> _loadQuestionsAndInit() async {
@@ -159,6 +178,11 @@ class _QuizPageState extends State<QuizPage> {
         _isLoadingQuestions = false;
         _isQuestionBankEmpty = false;
       });
+
+      // Bridge to agentic backend when enabled (no-op when cubit is absent)
+      unawaited(
+        _agenticCubit?.startSession(subject: 'math', topic: 'derivative'),
+      );
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -300,6 +324,7 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _agenticSub?.cancel();
     _signalService.stop();
     _answerFocusNode
       ..removeListener(_onAnswerFocusChanged)
@@ -419,6 +444,7 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _onTrueFalseChanged(String statementId, bool value) {
+    HapticFeedback.lightImpact();
     _signalService.registerInteraction();
     setState(() {
       _trueFalseAnswers = <String, bool>{
@@ -634,11 +660,47 @@ class _QuizPageState extends State<QuizPage> {
       _submitErrorMessage = null;
     });
 
+    HapticFeedback.mediumImpact();
     _signalService.markSubmitted();
     _quizCubit?.submitTypedAnswer(
       question: _activeQuestion!,
       userAnswer: userAnswer,
     );
+
+    // Mirror to agentic backend when enabled
+    if (_agenticCubit != null) {
+      unawaited(
+        _agenticCubit!.submitAnswer(
+          questionId: _activeQuestion!.id,
+          responseData: _buildAgenticResponseData(userAnswer),
+        ),
+      );
+    }
+  }
+
+  /// Builds the response data map for the agentic backend from a typed answer.
+  Map<String, dynamic> _buildAgenticResponseData(
+    QuizQuestionUserAnswer answer,
+  ) {
+    if (answer is MultipleChoiceUserAnswer) {
+      return <String, dynamic>{'selected_option': answer.selectedOptionId};
+    } else if (answer is TrueFalseClusterUserAnswer) {
+      return <String, dynamic>{'sub_answers': answer.subAnswers};
+    } else if (answer is ShortAnswerUserAnswer) {
+      return <String, dynamic>{'answer_text': answer.answerText};
+    }
+    return <String, dynamic>{};
+  }
+
+  /// Handles agentic session state changes from the real-time stream.
+  void _onAgenticStateChanged(AgenticSessionState state) {
+    if (!mounted) return;
+    if (state.isRecovery) {
+      final reason = Uri.encodeQueryComponent(
+        'Hệ thống AI phát hiện bạn cần nghỉ ngơi.',
+      );
+      context.go('${AppRoutes.recovery}?reason=$reason');
+    }
   }
 
   int get _answeredCount => _questionPool.where(_questionHasAnswer).length;
@@ -1416,6 +1478,7 @@ class _QuizPageState extends State<QuizPage> {
                             onTextTap: _signalService.registerInteraction,
                             selectedOptionId: _selectedOptionId,
                             onOptionSelected: (optionId) {
+                              HapticFeedback.selectionClick();
                               _signalService.registerInteraction();
                               setState(() {
                                 _selectedOptionId = optionId;

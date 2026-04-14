@@ -1,0 +1,11 @@
+# Copy this file to android/key.properties and fill in the values.
+# key.properties is listed in android/.gitignore and must NEVER be committed.
+#
+# Generate a keystore with:
+#   keytool -genkey -v -keystore <path/to/upload.keystore> \
+#     -alias upload -keyalg RSA -keysize 2048 -validity 10000
+#
+storePassword=<your-keystore-password>
+keyPassword=<your-key-password>
+keyAlias=upload
+storeFile=<absolute-or-relative-path-to-your.keystore>

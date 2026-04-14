@@ -158,63 +158,39 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                 en: 'Compact plan tree for the current session',
                               ),
                               delayMs: 70,
-                              child: Column(
-                                children: state.planSteps
-                                    .asMap()
-                                    .entries
-                                    .map(
-                                      (entry) => Padding(
-                                        padding: EdgeInsets.only(
-                                          bottom:
-                                              entry.key ==
-                                                  state.planSteps.length - 1
-                                              ? 0
-                                              : 10,
-                                        ),
-                                        child: Row(
-                                          crossAxisAlignment:
-                                              CrossAxisAlignment.start,
-                                          children: [
-                                            Container(
-                                              width: 20,
-                                              height: 20,
-                                              alignment: Alignment.center,
-                                              decoration: BoxDecoration(
-                                                color: theme
-                                                    .colorScheme
-                                                    .primaryContainer,
-                                                borderRadius:
-                                                    BorderRadius.circular(999),
-                                              ),
-                                              child: Text(
-                                                '${entry.key + 1}',
-                                                style: TextStyle(
-                                                  color:
-                                                      theme.colorScheme.primary,
-                                                  fontWeight: FontWeight.w700,
-                                                  fontSize: 11,
-                                                ),
-                                              ),
-                                            ),
-                                            const SizedBox(width: 10),
-                                            Expanded(
-                                              child: Text(
-                                                _localizedDynamicText(
-                                                  context,
-                                                  entry.value,
-                                                  fallbackEn:
-                                                      'Step ${entry.key + 1} in the current plan',
-                                                ),
-                                                style:
-                                                    theme.textTheme.bodyMedium,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
+                              child: state.planSteps.isEmpty
+                                  ? Text(
+                                      context.t(
+                                        vi: 'Chưa có kế hoạch cho phiên này.',
+                                        en: 'No plan steps for this session yet.',
                                       ),
+                                      style: theme.textTheme.bodyMedium
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                          ),
                                     )
-                                    .toList(growable: false),
-                              ),
+                                  : Column(
+                                      children: state.planSteps
+                                          .asMap()
+                                          .entries
+                                          .map(
+                                            (entry) => _PlanStepRow(
+                                              label: _localizedDynamicText(
+                                                context,
+                                                entry.value,
+                                                fallbackEn:
+                                                    'Step ${entry.key + 1} in the current plan',
+                                              ),
+                                              isLast:
+                                                  entry.key ==
+                                                  state.planSteps.length - 1,
+                                              rawText: entry.value,
+                                            ),
+                                          )
+                                          .toList(growable: false),
+                                    ),
                             ),
                             const SizedBox(height: 12),
                             InsightCard(
@@ -493,6 +469,164 @@ class _DecisionList extends StatelessWidget {
     return '$hh:$mm:$ss';
   }
 }
+
+/// A single row in the plan tree timeline visualization.
+///
+/// Parses a simple status prefix from [rawText]:
+/// - Starts with "✓" or "[done]"/"[completed]" → completed (green)
+/// - Starts with "→" or "[active]"/"[current]" → active (primary)
+/// - Otherwise → pending (neutral)
+class _PlanStepRow extends StatelessWidget {
+  const _PlanStepRow({
+    required this.label,
+    required this.isLast,
+    required this.rawText,
+  });
+
+  final String label;
+  final bool isLast;
+  final String rawText;
+
+  _PlanStepStatus get _status {
+    final lower = rawText.trim().toLowerCase();
+    if (lower.startsWith('✓') ||
+        lower.startsWith('[done]') ||
+        lower.startsWith('[completed]')) {
+      return _PlanStepStatus.completed;
+    }
+    if (lower.startsWith('→') ||
+        lower.startsWith('[active]') ||
+        lower.startsWith('[current]')) {
+      return _PlanStepStatus.active;
+    }
+    return _PlanStepStatus.pending;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final status = _status;
+
+    final Color dotColor;
+    final Color dotBorder;
+    final Color lineColor;
+    final Color bgColor;
+    final Color textColor;
+
+    switch (status) {
+      case _PlanStepStatus.completed:
+        dotColor = const Color(0xFF1E8E5B);
+        dotBorder = const Color(0xFF1E8E5B);
+        lineColor = const Color(0xFF1E8E5B);
+        bgColor = const Color(0xFFE6F6ED);
+        textColor = const Color(0xFF1E8E5B);
+        break;
+      case _PlanStepStatus.active:
+        dotColor = theme.colorScheme.primary;
+        dotBorder = theme.colorScheme.primary;
+        lineColor = theme.colorScheme.primary.withValues(alpha: 0.35);
+        bgColor = theme.colorScheme.primaryContainer;
+        textColor = theme.colorScheme.primary;
+        break;
+      case _PlanStepStatus.pending:
+        dotColor = theme.colorScheme.surfaceContainerHigh;
+        dotBorder = theme.colorScheme.outline;
+        lineColor = theme.colorScheme.surfaceContainerHigh.withValues(
+          alpha: 0.8,
+        );
+        bgColor = theme.colorScheme.surfaceContainerHigh;
+        textColor = theme.colorScheme.onSurfaceVariant;
+        break;
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Timeline column: dot + connector line
+        SizedBox(
+          width: 24,
+          child: Column(
+            children: [
+              Container(
+                width: 14,
+                height: 14,
+                margin: const EdgeInsets.only(top: 3),
+                decoration: BoxDecoration(
+                  color: status == _PlanStepStatus.pending
+                      ? Colors.transparent
+                      : dotColor,
+                  shape: BoxShape.circle,
+                  border: Border.all(color: dotBorder, width: 2),
+                ),
+                child: status == _PlanStepStatus.completed
+                    ? Icon(Icons.check_rounded, size: 8, color: Colors.white)
+                    : null,
+              ),
+              if (!isLast)
+                Container(
+                  width: 2,
+                  height: 28,
+                  margin: const EdgeInsets.symmetric(vertical: 2),
+                  decoration: BoxDecoration(
+                    color: lineColor,
+                    borderRadius: BorderRadius.circular(1),
+                  ),
+                ),
+            ],
+          ),
+        ),
+        const SizedBox(width: 8),
+        // Text + status chip
+        Expanded(
+          child: Padding(
+            padding: const EdgeInsets.only(bottom: 2, top: 1),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Expanded(
+                  child: Text(
+                    label,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      fontWeight: status == _PlanStepStatus.active
+                          ? FontWeight.w700
+                          : FontWeight.w500,
+                      color: status == _PlanStepStatus.pending
+                          ? theme.colorScheme.onSurfaceVariant
+                          : theme.colorScheme.onSurface,
+                    ),
+                  ),
+                ),
+                if (status != _PlanStepStatus.pending) ...[
+                  const SizedBox(width: 6),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 6,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bgColor,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      status == _PlanStepStatus.completed ? '✓' : '▶',
+                      style: TextStyle(
+                        color: textColor,
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+enum _PlanStepStatus { completed, active, pending }
 
 String _localizedDynamicText(
   BuildContext context,
