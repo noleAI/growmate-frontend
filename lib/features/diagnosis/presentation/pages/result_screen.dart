@@ -8,6 +8,7 @@ import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
+import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/repositories/diagnosis_repository.dart';
@@ -33,6 +34,7 @@ class _ResultScreenState extends State<ResultScreen> {
   bool _proposalPopupVisible = false;
   bool _showDecisionAnalyzing = false;
   bool _navigationTriggered = false;
+  bool _showTransitionOverlay = false;
   String? _proposalShownForDiagnosisId;
 
   @override
@@ -62,9 +64,13 @@ class _ResultScreenState extends State<ResultScreen> {
               }
 
               if (state.infoMessage != null && state.infoMessage!.isNotEmpty) {
+                final localizedInfoMessage = _localizedResultMessage(
+                  context,
+                  state.infoMessage!,
+                );
                 ScaffoldMessenger.of(context)
                   ..hideCurrentSnackBar()
-                  ..showSnackBar(SnackBar(content: Text(state.infoMessage!)));
+                  ..showSnackBar(SnackBar(content: Text(localizedInfoMessage)));
                 _resultCubit.clearInfoMessage();
               }
 
@@ -77,20 +83,11 @@ class _ResultScreenState extends State<ResultScreen> {
                 _resultCubit.clearNavigationFlag();
                 final router = GoRouter.of(context);
 
-                ScaffoldMessenger.of(context)
-                  ..hideCurrentSnackBar()
-                  ..showSnackBar(
-                    SnackBar(
-                      content: Text(
-                        context.t(
-                          vi: 'Mình chuyển bạn sang bước can thiệp nhé.',
-                          en: 'Moving you to the intervention step.',
-                        ),
-                      ),
-                    ),
-                  );
+                setState(() {
+                  _showTransitionOverlay = true;
+                });
 
-                Future<void>.delayed(const Duration(milliseconds: 720), () {
+                Future<void>.delayed(const Duration(milliseconds: 1200), () {
                   if (!mounted) {
                     return;
                   }
@@ -108,23 +105,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 return;
               }
 
-              final diagnosisId = state.result.diagnosisId;
-              if (diagnosisId.isEmpty || state.isAnalyzingFeedback) {
-                return;
-              }
-
-              if (_proposalShownForDiagnosisId == diagnosisId ||
-                  _proposalPopupVisible) {
-                return;
-              }
-
-              _proposalShownForDiagnosisId = diagnosisId;
-              WidgetsBinding.instance.addPostFrameCallback((_) {
-                if (!mounted) {
-                  return;
-                }
-                _showDecisionMoment(state.result);
-              });
+              // Modal is now triggered manually via CTA button.
             },
             builder: (context, state) {
               final theme = Theme.of(context);
@@ -144,8 +125,15 @@ class _ResultScreenState extends State<ResultScreen> {
 
               final readyState = state as ResultReady;
               final showOverlay =
-                  readyState.isAnalyzingFeedback || _showDecisionAnalyzing;
-              final overlayMessage = _showDecisionAnalyzing
+                  readyState.isAnalyzingFeedback ||
+                  _showDecisionAnalyzing ||
+                  _showTransitionOverlay;
+              final overlayMessage = _showTransitionOverlay
+                  ? context.t(
+                      vi: 'Đang chuyển sang bước can thiệp...',
+                      en: 'Moving to the intervention step...',
+                    )
+                  : _showDecisionAnalyzing
                   ? context.t(
                       vi: 'Đang phân tích hiệu suất của bạn...',
                       en: 'Analyzing your performance...',
@@ -157,7 +145,14 @@ class _ResultScreenState extends State<ResultScreen> {
 
               return Stack(
                 children: [
-                  _ResultContent(state: readyState),
+                  _ResultContent(
+                    state: readyState,
+                    onShowProposal: () =>
+                        _showDecisionMoment(readyState.result),
+                    proposalShown:
+                        _proposalShownForDiagnosisId ==
+                        readyState.result.diagnosisId,
+                  ),
                   IgnorePointer(
                     ignoring: !showOverlay,
                     child: AnimatedOpacity(
@@ -170,7 +165,7 @@ class _ResultScreenState extends State<ResultScreen> {
                           width: 290,
                           padding: const EdgeInsets.all(18),
                           decoration: BoxDecoration(
-                            color: Colors.white,
+                            color: theme.colorScheme.surface,
                             borderRadius: BorderRadius.circular(20),
                             boxShadow: [
                               BoxShadow(
@@ -294,6 +289,31 @@ class _ResultScreenState extends State<ResultScreen> {
     }
   }
 
+  String _localizedResultMessage(BuildContext context, String message) {
+    if (!context.isEnglish) {
+      return message;
+    }
+
+    final trimmed = message.trim();
+    switch (trimmed) {
+      case 'Lộ trình học của bạn đã được cập nhật':
+        return 'Your study roadmap has been updated.';
+      case 'Xác nhận tạm lỗi. Mình thử lại một lần nữa nhé.':
+        return 'Confirmation had a temporary issue. Please try once more.';
+      default:
+        if (_containsVietnameseChars(trimmed)) {
+          return 'Update completed successfully.';
+        }
+        return trimmed;
+    }
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
+  }
+
   String _riskLabel(BuildContext context, String riskLevel) {
     switch (riskLevel.toLowerCase()) {
       case 'high':
@@ -350,9 +370,15 @@ String _localizedDynamicText(
 }
 
 class _ResultContent extends StatelessWidget {
-  const _ResultContent({required this.state});
+  const _ResultContent({
+    required this.state,
+    required this.onShowProposal,
+    this.proposalShown = false,
+  });
 
   final ResultReady state;
+  final VoidCallback onShowProposal;
+  final bool proposalShown;
 
   @override
   Widget build(BuildContext context) {
@@ -385,17 +411,20 @@ class _ResultContent extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 18),
             decoration: BoxDecoration(
-              gradient: const LinearGradient(
+              gradient: LinearGradient(
                 begin: Alignment.topLeft,
                 end: Alignment.bottomRight,
-                colors: [Color(0xFFEFF6FF), Color(0xFFE0ECFF)],
+                colors: [
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+                  theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                ],
               ),
               borderRadius: BorderRadius.circular(20),
-              boxShadow: const [
+              boxShadow: [
                 BoxShadow(
-                  color: Color(0x100F172A),
+                  color: theme.colorScheme.shadow.withValues(alpha: 0.1),
                   blurRadius: 12,
-                  offset: Offset(0, 4),
+                  offset: const Offset(0, 4),
                 ),
               ],
             ),
@@ -405,7 +434,7 @@ class _ResultContent extends StatelessWidget {
                   width: 58,
                   height: 58,
                   decoration: BoxDecoration(
-                    color: Colors.white,
+                    color: theme.colorScheme.surface,
                     borderRadius: BorderRadius.circular(16),
                   ),
                   child: Icon(
@@ -551,7 +580,16 @@ class _ResultContent extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 24),
+          _ParticleFilterSection(result: result),
+          const SizedBox(height: 24),
+          ZenButton(
+            label: proposalShown
+                ? context.t(vi: 'Xem lại đề xuất AI', en: 'Review AI proposal')
+                : context.t(vi: 'Xem đề xuất AI ✨', en: 'View AI proposal ✨'),
+            onPressed: onShowProposal,
+          ),
+          const SizedBox(height: 24),
         ],
       ),
     );
@@ -620,6 +658,202 @@ class _PointRow extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ParticleFilterSection extends StatelessWidget {
+  const _ParticleFilterSection({required this.result});
+
+  final ResultModel result;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final mentalState = result.mentalState;
+    final distribution = result.particleDistribution;
+
+    return Section(
+      title: context.t(
+        vi: 'Trạng thái tinh thần (Particle Filter)',
+        en: 'Mental state (Particle Filter)',
+      ),
+      subtitle: context.t(
+        vi: 'Ước lượng bởi Empathy Agent từ tín hiệu hành vi',
+        en: 'Estimated by Empathy Agent from behavioral signals',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _MentalStateChip(mentalState: mentalState),
+          if (distribution.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            ...distribution.entries.map(
+              (entry) => Padding(
+                padding: const EdgeInsets.only(bottom: 8),
+                child: _ParticleBar(
+                  label: _stateLabel(context, entry.key),
+                  value: entry.value,
+                  isActive: entry.key == mentalState,
+                  theme: theme,
+                ),
+              ),
+            ),
+          ],
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              vi: 'Uncertainty: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
+              en: 'Uncertainty: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _stateLabel(BuildContext context, String state) {
+    switch (state) {
+      case 'focused':
+        return context.t(vi: '🟢 Tập trung', en: '🟢 Focused');
+      case 'confused':
+        return context.t(vi: '🟡 Bối rối', en: '🟡 Confused');
+      case 'exhausted':
+        return context.t(vi: '🔴 Kiệt sức', en: '🔴 Exhausted');
+      case 'frustrated':
+        return context.t(vi: '🟠 Thất vọng', en: '🟠 Frustrated');
+      default:
+        return state;
+    }
+  }
+}
+
+class _MentalStateChip extends StatelessWidget {
+  const _MentalStateChip({required this.mentalState});
+
+  final String mentalState;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    final (String label, Color color, IconData icon) = switch (mentalState) {
+      'focused' => (
+        context.t(vi: 'Tập trung', en: 'Focused'),
+        theme.colorScheme.tertiary,
+        Icons.check_circle_rounded,
+      ),
+      'confused' => (
+        context.t(vi: 'Bối rối', en: 'Confused'),
+        theme.colorScheme.secondary,
+        Icons.help_rounded,
+      ),
+      'exhausted' => (
+        context.t(vi: 'Kiệt sức', en: 'Exhausted'),
+        theme.colorScheme.error,
+        Icons.battery_alert_rounded,
+      ),
+      'frustrated' => (
+        context.t(vi: 'Thất vọng', en: 'Frustrated'),
+        Colors.orange,
+        Icons.sentiment_dissatisfied_rounded,
+      ),
+      _ => (
+        mentalState,
+        theme.colorScheme.onSurfaceVariant,
+        Icons.psychology_rounded,
+      ),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 18, color: color),
+          const SizedBox(width: 8),
+          Text(
+            context.t(vi: 'Trạng thái: $label', en: 'State: $label'),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ParticleBar extends StatelessWidget {
+  const _ParticleBar({
+    required this.label,
+    required this.value,
+    required this.isActive,
+    required this.theme,
+  });
+
+  final String label;
+  final double value;
+  final bool isActive;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final barColor = isActive
+        ? theme.colorScheme.primary
+        : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.4);
+
+    return Row(
+      children: [
+        SizedBox(
+          width: 110,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: isActive ? FontWeight.w700 : FontWeight.w500,
+              color: isActive
+                  ? theme.colorScheme.onSurface
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(6),
+            child: LinearProgressIndicator(
+              value: value.clamp(0.0, 1.0),
+              minHeight: 8,
+              backgroundColor: theme.colorScheme.surfaceContainerHigh,
+              valueColor: AlwaysStoppedAnimation<Color>(barColor),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 42,
+          child: Text(
+            '${(value * 100).toStringAsFixed(0)}%',
+            textAlign: TextAlign.end,
+            style: theme.textTheme.bodySmall?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: isActive
+                  ? theme.colorScheme.primary
+                  : theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

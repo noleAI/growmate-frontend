@@ -320,10 +320,15 @@ class AppRouter {
         builder: (context, state) {
           final submissionId = state.uri.queryParameters['submissionId'] ?? '';
           if (submissionId.isEmpty) {
-            return const _RouteDataErrorPage(
-              title: 'Thiếu submissionId',
-              message:
-                  'Route /diagnosis cần query parameter submissionId để hiển thị kết quả chẩn đoán.',
+            return _RouteDataErrorPage(
+              title: context.t(
+                vi: 'Thiếu submissionId',
+                en: 'Missing submissionId',
+              ),
+              message: context.t(
+                vi: 'Route /diagnosis cần query parameter submissionId để hiển thị kết quả chẩn đoán.',
+                en: 'Route /diagnosis requires query parameter submissionId to display diagnosis result.',
+              ),
             );
           }
 
@@ -370,8 +375,13 @@ class AppRouter {
     ],
     errorBuilder: (context, state) {
       return _RouteDataErrorPage(
-        title: 'Route không hợp lệ',
-        message: state.error?.toString() ?? 'Không tìm thấy trang yêu cầu.',
+        title: context.t(vi: 'Route không hợp lệ', en: 'Invalid route'),
+        message:
+            state.error?.toString() ??
+            context.t(
+              vi: 'Không tìm thấy trang yêu cầu.',
+              en: 'Requested page was not found.',
+            ),
       );
     },
   );

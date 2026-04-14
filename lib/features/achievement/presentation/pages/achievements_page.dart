@@ -4,6 +4,7 @@ import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../achievement_i18n.dart';
 import '../../data/models/achievement_badge.dart';
 import '../../data/repositories/achievement_repository.dart';
 
@@ -189,14 +190,14 @@ class _UnlockedSection extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            badge.title,
+                            localizedBadgeTitle(context, badge),
                             style: theme.textTheme.titleSmall?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
                           const SizedBox(height: 4),
                           Text(
-                            badge.description,
+                            localizedBadgeDescription(context, badge),
                             style: theme.textTheme.bodySmall?.copyWith(
                               color: theme.colorScheme.onSurfaceVariant,
                             ),

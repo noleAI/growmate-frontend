@@ -69,6 +69,22 @@ final class QuizRecoveryTriggeredState extends QuizCubitState {
   ];
 }
 
+final class QuizBatchSubmittingState extends QuizCubitState {
+  const QuizBatchSubmittingState({required super.answer});
+}
+
+final class QuizBatchSubmitSuccessState extends QuizCubitState {
+  const QuizBatchSubmitSuccessState({
+    required this.totalSubmitted,
+    required super.answer,
+  });
+
+  final int totalSubmitted;
+
+  @override
+  List<Object?> get props => <Object?>[...super.props, totalSubmitted];
+}
+
 class QuizCubit extends Cubit<QuizCubitState> {
   QuizCubit({
     required QuizRepository quizRepository,
@@ -266,6 +282,44 @@ class QuizCubit extends Cubit<QuizCubitState> {
         QuizSubmitFailureState(
           message: 'Không thể gửi bài lúc này. Vui lòng thử lại.',
           answer: visibleAnswer,
+        ),
+      );
+    }
+  }
+
+  Future<void> submitAllAnswers(List<QuizQuestionUserAnswer> answers) async {
+    if (answers.isEmpty) {
+      emit(
+        const QuizSubmitFailureState(
+          message: 'Không có câu trả lời nào để gửi.',
+          answer: '',
+        ),
+      );
+      return;
+    }
+
+    emit(const QuizBatchSubmittingState(answer: ''));
+
+    try {
+      final payload = answers
+          .map((a) => <String, dynamic>{'answer': jsonEncode(a.toJson())})
+          .toList(growable: false);
+
+      final response = await _quizRepository.submitBatchAnswers(
+        answers: payload,
+      );
+
+      final data = response['data'] is Map<String, dynamic>
+          ? response['data'] as Map<String, dynamic>
+          : <String, dynamic>{};
+      final total = data['totalSubmitted'] as int? ?? answers.length;
+
+      emit(QuizBatchSubmitSuccessState(totalSubmitted: total, answer: ''));
+    } catch (_) {
+      emit(
+        const QuizSubmitFailureState(
+          message: 'Không thể gửi toàn bộ bài. Vui lòng thử lại.',
+          answer: '',
         ),
       );
     }

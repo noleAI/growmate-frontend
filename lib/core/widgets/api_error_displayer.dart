@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../app/i18n/build_context_i18n.dart';
 import '../error/app_exceptions.dart';
 
 /// Helper hiển thị error messages từ AppException.
@@ -42,7 +43,7 @@ class ApiErrorDisplayer {
         behavior: SnackBarBehavior.floating,
         action: error.details != null && error.details!.isNotEmpty
             ? SnackBarAction(
-                label: 'Chi tiết',
+                label: context.t(vi: 'Chi tiết', en: 'Details'),
                 textColor: theme.colorScheme.onErrorContainer,
                 onPressed: () => _showDetailsDialog(context, error),
               )
@@ -64,13 +65,13 @@ class ApiErrorDisplayer {
       context: context,
       builder: (dialogContext) => AlertDialog(
         icon: Icon(_getIconForException(error)),
-        title: Text(_getTitleForException(error)),
+        title: Text(_getTitleForException(context, error)),
         content: Text(error.message),
         actions: [
           if (error.details != null && error.details!.isNotEmpty)
             TextButton(
               onPressed: () => _showDetailsDialog(context, error),
-              child: const Text('Chi tiết'),
+              child: Text(context.t(vi: 'Chi tiết', en: 'Details')),
             ),
           if (onAction != null)
             TextButton(
@@ -78,12 +79,12 @@ class ApiErrorDisplayer {
                 Navigator.of(dialogContext).pop();
                 onAction();
               },
-              child: Text(actionLabel ?? 'Thử lại'),
+              child: Text(actionLabel ?? context.t(vi: 'Thử lại', en: 'Retry')),
             ),
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
             child: Text(
-              'Đóng',
+              context.t(vi: 'Đóng', en: 'Close'),
               style: TextStyle(color: theme.colorScheme.primary),
             ),
           ),
@@ -102,11 +103,7 @@ class ApiErrorDisplayer {
     if (error is ServerException ||
         error is ServiceUnavailableException ||
         error is UnauthorizedException) {
-      showAlertDialog(
-        context: context,
-        error: error,
-        onAction: onRetry,
-      );
+      showAlertDialog(context: context, error: error, onAction: onRetry);
       return;
     }
 
@@ -114,32 +111,33 @@ class ApiErrorDisplayer {
     showSnackBar(context: context, error: error);
   }
 
-  static void _showDetailsDialog(
-    BuildContext context,
-    AppException error,
-  ) {
+  static void _showDetailsDialog(BuildContext context, AppException error) {
     showDialog<void>(
       context: context,
       builder: (dialogContext) => AlertDialog(
-        title: const Text('Chi tiết lỗi'),
+        title: Text(context.t(vi: 'Chi tiết lỗi', en: 'Error details')),
         content: SingleChildScrollView(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Text('Mã lỗi: ${error.code}'),
+              Text(
+                '${context.t(vi: 'Mã lỗi', en: 'Error code')}: ${error.code}',
+              ),
               if (error.statusCode != null)
                 Text('HTTP Status: ${error.statusCode}'),
               const SizedBox(height: 8),
               if (error.details != null && error.details!.isNotEmpty)
-                Text('Chi tiết: ${error.details}'),
+                Text(
+                  '${context.t(vi: 'Chi tiết', en: 'Details')}: ${error.details}',
+                ),
             ],
           ),
         ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(dialogContext).pop(),
-            child: const Text('Đóng'),
+            child: Text(context.t(vi: 'Đóng', en: 'Close')),
           ),
         ],
       ),
@@ -165,25 +163,28 @@ class ApiErrorDisplayer {
     return Icons.error_outline_rounded;
   }
 
-  static String _getTitleForException(AppException error) {
+  static String _getTitleForException(
+    BuildContext context,
+    AppException error,
+  ) {
     if (error is NetworkException) {
-      return 'Lỗi kết nối';
+      return context.t(vi: 'Lỗi kết nối', en: 'Connection error');
     }
     if (error is TimeoutException) {
-      return 'Hết thời gian chờ';
+      return context.t(vi: 'Hết thời gian chờ', en: 'Request timed out');
     }
     if (error is UnauthorizedException || error is TokenExpiredException) {
-      return 'Phiên hết hạn';
+      return context.t(vi: 'Phiên hết hạn', en: 'Session expired');
     }
     if (error is ValidationException) {
-      return 'Dữ liệu không hợp lệ';
+      return context.t(vi: 'Dữ liệu không hợp lệ', en: 'Invalid data');
     }
     if (error is ServerException || error is ServiceUnavailableException) {
-      return 'Lỗi hệ thống';
+      return context.t(vi: 'Lỗi hệ thống', en: 'System error');
     }
     if (error is RateLimitException) {
-      return 'Quá tải';
+      return context.t(vi: 'Quá tải', en: 'Rate limit reached');
     }
-    return 'Có lỗi xảy ra';
+    return context.t(vi: 'Có lỗi xảy ra', en: 'An error occurred');
   }
 }

@@ -340,10 +340,13 @@ class SupabaseHybridApiService implements ApiService {
   ) {
     final typingSpeed =
         _toDouble(signal['typing_speed']) ?? _toDouble(signal['typingSpeed']);
-    final correctionRate = _toDouble(signal['correction_rate']) ??
+    final correctionRate =
+        _toDouble(signal['correction_rate']) ??
         _toDouble(signal['correctionRate']);
-    final idleTime = _toDouble(signal['idle_time']) ?? _toDouble(signal['idleTime']);
-    final createdAt = signal['created_at']?.toString() ??
+    final idleTime =
+        _toDouble(signal['idle_time']) ?? _toDouble(signal['idleTime']);
+    final createdAt =
+        signal['created_at']?.toString() ??
         signal['captured_at']?.toString() ??
         DateTime.now().toUtc().toIso8601String();
 
@@ -426,5 +429,16 @@ class SupabaseHybridApiService implements ApiService {
     } catch (_) {
       return null;
     }
+  }
+
+  @override
+  Future<Map<String, dynamic>> submitBatchAnswers({
+    required String sessionId,
+    required List<Map<String, dynamic>> answers,
+  }) {
+    return _fallbackApiService.submitBatchAnswers(
+      sessionId: sessionId,
+      answers: answers,
+    );
   }
 }

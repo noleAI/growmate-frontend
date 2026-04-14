@@ -99,7 +99,10 @@ class _LoginPageState extends State<LoginPage> {
       body: BlocConsumer<AuthBloc, AuthState>(
         listener: (context, state) {
           if (state is AuthError) {
-            _showSoftMessage(context, state.message);
+            _showSoftMessage(
+              context,
+              _localizedAuthMessage(context, state.message),
+            );
           }
 
           if (state is AuthAuthenticated) {
@@ -286,6 +289,55 @@ class _LoginPageState extends State<LoginPage> {
           behavior: SnackBarBehavior.floating,
         ),
       );
+  }
+
+  String _localizedAuthMessage(BuildContext context, String message) {
+    if (!context.isEnglish) {
+      return message;
+    }
+
+    final trimmed = message.trim();
+    switch (trimmed) {
+      case 'Đang khởi tạo phiên làm việc...':
+        return 'Initializing your session...';
+      case 'Mình đang đăng nhập nhẹ nhàng...':
+        return 'Signing you in...';
+      case 'Đang tạo tài khoản cho bạn...':
+        return 'Creating your account...';
+      case 'Mình đang lưu lại phiên học của bạn...':
+        return 'Saving your learning session...';
+      case 'Hmm, email này chưa đúng lắm, bạn thử lại nhé 🌿':
+        return 'This email looks invalid. Please try again 🌿';
+      case 'Mật khẩu cần ít nhất 6 ký tự để an toàn hơn nhé 🌱':
+        return 'Password must have at least 6 characters for better security 🌱';
+      case 'Bạn cần xác nhận email trước khi đăng nhập nhé ✨':
+        return 'Please verify your email before signing in ✨';
+      case 'Kết nối hơi chậm một chút, mình thử lại ngay nhé 🌿':
+        return 'The connection is a bit slow. Please try again 🌿';
+      case 'Bạn thêm tên để mình xưng hô dễ hơn nha 🌿':
+        return 'Please add your name so we can address you properly 🌿';
+      case 'Hai mật khẩu chưa trùng nhau, mình nhập lại một chút nhé ✨':
+        return 'Password confirmation does not match. Please check again ✨';
+      case 'Tài khoản đã được tạo. Bạn kiểm tra email để xác nhận rồi đăng nhập nhé ✨':
+        return 'Your account was created. Please verify your email, then sign in ✨';
+      case 'Mình chưa tạo được tài khoản lúc này, thử lại giúp mình nhé 🌱':
+        return 'Unable to create your account right now. Please try again 🌱';
+      case 'Kết nối hơi chậm, mình thử lại một chút nhé 🌿':
+        return 'The connection is a bit slow. Please try again 🌿';
+      case 'Mình chưa đăng xuất được, bạn thử lại giúp mình nhé 🌿':
+        return 'Unable to sign out right now. Please try again 🌿';
+      default:
+        if (_containsVietnameseChars(trimmed)) {
+          return 'Something went wrong. Please try again.';
+        }
+        return trimmed;
+    }
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
   }
 
   Widget _buildTextField({

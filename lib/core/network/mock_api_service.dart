@@ -90,6 +90,14 @@ class MockApiService implements ApiService {
             'riskLevel': 'low',
             'confidence': 0.91,
             'summary': 'Low stress pattern. User responds well to short tasks.',
+            'mentalState': 'focused',
+            'uncertaintyScore': 0.09,
+            'particleDistribution': <String, dynamic>{
+              'focused': 0.70,
+              'confused': 0.15,
+              'exhausted': 0.10,
+              'frustrated': 0.05,
+            },
             'interventionPlan': <Map<String, dynamic>>[
               {
                 'id': 'int_breath_01',
@@ -128,6 +136,14 @@ class MockApiService implements ApiService {
             'riskLevel': 'high',
             'confidence': 0.41,
             'summary': 'High-risk keywords detected with low model confidence.',
+            'mentalState': 'confused',
+            'uncertaintyScore': 0.59,
+            'particleDistribution': <String, dynamic>{
+              'focused': 0.20,
+              'confused': 0.45,
+              'exhausted': 0.20,
+              'frustrated': 0.15,
+            },
             'interventionPlan': <Map<String, dynamic>>[],
             'hitl': <String, dynamic>{
               'ticketId': 'hitl_${DateTime.now().millisecondsSinceEpoch}',
@@ -158,6 +174,14 @@ class MockApiService implements ApiService {
             'riskLevel': 'medium',
             'confidence': 0.74,
             'summary': 'Model switched to recovery-safe intervention plan.',
+            'mentalState': 'exhausted',
+            'uncertaintyScore': 0.26,
+            'particleDistribution': <String, dynamic>{
+              'focused': 0.10,
+              'confused': 0.20,
+              'exhausted': 0.60,
+              'frustrated': 0.10,
+            },
             'interventionPlan': <Map<String, dynamic>>[
               {
                 'id': 'int_recovery_01',
@@ -388,6 +412,14 @@ class MockApiService implements ApiService {
         'riskLevel': 'low',
         'confidence': 0.98,
         'summary': 'User solved derivative correctly with stable confidence.',
+        'mentalState': 'focused',
+        'uncertaintyScore': 0.02,
+        'particleDistribution': <String, dynamic>{
+          'focused': 0.80,
+          'confused': 0.10,
+          'exhausted': 0.05,
+          'frustrated': 0.05,
+        },
         'interventionPlan': <Map<String, dynamic>>[
           {
             'id': 'int_boost_01',
@@ -399,6 +431,32 @@ class MockApiService implements ApiService {
         'hitl': null,
       },
       'meta': <String, dynamic>{'source': 'mock', 'scenario': 'correct_answer'},
+    };
+  }
+
+  @override
+  Future<Map<String, dynamic>> submitBatchAnswers({
+    required String sessionId,
+    required List<Map<String, dynamic>> answers,
+  }) async {
+    await Future.delayed(const Duration(seconds: 1));
+
+    final submissionIds = <String>[];
+    for (var i = 0; i < answers.length; i++) {
+      final answerId = 'ans_${DateTime.now().millisecondsSinceEpoch}_$i';
+      submissionIds.add(answerId);
+    }
+
+    return <String, dynamic>{
+      'status': 'success',
+      'message': 'Batch answers accepted.',
+      'data': <String, dynamic>{
+        'sessionId': sessionId,
+        'submissionIds': submissionIds,
+        'totalSubmitted': answers.length,
+        'receivedAt': DateTime.now().toIso8601String(),
+      },
+      'meta': <String, dynamic>{'source': 'mock', 'schema': 'batch-v1'},
     };
   }
 }

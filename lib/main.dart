@@ -47,7 +47,7 @@ Future<void> main() async {
   try {
     await dotenv.load(fileName: '.env');
   } catch (_) {
-    debugPrint('Khong tim thay .env, se fallback qua --dart-define neu co.');
+    debugPrint('Không tìm thấy .env, sẽ fallback qua --dart-define nếu có.');
   }
 
   final supabaseUrl = (dotenv.env['SUPABASE_URL'] ?? _supabaseUrlFromDefine)

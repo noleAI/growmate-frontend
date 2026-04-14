@@ -44,4 +44,9 @@ abstract interface class ApiService {
     String? reason,
     Map<String, dynamic>? metadata,
   });
+
+  Future<Map<String, dynamic>> submitBatchAnswers({
+    required String sessionId,
+    required List<Map<String, dynamic>> answers,
+  });
 }

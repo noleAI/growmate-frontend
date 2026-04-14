@@ -578,10 +578,10 @@ class AiResultModal extends StatelessWidget {
         context.t(vi: 'Phân tích AI hoàn tất', en: 'AI analysis complete');
     final resolvedPrimaryLabel =
         primaryLabel ??
-        context.t(vi: 'Áp dụng lộ trình mới', en: 'Apply new roadmap');
+        context.t(vi: 'Đồng ý lộ trình này', en: 'Accept this roadmap');
     final resolvedSecondaryLabel =
         secondaryLabel ??
-        context.t(vi: 'Giữ lộ trình hiện tại', en: 'Keep current roadmap');
+        context.t(vi: 'Đổi lộ trình khác', en: 'Switch roadmap');
 
     return showGeneralDialog<AiResultAction>(
       context: context,
@@ -640,10 +640,10 @@ class AiResultModal extends StatelessWidget {
         context.t(vi: 'Phân tích AI hoàn tất', en: 'AI analysis complete');
     final resolvedPrimaryLabel =
         primaryLabel ??
-        context.t(vi: 'Áp dụng lộ trình mới', en: 'Apply new roadmap');
+        context.t(vi: 'Đồng ý lộ trình này', en: 'Accept this roadmap');
     final resolvedSecondaryLabel =
         secondaryLabel ??
-        context.t(vi: 'Giữ lộ trình hiện tại', en: 'Keep current roadmap');
+        context.t(vi: 'Đổi lộ trình khác', en: 'Switch roadmap');
     final safeDidWell = didWell.isEmpty
         ? <String>[
             context.t(

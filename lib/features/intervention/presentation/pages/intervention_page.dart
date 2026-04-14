@@ -5,7 +5,6 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
-import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -128,8 +127,8 @@ class _InterventionPageState extends State<InterventionPage> {
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                const Color(0xFFEFF7E8),
-                const Color(0xFFEAF2F5),
+                theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+                theme.colorScheme.surfaceContainerLow,
                 theme.colorScheme.surface,
               ],
             ),
@@ -167,7 +166,6 @@ class _InterventionPageState extends State<InterventionPage> {
                   includeBottomSafeArea: false,
                   child: ListView(
                     children: [
-                      const GrowMateTopAppBar(),
                       const SizedBox(height: 6),
                       Align(
                         alignment: Alignment.centerLeft,
@@ -201,12 +199,13 @@ class _InterventionPageState extends State<InterventionPage> {
                               child: ZenCard(
                                 radius: 28,
                                 padding: const EdgeInsets.all(18),
-                                gradient: const LinearGradient(
+                                gradient: LinearGradient(
                                   begin: Alignment.topLeft,
                                   end: Alignment.bottomRight,
                                   colors: [
-                                    Color(0xFFF4FAF3),
-                                    Color(0xFFE7F0EA),
+                                    theme.colorScheme.tertiaryContainer
+                                        .withValues(alpha: 0.5),
+                                    theme.colorScheme.surfaceContainerLow,
                                   ],
                                 ),
                                 child: Column(
@@ -230,9 +229,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                         vertical: 10,
                                       ),
                                       decoration: BoxDecoration(
-                                        color: Colors.white.withValues(
-                                          alpha: 0.72,
-                                        ),
+                                        color: theme.colorScheme.surface
+                                            .withValues(alpha: 0.72),
                                         borderRadius: BorderRadius.circular(
                                           999,
                                         ),
@@ -367,7 +365,7 @@ class _InterventionPageState extends State<InterventionPage> {
                       const SizedBox(height: GrowMateLayout.space12),
                       ZenCard(
                         radius: 26,
-                        color: const Color(0xFFFAF9F6),
+                        color: theme.colorScheme.surfaceContainerLowest,
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -443,6 +441,10 @@ class _InterventionPageState extends State<InterventionPage> {
                                     : 'academic',
                                 'topic': selectedLabel,
                                 'nextAction': selectedLabel,
+                                // TODO: pass real values once API integration provides them
+                                'duration': '',
+                                'focus': '',
+                                'confidence': '',
                               },
                             ).toString();
                             context.push(location);
@@ -533,7 +535,7 @@ class _InterventionOptionCard extends StatelessWidget {
         children: [
           ZenCard(
             radius: 24,
-            color: Colors.white.withValues(alpha: 0.86),
+            color: theme.colorScheme.surface.withValues(alpha: 0.86),
             padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
             child: Row(
               children: [

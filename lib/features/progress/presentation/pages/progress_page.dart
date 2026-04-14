@@ -7,6 +7,7 @@ import '../../../../core/constants/layout.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../features/achievement/data/models/achievement_badge.dart';
 import '../../../../features/achievement/data/repositories/achievement_repository.dart';
+import '../../../../features/achievement/presentation/achievement_i18n.dart';
 import '../../../../features/review/data/models/spaced_review_item.dart';
 import '../../../../features/review/data/repositories/spaced_repetition_repository.dart';
 import '../../../../features/schedule/data/models/study_schedule_item.dart';
@@ -655,7 +656,7 @@ class _AchievementSection extends StatelessWidget {
                               ),
                               const SizedBox(width: 6),
                               Text(
-                                badge.title,
+                                localizedBadgeTitle(context, badge),
                                 style: Theme.of(context).textTheme.bodySmall
                                     ?.copyWith(fontWeight: FontWeight.w700),
                               ),

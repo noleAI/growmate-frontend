@@ -69,6 +69,12 @@ class ResultCubit extends Cubit<ResultState> {
           : 'Review Đạo hàm';
       final interventionPlan = _extractPlanList(diagnosis.interventionPlan);
 
+      // Parse Empathy Agent / Particle Filter fields
+      final mentalState = (data['mentalState'] as String?)?.isNotEmpty == true
+          ? data['mentalState'] as String
+          : (finalMode == 'recovery' ? 'exhausted' : 'focused');
+      final particleDistribution = _extractParticleDistribution(data);
+
       await _diagnosisSnapshotCacheRepository.saveSnapshot(
         DiagnosisSnapshot(
           strengths: strengths,
@@ -114,6 +120,8 @@ class ResultCubit extends Cubit<ResultState> {
             uncertaintyScore: uncertainty,
             riskLevel: riskLevel,
             requiresHitl: requiresHitl,
+            mentalState: mentalState,
+            particleDistribution: particleDistribution,
           ),
         ),
       );
@@ -410,6 +418,29 @@ class ResultCubit extends Cubit<ResultState> {
     }
 
     return 'dx_local_$submissionId';
+  }
+
+  static Map<String, double> _extractParticleDistribution(
+    Map<String, dynamic> data,
+  ) {
+    final raw = data['particleDistribution'];
+    if (raw is! Map) {
+      return const <String, double>{};
+    }
+    final result = <String, double>{};
+    for (final entry in raw.entries) {
+      final key = entry.key?.toString();
+      if (key == null) continue;
+      final value = switch (entry.value) {
+        final num n => n.toDouble(),
+        final String s => double.tryParse(s),
+        _ => null,
+      };
+      if (value != null) {
+        result[key] = value;
+      }
+    }
+    return result;
   }
 }
 

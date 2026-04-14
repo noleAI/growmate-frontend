@@ -338,6 +338,64 @@ Kế hoạch học tập được biểu diễn dưới dạng Hierarchical Task
 - **Task Library:** Định nghĩa phương pháp phân rã cho các goal chẩn đoán và remediation.
 - **Plan Repair:** Khi gặp failure, Agent chẩn đoán nguyên nhân và áp dụng repair strategy cục bộ (insert, alternative, skip).
 
+**Ví dụ:** *Insert* – Chèn quiz kiểm tra tiền đề khi phát hiện hổng kiến thức nền; *Skip* – Bỏ qua task giải thích nâng cao khi học sinh đang kiệt sức; *Alternative* – Chuyển sang giải thích trực quan khi học sinh bối rối với văn bản.
+
+**Biểu đồ luồng HTN Plan Repair (trang 33):**
+
+```
+[START]
+    │
+    ▼
+PendingNode
+    │
+    ▼
+CheckPreconditions
+    │
+    ├─ Đủ điều kiện ──► PreconditionsMet
+    │                         │
+    │                         ▼
+    │                   ExecutingNode
+    │                         │
+    │                         ▼
+    │                   EvaluateOutcome
+    │                    /       |        \
+    │                   ▼        ▼         ▼
+    │               Success  Unexpected  BeliefShift
+    │                  │         └────┬───┘
+    │                  ▼              ▼
+    │           NodeCompleted      Repairing ◄─────────────────┐
+    │                  │              │  [Cơ chế Repair cục bộ  │
+    │                  ▼              │   KHÔNG xóa plan]       │
+    │              NextNode           ▼                         │
+    │                  │        DiagnoseFailure                 │
+    │                [END]            │                         │
+    │                                 ▼                         │
+    │                          SelectStrategy                   │
+    │                        /        |        \               │
+    │                       ▼         ▼         ▼              │
+    │                  InsertTask  AltMethod  SkipTask          │
+    │                  (Chèn task) (Đổi pp)  (Bỏ qua)          │
+    │                        \        |        /               │
+    │                          ──────►▼◄──────                  │
+    │                              ApplyRepair                  │
+    │                         /                \               │
+    │           Repair Count < Max      Repair Count ≥ Max      │
+    │                  │                        │               │
+    │                  ▼                        ▼               │
+    └──────── RetryNode              Escalate ──► HITL_Request  │
+                                                     │          │
+                                          [Tự giám sát,         │
+                                           Escalate khi         │
+                                           vượt ngưỡng]         │
+                                                     │          │
+                                                     ▼          │
+                                               UserDecision     │
+                                           (Người dùng xác nhận)│
+                                                     │          │
+                                                     ▼          │
+                                              ResolveHITL ──────┘
+```
+
 ---
 
 ### 3.3. EMPATHY AGENT: PARTICLE FILTER STATE ESTIMATION
@@ -355,6 +413,66 @@ Hệ thống duy trì tập hợp N hạt (mặc định 100) để xấp xỉ p
 2. **Update Weights:** Tính trọng số từ observation model likelihood.
 3. **Resample:** Tái lấy mẫu để tránh suy biến.
 4. **Estimate:** Tính belief distribution và uncertainty từ normalized entropy.
+
+
+**Biểu đồ luồng Particle Filter + Decision (trang 37):**
+
+```
+ Tín hiệu Hành vi (Typing Speed,      Vòng lặp Particle Filter
+ Correction Rate, Idle Time)        ┌──────────────────────────────┐
+          │                         │  Tập Hạt N=100               │
+          ▼                         │         │                    │
+   Batch Metrics 5s                 │         ▼                    │
+          │                         │  Predict Step                │◄──┐
+          ▼                         │  (Sample từ Transition Model)│   │Feedback
+  Particle Filter Estimator ◄───────│         │                    │───┘
+          │                         │         ▼                    │
+          │                         │  Update Weights              │
+          │                         │  (Tính Likelihood từ         │
+          │                         │   Observation Model)         │
+          │                         │         │                    │
+          │                         │         ▼                    │
+          │                         │  Resample Step               │
+          │                         │  (Tránh suy biến)            │
+          │                         │         │                    │
+          │                         │         ▼                    │
+          │                         │  Estimate State              │
+          │                         │  (Belief Distribution        │
+          │                         │   & Uncertainty)             │
+          │                         └──────────────────────────────┘
+          │
+          ├─────────────────────────────────────────────┐
+          ▼                                             ▼
+  Belief Distribution                        Uncertainty Score
+  (Focused: 0.1, Confused: 0.7, ...)         (Normalized Entropy)
+          │                                             │
+          │                                             ▼
+          │                                  Uncertainty > Ngưỡng?
+          │                                   /                  \
+          │                                 Yes                   No
+          │                                  │                    │
+          │                                  ▼                    │
+          │                           Kích hoạt HITL              │
+          │                           (Popup xác nhận)            │
+          │                                  │                    │
+          └──────────────────────────────────┘                    │
+                          │                                       │
+                          ▼                                       │
+                   Ra quyết định ◄────────────────────────────────┘
+                (Utility Calculator)
+                          │
+                          ▼
+            Tính Expected Utility: EU = Σ P(s) * U(a,s)
+                          │
+                          ▼
+            Chọn Action Max EU
+                          │
+                          ▼
+            Hành động Can thiệp (Recovery / Intervention)
+                          │
+                          ▼
+            Giao diện Người dùng
+```
 
 #### 3.3.3. RA QUYẾT ĐỊNH DỰA TRÊN EXPECTED UTILITY
 
@@ -391,6 +509,69 @@ Q(s, a) ← Q(s, a) + α × [r + γ × max Q(s', a') - Q(s, a)]
 1. **Input:** State embedding tổng hợp từ Academic Agent, Empathy Agent, và Memory System.
 2. **Architecture:** Multi-layer perceptron với 2-3 hidden layers, activation ReLU, output softmax cho action distribution.
 3. **Output:** Phân phối xác suất trên tập hành động điều phối (diagnose, remediate, recover, encourage, hitl).
+
+**Biểu đồ luồng Orchestrator Engine (trang 43):**
+
+```
+┌─────────────────────── Orchestrator Engine ──────────────────────────┐
+│                                                                       │
+│  ┌──────────────────────── State Aggregation ──────────────────────┐  │
+│  │                                                                  │  │
+│  │  ┌──────────────┐  ┌────────────────────┐  ┌─────────────────┐  │  │
+│  │  │ Academic     │  │ Empathy State      │  │ Memory State    │  │  │
+│  │  │ State        │  │ Mental Belief,     │  │ Q-Values,       │  │  │
+│  │  │ Belief,      │  │ Uncertainty        │  │ Profile         │  │  │
+│  │  │ Entropy      │  │                    │  │                 │  │  │
+│  │  └──────┬───────┘  └─────────┬──────────┘  └────────┬────────┘  │  │
+│  │         └──────────────────► Aggregator ◄────────────┘          │  │
+│  │                                   │                              │  │
+│  │                                   ▼                              │  │
+│  │                            State Embedding                       │  │
+│  └───────────────────────────────────┬──────────────────────────────┘  │
+│                                      │  [MVP: Policy Logic              │
+│                                      │   Deterministic / Utility]       │
+│  ┌─────────────────── Policy Module ─┼──────────────────────────────┐  │
+│  │                                   ▼                              │  │
+│  │                        Policy Network / Logic                    │  │
+│  │                                   │                              │  │
+│  │                                   ▼                              │  │
+│  │                           Action Distribution                    │  │
+│  │                                   │                              │  │
+│  │                                   ▼                              │  │
+│  │                             Raw Confidence                       │  │
+│  │                    [MVP: Threshold-based]                        │  │
+│  │                    [Phase 2: Temperature Scaling]                │  │
+│  └─────────────────────────────────┬─┬────────────────────────────┘   │
+│                                    │ │                                  │
+│  ┌───────────── Calibration & Monitoring ──────────────────────────┐   │
+│  │               │                     │                           │   │
+│  │               ▼                     ▼                           │   │
+│  │      Uncertainty Monitor    Confidence Calibrator               │   │
+│  │               │                     │                           │   │
+│  │               ▼                     ▼                           │   │
+│  │        Total Uncertainty    Calibrated Confidence               │   │
+│  └───────────────┬─────────────────────┬───────────────────────────┘   │
+│                  │                     │                                │
+│  ┌──────────────────── Decision & HITL ────────────────────────────┐   │
+│  │               └──────────────┬──────┘                           │   │
+│  │                              ▼                                  │   │
+│  │             CalConf thấp hoặc Uncertainty cao?                  │   │
+│  │                      /                \                         │   │
+│  │                    Yes                 No                       │   │
+│  │                     │                  │                        │   │
+│  │                     ▼                  ▼                        │   │
+│  │              Kích hoạt HITL    Chọn Action Tối ưu               │   │
+│  │                     └──────────►Action Output◄──────────────────┘   │
+│  │                                     │                               │
+│  │                        ┌────────────┴────────────┐                  │
+│  │                        ▼                         ▼                  │
+│  │                       Log                     Execute               │
+│  │                        │                         │                  │
+│  │                        ▼                         ▼                  │
+│  │                  Audit Logger               Tools / Agents          │
+│  └─────────────────────────────────────────────────────────────────┘   │
+└───────────────────────────────────────────────────────────────────────┘
+```
 
 #### 3.5.2. HIỆU CHUẨN ĐỘ TIN CẬY VÀ HITL
 
@@ -445,6 +626,45 @@ Orchestrator tích hợp cơ chế hiệu chuẩn và tự giám sát:
 
 | Thực thể | Loại | Mô tả & Vai trò | Ghi chú MVP |
 |---------|------|----------------|-------------|
+
+**Biểu đồ ngữ cảnh hệ thống (C1 – trang 48):**
+
+```
+ ┌──────────────┐     ┌───────────────────┐     ┌────────────────────────┐
+ │   Học sinh   │     │    Phụ huynh      │     │ Giáo viên / Chuyên gia │
+ │ Người dùng   │     │  Người dùng phụ   │     │  Hỗ trợ gán nhãn       │
+ │    chính     │     │                   │     │     & tư vấn           │
+ └──────┬───────┘     └────────┬──────────┘     └───────────┬────────────┘
+        │ Tương tác,           │ Xem báo cáo                │ Tư vấn expert priors,
+        │ Tín hiệu hành vi,    │ tổng hợp                   │ Gán nhãn (Phase 2)
+        │ Xem đề xuất,         │                            │
+        │ Xác nhận HITL        │                            │
+        │                      │                            │
+        ▼                      ▼                            ▼
+ ┌─────────────────────────────────────────────────────────────────────┐
+ │                        Hệ thống GrowMate                            │
+ │                                                                     │
+ │  ┌─────────────────────────┐    ┌────────────────────────────────┐  │
+ │  │   Flutter Mobile App    │◄──►│  Inspection Dashboard          │  │
+ │  │                         │    │  (Streamlit Web)               │  │
+ │  └───────────┬─────────────┘    └───────────────┬────────────────┘  │
+ │              │ API Requests                      │ Realtime State    │
+ │              ▼                                   ▼  Stream          │
+ │       ┌────────────────────────────────────────────────┐            │
+ │       │           FastAPI Backend Service               │            │
+ │       └──────┬─────────────────┬──────────────┬────────┘            │
+ └──────────────┼─────────────────┼──────────────┼─────────────────────┘
+                │ Auth,           │ Generate     │ Deploy
+                │ User Data,      │ Explanation/ │ & Scale
+                │ KG, Config      │ Encouragement│
+                ▼                 ▼              ▼
+        ┌──────────────┐  ┌──────────────┐  ┌──────────────────┐
+        │   Supabase   │  │  Gemini API  │  │  Google Cloud    │
+        │ PostgreSQL   │  │ Content Gen  │  │  Run (Serverless) │
+        │   + Auth     │  │              │  │                  │
+        └──────────────┘  └──────────────┘  └──────────────────┘
+```
+
 | Học sinh | Người dùng chính | Tương tác trực tiếp với ứng dụng để làm bài tập, nhận chẩn đoán, và phản hồi đề xuất. | Demo trên thiết bị Android thật. HITL xác nhận thay đổi lộ trình. |
 | Phụ huynh | Người dùng phụ | Xem báo cáo tổng hợp về tiến độ học tập và xu hướng sức khỏe tinh thần. | MVP hiển thị mock dashboard trong app. |
 | Giáo viên/Chuyên gia | Đối tác hỗ trợ | Cung cấp expert priors, task library definitions, và tham gia gán nhãn dữ liệu. | MVP sử dụng expert knowledge đã định nghĩa sẵn. |
@@ -457,6 +677,54 @@ Orchestrator tích hợp cơ chế hiệu chuẩn và tự giám sát:
 
 | Container | Công nghệ | Chức năng chính | Ghi chú MVP |
 |----------|----------|----------------|-------------|
+
+**Biểu đồ container (C2 – trang 50):**
+
+```
+                            Client Side
+    ┌──────────────────────────────────────────────────────────────┐
+    │  Flutter Mobile App (Dart, flutter_bloc)                     │
+    │  Inspection Dashboard (Streamlit, Python)                    │
+    └────────────┬──────────────────────────────┬─────────────────┘
+                 │  HTTP/JSON                   │  HTTP/JSON
+                 ▼                              ▼
+    ┌──────────────────────────────────────────────────────────────┐
+    │              Server Side – FastAPI Backend                    │
+    │                                                              │
+    │           REST API Gateway (Async Endpoints)                 │
+    │                          │                                   │
+    │                          ▼                                   │
+    │               Orchestrator Engine                            │
+    │           (Policy Logic, Self-Monitoring)                    │
+    │               /                    \                         │
+    │              ▼                      ▼                        │
+    │    Empathy Engine           Academic Engine                  │
+    │  (Particle Filter,        (Bayesian Tracker,                 │
+    │   Utility Calc)            HTN Planner)                      │
+    │              \                    /                          │
+    │               ▼                  ▼                           │
+    │          Memory Engine    Abstraction Layer                  │
+    │        (Episodic Store,   (Model Interfaces,                 │
+    │         Q-Learning)        Config Loader)                    │
+    │                    \             /                           │
+    │                     ▼           ▼                            │
+    │              Data Store – Supabase PostgreSQL                │
+    │              (User Data, KG, Config)                         │
+    └──────────────────────────────────────────────────────────────┘
+         │                    │                     │
+         ▼                    ▼                     ▼
+   ┌───────────┐     ┌──────────────┐     ┌──────────────────────┐
+   │ Cloud Run │     │  Gemini API  │     │  Model Registry      │
+   │Serverless │     │  Content Gen │     │  (MLflow) – Phase 2  │
+   └───────────┘     └──────────────┘     └──────────────────────┘
+
+   Phase 2 bổ sung:
+   ┌────────────────────────┐     ┌───────────────────────────┐
+   │   Semantic Store       │     │   Retraining Pipeline     │
+   │ (Consolidated Patterns)│     │   (Batch Jobs)            │
+   └────────────────────────┘     └───────────────────────────┘
+```
+
 | Flutter Mobile App | Flutter, Dart, flutter_bloc | Giao diện người dùng tối giản (De-stress UI), thu thập tín hiệu hành vi chính xác. | 3 màn hình chính. Batch metrics mỗi 5s. |
 | Inspection Dashboard | Streamlit, Python | Hiển thị realtime trạng thái nội bộ: belief distribution, plan tree, particle state, Q-values, decision log. | Kết nối trực tiếp đến backend state stream. |
 | FastAPI Backend | Python 3.11, FastAPI | API endpoints async, điều phối agent execution, quản lý session state, ghi audit log. | Serverless trên Cloud Run. |
@@ -467,6 +735,68 @@ Orchestrator tích hợp cơ chế hiệu chuẩn và tự giám sát:
 | Abstraction Layer | Python Interfaces | Định nghĩa ErrorModelInterface, ObservationModelInterface. | MVP chỉ dùng expert implementation nạp từ JSON/YAML. |
 | Supabase Database | PostgreSQL, JSONB | Lưu trữ user data, đồ thị tri thức, episodic memory, expert config. | JSONB cho KG và config. TTL cho dữ liệu chi tiết. |
 | Gemini API | Google Gemini Flash | Sinh nội dung giải thích khái niệm, lời khuyên, khích lệ. | Không dùng cho suy luận quyết định. |
+
+
+---
+
+#### 4.1.3. MÔ HÌNH THÀNH PHẦN (C3)
+
+Mô hình thành phần mô tả cấu trúc nội bộ của các containers chính trong hệ thống GrowMate, tập trung vào **Orchestrator**, **Academic Engine**, **Empathy Engine**, **Memory Engine**, và **Abstraction Layer**. Mô hình làm rõ cách các thành phần tương tác để thực thi cơ chế Agentic, đồng thời thể hiện thiết kế modular cho phép MVP vận hành với expert priors và sẵn sàng tích hợp trained models trong tương lai.
+
+**Biểu đồ thành phần (Components Diagram – C3, trang 53):**
+
+```
+┌──────────────────────── Orchestrator Engine ────────────────────────────────┐
+│  State Aggregator → Policy Logic (Utility Comparison)                        │
+│                        /                        \                            │
+│                   Query                          Query                       │
+└──────────────────────/────────────────────────────\─────────────────────────┘
+                      │ Dispatch                     │ Dispatch
+                      ▼                              ▼
+ ┌──────────────────────────────┐   ┌─────────────────────────────────────────┐
+ │       Empathy Engine         │   │            Academic Engine              │
+ │                              │   │                                         │
+ │  Particle Filter Estimator   │   │  Bayesian Tracker                       │
+ │  (predict_likelihood,        │   │  (predict_likelihood, Update Belief)    │
+ │   Calc EU, Estimate State)   │   │              │                          │
+ │             │                │   │              ▼                          │
+ │             ▼                │   │         HTN Planner                     │
+ │    Utility Calculator        │   │         (Modify Plan, Execute)          │
+ └──────────────────────────────┘   │              │                          │
+                                    │              ▼                          │
+                                    │         Plan Repair Engine              │
+                                    └─────────────────────────────────────────┘
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │  Self-Monitoring (Uncertainty & HITL) ──► Audit Logger                      │
+ └─────────────────────────────────────────────────────────────────────────────┘
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │                           Memory Engine                                      │
+ │         Episodic Store ◄── Record ──► Q-Learning Policy                     │
+ │                    └──── Recommend ──────┘                                  │
+ └─────────────────────────────────────────────────────────────────────────────┘
+
+ ┌─────────────────────────────────────────────────────────────────────────────┐
+ │                          Abstraction Layer                                   │
+ │                                                                              │
+ │  ObservationModelInterface          ErrorModelInterface                      │
+ │               \                           /                                 │
+ │                ▼                         ▼                                   │
+ │  Expert Implementation (Rule-based/Synthetic)  ◄── MVP                      │
+ │  ML Implementation (Trained Models)            ◄── Phase 2                  │
+ │                          │                                                   │
+ │                          ▼                                                   │
+ │               Config Loader (JSON/YAML) ── Load Params                      │
+ └─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**Luồng xử lý minh họa:**
+1. **Khởi tạo:** Config Loader tải expert params từ Supabase. Expert Implementation được khởi tạo và đăng ký với Abstraction Layer.
+2. **Chẩn đoán:** Academic Engine nhận evidence → Bayesian Tracker gọi `ErrorModelInterface.predict_likelihood()` → Expert Implementation tính likelihood từ rules → Tracker cập nhật belief.
+3. **Ước lượng trạng thái:** Empathy Engine nhận signals → Particle Filter gọi `ObservationModelInterface.predict_likelihood()` → Expert Implementation tính likelihood → Filter cập nhật phân phối hạt.
+4. **Học tăng cường:** Memory Engine nhận outcome → Q-Learning Policy cập nhật Q-value → Episodic Store lưu experience.
+5. **Phase 2 Transition:** ML Implementation được triển khai tuân thủ cùng interfaces. Core logic của Academic/Empathy Engines không cần sửa đổi.
 
 ---
 

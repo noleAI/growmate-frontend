@@ -68,6 +68,7 @@ class _QuizPageState extends State<QuizPage> {
   bool _isLoadingQuestions = true;
   bool _isQuestionBankEmpty = false;
   bool _isNavigatingToDiagnosis = false;
+  bool _isTimerExpired = false;
   String? _fetchError;
   String? _submitErrorMessage;
 
@@ -94,6 +95,12 @@ class _QuizPageState extends State<QuizPage> {
 
     _countdownTimer = Timer.periodic(const Duration(seconds: 1), (_) {
       if (!mounted || _remainingTime.inSeconds <= 0) {
+        if (!_isTimerExpired && _remainingTime.inSeconds <= 0) {
+          _countdownTimer?.cancel();
+          setState(() {
+            _isTimerExpired = true;
+          });
+        }
         return;
       }
 
@@ -558,6 +565,33 @@ class _QuizPageState extends State<QuizPage> {
         normalized.contains('hoàn thành');
   }
 
+  String _localizedQuizMessage(BuildContext context, String message) {
+    if (!context.isEnglish) {
+      return message;
+    }
+
+    final trimmed = message.trim();
+    switch (trimmed) {
+      case 'Vui lòng nhập kết quả trước khi gửi.':
+        return 'Please enter your result before submitting.';
+      case 'Không thể gửi bài lúc này. Vui lòng thử lại.':
+        return 'Unable to submit right now. Please try again.';
+      case 'Vui lòng hoàn thành câu trả lời trước khi gửi.':
+        return 'Please complete your answer before submitting.';
+      default:
+        if (_containsVietnameseChars(trimmed)) {
+          return 'Unable to submit right now. Please try again.';
+        }
+        return trimmed;
+    }
+  }
+
+  bool _containsVietnameseChars(String value) {
+    return RegExp(
+      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
+    ).hasMatch(value);
+  }
+
   Widget _buildSubmitTransitionCard(BuildContext context) {
     final theme = Theme.of(context);
 
@@ -605,6 +639,87 @@ class _QuizPageState extends State<QuizPage> {
       question: _activeQuestion!,
       userAnswer: userAnswer,
     );
+  }
+
+  int get _answeredCount => _questionPool.where(_questionHasAnswer).length;
+
+  Future<void> _submitEntireQuiz() async {
+    // Persist current active question draft first
+    _persistDraftForActiveQuestion();
+
+    final answered = _answeredCount;
+    final total = _questionPool.length;
+
+    if (answered == 0) {
+      _showInputWarning(
+        context,
+        context.t(
+          vi: 'Bạn chưa trả lời câu nào. Hãy trả lời ít nhất 1 câu trước khi nộp bài.',
+          en: 'You have not answered any questions. Please answer at least 1 question before submitting.',
+        ),
+      );
+      return;
+    }
+
+    final shouldSubmit = await showDialog<bool>(
+      context: context,
+      barrierDismissible: false,
+      builder: (dialogContext) {
+        final theme = Theme.of(dialogContext);
+        return AlertDialog(
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(20),
+          ),
+          title: Row(
+            children: [
+              Icon(
+                Icons.assignment_turned_in_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(vi: 'Nộp toàn bộ bài?', en: 'Submit entire quiz?'),
+                ),
+              ),
+            ],
+          ),
+          content: Text(
+            context.t(
+              vi: 'Bạn đã trả lời $answered/$total câu. Bạn có chắc muốn nộp bài?',
+              en: 'You have answered $answered/$total questions. Are you sure you want to submit?',
+            ),
+            style: theme.textTheme.bodyMedium,
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(false),
+              child: Text(
+                context.t(vi: 'Quay lại', en: 'Go back'),
+                style: TextStyle(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ),
+            FilledButton(
+              onPressed: () => Navigator.of(dialogContext).pop(true),
+              child: Text(
+                context.t(
+                  vi: 'Nộp bài ($answered câu)',
+                  en: 'Submit ($answered answers)',
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
+
+    if (shouldSubmit != true || !mounted) return;
+
+    // Submit the current active question's answer if it has one
+    _submitCurrentAnswer();
   }
 
   TextStyle _questionContentStyle(ThemeData theme, String content) {
@@ -918,10 +1033,15 @@ class _QuizPageState extends State<QuizPage> {
             body: BlocConsumer<QuizCubit, QuizCubitState>(
               listener: (context, state) {
                 if (state is QuizSubmitFailureState) {
-                  if (_isValidationSubmitMessage(state.message)) {
+                  final localizedMessage = _localizedQuizMessage(
+                    context,
+                    state.message,
+                  );
+
+                  if (_isValidationSubmitMessage(localizedMessage)) {
                     ScaffoldMessenger.of(context)
                       ..hideCurrentSnackBar()
-                      ..showSnackBar(SnackBar(content: Text(state.message)));
+                      ..showSnackBar(SnackBar(content: Text(localizedMessage)));
 
                     setState(() {
                       _isNavigatingToDiagnosis = false;
@@ -930,7 +1050,7 @@ class _QuizPageState extends State<QuizPage> {
                   } else {
                     setState(() {
                       _isNavigatingToDiagnosis = false;
-                      _submitErrorMessage = state.message;
+                      _submitErrorMessage = localizedMessage;
                     });
                   }
                 }
@@ -1046,12 +1166,20 @@ class _QuizPageState extends State<QuizPage> {
                                 ),
                               ),
                             ),
-                            const Icon(Icons.timer_outlined, size: 22),
+                            Icon(
+                              Icons.timer_outlined,
+                              size: 22,
+                              color: _isTimerExpired
+                                  ? theme.colorScheme.error
+                                  : null,
+                            ),
                             const SizedBox(width: 6),
                             Text(
                               _formatDuration(_remainingTime),
                               style: theme.textTheme.titleMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
+                                color: _isTimerExpired
+                                    ? theme.colorScheme.error
+                                    : theme.colorScheme.onSurfaceVariant,
                                 fontWeight: FontWeight.w600,
                               ),
                             ),
@@ -1357,6 +1485,38 @@ class _QuizPageState extends State<QuizPage> {
                               ),
                             ),
                           ),
+                        if (_isTimerExpired) ...[
+                          const SizedBox(height: GrowMateLayout.space12),
+                          ZenCard(
+                            radius: 16,
+                            color: theme.colorScheme.errorContainer.withValues(
+                              alpha: 0.3,
+                            ),
+                            child: Row(
+                              children: [
+                                Icon(
+                                  Icons.timer_off_rounded,
+                                  color: theme.colorScheme.error,
+                                  size: 22,
+                                ),
+                                const SizedBox(width: 10),
+                                Expanded(
+                                  child: Text(
+                                    context.t(
+                                      vi: '⏰ Hết giờ! Bạn có thể nộp bài ngay hoặc tiếp tục hoàn thành.',
+                                      en: '⏰ Time is up! You can submit now or continue finishing.',
+                                    ),
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      color: theme.colorScheme.onErrorContainer,
+                                      fontWeight: FontWeight.w600,
+                                      height: 1.35,
+                                    ),
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
                         if (_submitErrorMessage != null) ...[
                           const SizedBox(height: GrowMateLayout.space12),
                           ZenErrorCard(
@@ -1387,7 +1547,10 @@ class _QuizPageState extends State<QuizPage> {
                                   vi: 'Đang gửi...',
                                   en: 'Submitting...',
                                 )
-                              : context.t(vi: 'Gửi bài', en: 'Submit'),
+                              : context.t(
+                                  vi: 'Gửi câu $currentNumber',
+                                  en: 'Submit Q$currentNumber',
+                                ),
                           onPressed: disableSubmit
                               ? null
                               : _submitCurrentAnswer,
@@ -1396,6 +1559,15 @@ class _QuizPageState extends State<QuizPage> {
                             color: Colors.white,
                             size: 26,
                           ),
+                        ),
+                        const SizedBox(height: GrowMateLayout.space12),
+                        ZenButton(
+                          label: context.t(
+                            vi: 'Nộp toàn bộ bài ($answeredCount/${_questionPool.length})',
+                            en: 'Submit all ($answeredCount/${_questionPool.length})',
+                          ),
+                          variant: ZenButtonVariant.secondary,
+                          onPressed: disableSubmit ? null : _submitEntireQuiz,
                         ),
                         const SizedBox(height: GrowMateLayout.sectionGap),
                         Center(

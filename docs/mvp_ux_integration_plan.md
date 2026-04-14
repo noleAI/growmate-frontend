@@ -1,437 +1,450 @@
 # MVP UI/UX & Integration Readiness Review
 
-> **Dự án:** GrowMate — Multi-Agent AI Tutor  
-> **Phiên bản:** MVP Core Agentic (Giai đoạn 1)  
-> **Ngày review:** 2026-04-14  
-> **Reviewer:** UX Lead / Product Engineer  
-> **Tham chiếu:** `docs/Proposal_Final.md`, `docs/API_CONTRACT_SPECIFICATION.md`, `docs/API_READINESS_CHECKLIST.md`
+**Dự án:** GrowMate — Your smart and friendly study partner  
+**Đội:** noleAI  
+**Review date:** 2026-04-14  
+**Reviewer role:** UX Lead + Product Engineer (Frontend & Integration)  
+**Phạm vi:** Đánh giá frontend Flutter (chưa tích hợp backend REST API)  
 
 ---
 
-## MỤC LỤC
+## 1. MVP UX EVALUATION
 
-1. [MVP UX Evaluation](#1-mvp-ux-evaluation)
-2. [UX Gaps](#2-ux-gaps)
-3. [UX Improvements](#3-ux-improvements)
-4. [API Integration Readiness](#4-api-integration-readiness)
-5. [Implementation Plan](#5-implementation-plan)
+### Core User Flow Analysis
 
----
-
-## 1. MVP UX Evaluation
-
-### 1.1. Đánh giá Core User Flow
-
-| Bước | Màn hình | Trạng thái hiện tại | Ghi chú |
-|------|---------|---------------------|---------|
-| 1. Welcome / Onboarding | `welcome_page.dart` | ✅ Có | Logo, tagline, 2 CTA (Đăng nhập / Tạo tài khoản). Thiếu Onboarding giới thiệu tính năng và Data Consent. |
-| 2. Đăng nhập / Đăng ký | `login_page.dart`, `register_page.dart` | ✅ Có | Validation, error messages dạng friendly (emoji). Có Forgot Password. |
-| 3. Trang chủ (Today) | `today_page.dart` | ✅ Có | AI Hero card, thinking state, compact stats, AI analysis panel, quick strips (review/mindful/schedule). |
-| 4. Quiz (Làm bài) | `quiz_page.dart` | ✅ Có | Hiển thị câu hỏi từ Supabase, gõ/chọn đáp án, submit, behavioral signal collection. |
-| 5. Diagnosis (Chẩn đoán) | `result_screen.dart` | ✅ Có | Hiển thị headline, gap analysis, strengths, needs review, HITL flow, CTA → Intervention. |
-| 6. Intervention (Can thiệp) | `intervention_page.dart` | ✅ Có | Academic/Recovery mode, option selection, uncertainty prompt (HITL), recovery timer, Q-value feedback. |
-| 7. Session Complete | `session_complete_page.dart` | ✅ Có | Summary, badges, next action suggestion, CTA → Home / Mindful Break / Progress. |
-| 8. Recovery | `recovery_screen.dart` | ✅ Có | Breathing animation, reason display, CTA quay lại. |
-| 9. Mindful Break | `mindful_break_page.dart` | ✅ Có | 90s timer, breathing phases, ambient sound (3 presets), volume control. |
-| 10. Progress | `progress_page.dart` | ✅ Có | Session history, timeline view. |
-| 11. Profile / Settings | `profile_screen.dart` | ✅ Có | Theme, color palette (5 lựa chọn), language, data export, legal pages. |
-| 12. Inspection Dashboard | `inspection_bottom_sheet.dart` | ✅ Có | Belief view, mental state, Q-values, decision log — dạng bottom sheet trong app. |
-
-### 1.2. Đánh giá System States
-
-| State | Hiện trạng | Chi tiết |
-|-------|-----------|---------|
-| **Loading** | ✅ Đạt | `_ThinkingHero` (Today), `_LoadingStateWidget`, `CircularProgressIndicator` (Quiz submit), `LinearProgressIndicator` (Session Complete), `DiagnosisLoading` BLoC state. |
-| **Error** | ⚠️ Đạt một phần | `_ErrorStateWidget` có retry button (Today). `QuizFailure`, `DiagnosisFailure` states tồn tại. `api_error_displayer.dart` có sẵn. Tuy nhiên **Error UI chưa nhất quán**: Intervention chỉ dùng toast, Quiz dùng inline message. |
-| **Empty** | ⚠️ Đạt một phần | `_ReviewDueStrip` ẩn khi empty. Schedule empty có hint text. Nhưng **Today page khi chưa có session history → vẫn hiển thị hardcoded stats** ("6 ngày", "4/5 hoàn thành"). |
-| **Success** | ✅ Đạt | `QuizSuccess` → navigate to Diagnosis. `DiagnosisSuccess` → render result. `feedbackRecorded` → show confirmation. Session Complete page. |
-| **Confirmation** | ✅ Đạt | HITL popup xác nhận trước thay đổi lộ trình. Intervention uncertainty prompt. |
-| **Fallback** | ✅ Đạt | Mock API service fallback khi backend chưa sẵn sàng. Recovery mode khi confidence thấp. Offline mode queue. |
-
-### 1.3. Đánh giá Adaptive UI States
-
-| State | Proposal yêu cầu | Hiện trạng |
-|-------|------------------|-----------|
-| **Focused** | Hiển thị đầy đủ thông tin, tùy chọn nâng cao | ⚠️ Chưa implement — UI không thay đổi theo trạng thái focused |
-| **Confused** | Chuyển sang giải thích trực quan | ⚠️ Chưa implement — Intervention page có recovery/academic mode nhưng chưa thay đổi UI layout theo confused state |
-| **Exhausted** | Recovery Mode, nền màu ấm hơn | ✅ Đạt một phần — Recovery screen và Mindful Break tồn tại, nhưng app-wide background tint chưa thay đổi |
-
-### 1.4. Đánh giá Human-in-the-Loop (HITL)
-
-| Yêu cầu | Hiện trạng |
-|---------|-----------|
-| Popup xác nhận khi uncertainty cao | ✅ Có — `showUncertaintyPrompt` trong `InterventionState`, HITL confirm trong `DiagnosisBloc` |
-| Ghi nhận phản hồi làm ground truth | ✅ Có — `HITLConfirmed` event → `confirmHITL` API → update plan |
-| Tôn trọng lựa chọn, không ép buộc | ✅ Có — "Skip this time" option luôn tồn tại trong intervention options |
-| HITL cho thay đổi lộ trình quan trọng | ✅ Có — `requiresHitl` field trong `DiagnosisSuccess` |
-
-### 1.5. Đánh giá Trust / Transparency
-
-| Yêu cầu | Hiện trạng |
-|---------|-----------|
-| Giải thích quyết định | ✅ Có — `diagnosisReason` hiển thị trên result screen |
-| Inspection Dashboard | ✅ Có — Bottom sheet với belief, mental state, Q-values, decision log |
-| Audit Log | ✅ Có — `InspectionRuntimeStore` ghi addDecision, updateQValues, updateMentalState |
-| Confidence display | ✅ Có — AI Hero card hiển thị confidence (0.87), AI analysis panel hiển thị "Độ tự tin 74%" |
-
-### 1.6. Compliance (Nghị định 13/2023)
-
-| Yêu cầu | Hiện trạng |
-|---------|-----------|
-| Màn hình onboarding hiển thị dữ liệu thu thập | ❌ **Thiếu** — Welcome page không có Data Consent / Onboarding flow |
-| Opt-in trước khi thu thập hành vi | ❌ **Thiếu** — Behavioral signals tự động thu thập, không hỏi consent |
-| Data export | ✅ Có — `DataExportPage` với `PrivacyRepository` |
-| Terms of Service / Privacy Policy | ✅ Có — Pages tồn tại, link từ Profile |
-
----
-
-### MVP STATUS: ⚠️ ĐẠT MỘT PHẦN
-
-**Lý do:**
-- Core flow (Quiz → Diagnosis → Intervention → Session Complete) **hoạt động E2E** với MockAPI và Supabase hybrid.
-- De-stress UI (pastel theme, Plus Jakarta Sans / Space Grotesk, rounded components, animations) **đạt cơ bản**.
-- HITL flow, Inspection Dashboard, Recovery mode **đã implement**.
-- **Thiếu 2 phần critical:** Data Consent onboarding flow (bắt buộc theo Proposal §6.4) và Empty/hardcoded states trên Today page.
-- Adaptive UI states (focused/confused/exhausted) **chưa implement** nhưng proposal liệt kê là COULD HAVE (FR-UI-05).
-
----
-
-## 2. UX Gaps
-
-### GAP-01: Thiếu Data Consent / Onboarding Flow
-
-| | |
-|---|---|
-| **Vấn đề** | Welcome page chuyển thẳng sang Login/Register mà không có bước giới thiệu GrowMate thu thập dữ liệu hành vi nào, mục đích gì, và yêu cầu Opt-in. |
-| **Vì sao ảnh hưởng MVP** | Proposal §6.4 cam kết "Màn hình onboarding hiển thị rõ ràng dữ liệu được thu thập và mục đích sử dụng" + "Người dùng phải chủ động đồng ý trước khi thu thập dữ liệu hành vi". Đây là yêu cầu tuân thủ Nghị định 13 — **bắt buộc cho demo trước BGK**. Thiếu phần này làm mất tính minh bạch, trực tiếp vi phạm cam kết đạo đức AI. |
-| **Mức độ** | 🔴 **Critical** |
-
-### GAP-02: Today Page hiển thị hardcoded data khi chưa có session thực
-
-| | |
-|---|---|
-| **Vấn đề** | `_CompactStats` hiển thị cứng "6 ngày streak", "4/5 hoàn thành", "Tập trung: Tốt". `_AiSystemPanel` hiển thị cứng "Quy tắc đạo hàm cơ bản", "Đạo hàm hàm số hợp". `AIHero` hiển thị cứng confidence 0.87 và topic "Ứng dụng đạo hàm". |
-| **Vì sao ảnh hưởng MVP** | Khi demo E2E, BGK sẽ thấy data tĩnh không khớp với phiên vừa hoàn thành → mất credibility. Khi tích hợp API, data này phải đến từ backend/session history nhưng UI chưa có cơ chế để thay thế. |
-| **Mức độ** | 🔴 **Critical** |
-
-### GAP-03: Error handling không nhất quán giữa các screen
-
-| | |
-|---|---|
-| **Vấn đề** | Today page có `_ErrorStateWidget` với retry. Quiz dùng `QuizFailure` state nhưng hiển thị inline text. Intervention dùng toast message. Diagnosis dùng `DiagnosisFailure` nhưng UI rendering khác nhau. Không có global error boundary. |
-| **Vì sao ảnh hưởng MVP** | Khi tích hợp API thật, network errors sẽ xảy ra thường xuyên hơn → trải nghiệm không nhất quán gây confusion, user không biết phải làm gì khi lỗi xảy ra. |
-| **Mức độ** | 🟡 **Important** |
-
-### GAP-04: Quiz Page thiếu explicit empty state khi không có câu hỏi
-
-| | |
-|---|---|
-| **Vấn đề** | Nếu Supabase trả về 0 câu hỏi (quiz_question_template rỗng cho chuyên đề), Quiz page hành vi chưa rõ ràng — không có empty state design rõ ràng. |
-| **Vì sao ảnh hưởng MVP** | Khi backend trả empty quiz bank → user bị stuck, không có hướng dẫn rõ ràng về tiếp theo. |
-| **Mức độ** | 🟡 **Important** |
-
-### GAP-05: Thiếu loading indicator khi navigate từ quiz submit → diagnosis
-
-| | |
-|---|---|
-| **Vấn đề** | Sau `QuizSuccess`, app navigate sang `/diagnosis?submissionId=...`. `DiagnosisBloc` bắt đầu với `DiagnosisLoading`. Tuy nhiên, transition giữa quiz → diagnosis không có visual feedback rõ ràng — user thấy blank screen rồi loading. |
-| **Vì sao ảnh hưởng MVP** | Khoảnh khắc "trắng" khi chuyển trang gây cảm giác app chậm hoặc bị lỗi. Backend thật có thể mất 1-4.5s → khoảng blank này dài hơn mock. |
-| **Mức độ** | 🟡 **Important** |
-
-### GAP-06: Intervention page không xử lý rõ trường hợp backend trả interventionPlan rỗng
-
-| | |
-|---|---|
-| **Vấn đề** | `_buildOptionsFromBackend` đã có fallback tạo 3 default options khi `backendPlan` rỗng. Tuy nhiên, UI không phân biệt được đâu là AI-generated options vs fallback defaults → giảm transparency. |
-| **Vì sao ảnh hưởng MVP** | BGK kiểm tra Inspection Dashboard thấy options nhưng không biết đó là fallback → câu hỏi về tính Agentic thật sự. |
-| **Mức độ** | 🟡 **Important** |
-
----
-
-## 3. UX Improvements
-
-### IMP-01: Thêm Data Consent Step vào Welcome Flow
-
-| | |
-|---|---|
-| **Vấn đề** | Thiếu hoàn toàn bước đồng thuận dữ liệu trước khi vào app |
-| **Giải pháp** | Thêm 1 màn hình giữa Welcome → Login/Register hiển thị: (1) GrowMate thu thập những gì (tín hiệu hành vi: tốc độ gõ, thời gian idle, tỷ lệ sửa), (2) Mục đích sử dụng (ước lượng trạng thái tinh thần, cá nhân hóa lộ trình), (3) Toggle Opt-in rõ ràng, (4) Link đến Privacy Policy. Lưu consent vào `SharedPreferences` / Supabase user metadata. |
-| **Lợi ích** | Tuân thủ Nghị định 13/2023. Tăng trust khi demo trước BGK. Chứng minh cam kết đạo đức AI. |
-
-### IMP-02: Thay thế hardcoded stats trên Today page bằng data thật từ Session History
-
-| | |
-|---|---|
-| **Vấn đề** | `_CompactStats` hiển thị cứng "6", "4/5", "Tốt". `_AiSystemPanel` hiển thị cứng. |
-| **Giải pháp** | (1) Inject `SessionHistoryRepository` vào `TodayPage`. (2) Dùng `StreamBuilder<List<SessionHistoryEntry>>` để hiển thị streak thật, sessions hoàn thành thật, focus score trung bình. (3) `AIHero` card: lấy topic và confidence từ session history gần nhất hoặc backend `/sessions/active` response. (4) `_AiSystemPanel`: lấy strengths/needsReview từ diagnosis gần nhất. (5) Trường hợp empty (chưa có session nào): hiển thị "Chưa có phiên học" với CTA "Bắt đầu phiên đầu tiên". |
-| **Lợi ích** | Data nhất quán giữa các phiên. BGK thấy dữ liệu thay đổi sau mỗi demo session → chứng minh hệ thống thực sự adaptive. Sẵn sàng cho API integration. |
-
-### IMP-03: Chuẩn hóa Error UI Pattern
-
-| | |
-|---|---|
-| **Vấn đề** | 3+ cách hiển thị lỗi khác nhau |
-| **Giải pháp** | Tạo `ZenErrorCard` widget tái sử dụng với: icon, message, retry button (optional), dismiss button (optional). Áp dụng nhất quán cho Quiz (thay inline text), Diagnosis (thay plain text), Intervention (thay toast cho critical errors, giữ toast cho non-critical). |
-| **Lợi ích** | UX nhất quán. User training: thấy error card → biết tap retry. Giảm confusion khi API thật gây lỗi. |
-
-### IMP-04: Thêm Transition Animation từ Quiz → Diagnosis
-
-| | |
-|---|---|
-| **Vấn đề** | Blank moment khi navigate |
-| **Giải pháp** | Khi `QuizSuccess` emit → hiển thị inline "AI đang phân tích bài làm..." card (tương tự `_ThinkingHero`) trước khi navigate. Delay navigate 800ms để user đọc được feedback "Đã nhận bài" → smooth transition sang result screen có `DiagnosisLoading`. |
-| **Lợi ích** | No blank screen. User biết system đang xử lý. Cảm giác AI "thinking" khớp với narrative sản phẩm. |
-
-### IMP-05: Thêm badge cho fallback options trong Intervention
-
-| | |
-|---|---|
-| **Vấn đề** | Không phân biệt AI-generated vs fallback options |
-| **Giải pháp** | Khi `InterventionOption.fromBackend == false`, thêm subtle badge "Mặc định" / "Default" ở góc option card. Log rõ trong `InspectionRuntimeStore` rằng đang dùng fallback options. |
-| **Lợi ích** | Minh bạch cho BGK khi inspect. Tăng trust. |
-
----
-
-## 4. API Integration Readiness
-
-### 4.1. Đánh giá tổng thể
-
-| Tiêu chí | Đánh giá | Chi tiết |
-|---------|---------|---------|
-| **State management** | ✅ Tốt | `flutter_bloc` (BLoC + Cubit) phân tầng rõ: `QuizBloc`, `DiagnosisBloc`, `InterventionBloc`, `AuthBloc`, `InspectionCubit`, `ThemeModeCubit`, `ColorPaletteCubit`, `AppLanguageCubit`. Sealed class states với Equatable. |
-| **Data flow** | ✅ Tốt | `ApiService` interface → `MockApiService` / `RealApiService` / `SupabaseHybridApiService`. Repository pattern. Feature flag `useMockApi` toggle. |
-| **Hardcoded dependencies** | ⚠️ Có | Today page stats (GAP-02). `AIHero` confidence/topic. `_AiSystemPanel` content. `appVersion: '1.0.0+1'` hardcoded trong router. |
-| **Missing states khi API trả data thật** | ⚠️ Có | Today page empty state. Quiz empty state. Diagnosis API trả response khác mock format → potential mapping mismatch. |
-| **UX khi API fail / delay** | ⚠️ Tạm | Loading states tồn tại. Error states tồn tại nhưng không nhất quán (GAP-03). `NetworkStatusIndicator` đã tích hợp app-wide. Offline mode queue cho signals. Retry logic trong `RealApiService`. |
-| **Async-friendly interactions** | ✅ Tốt | Tất cả BLoC handlers là `async`. Timer-based behavioral signals (5s batch). `unawaited()` cho non-critical fire-and-forget. `FutureBuilder` cho lazy loading. |
-
-### 4.2. Kiến trúc API Layer — Đã sẵn sàng
+Dựa trên Proposal §6.2 (3 màn hình chính) và codebase thực tế, luồng MVP chính là:
 
 ```
-ApiService (interface)
-├── MockApiService        ← MVP hiện tại (useMockApi = true)
-├── SupabaseHybridApiService ← Supabase RPC + Mock fallback
-└── RealApiService        ← Production REST API (sẵn sàng, chưa dùng)
+Welcome → Login/Register → Data Consent → Today (Home)
+  → Quiz (làm bài) → Diagnosis (kết quả AI) → Intervention (can thiệp/HITL)
+  → Session Complete → Quay lại Today
+  → Recovery (nếu kiệt sức) → Quay lại Today
 ```
 
-**Đã có:**
-- `ApiService` interface với 6 methods: `submitAnswer`, `getDiagnosis`, `submitSignals`, `submitInterventionFeedback`, `confirmHITL`, `saveInteractionFeedback`
-- `RealApiService` với auth headers, retry (max 2), timeout (30s), error parsing
-- `ApiConfig` từ `.env` / `--dart-define`
-- `HttpLogger` cho debug
-- `LearningSessionManager` cho dynamic session ID
-- `AuthTokenStorage` (GlobalTokenStorage)
-- API Contract Specification document (13 endpoints)
-- Error hierarchy (`app_exceptions.dart`)
+### Checklist đánh giá
 
-**Chưa có:**
-- Entity models với `fromJson`/`toJson` (hiện dùng raw `Map<String, dynamic>`)
-- Token storage bằng `flutter_secure_storage` (hiện dùng `SharedPreferences`)
-- Unit tests cho API layer
+| Tiêu chí | Trạng thái | Chi tiết |
+|----------|-----------|---------|
+| Core user flow đầy đủ | ✅ Đạt | 7 màn hình core hoàn chỉnh: Today → Quiz → Diagnosis → Intervention → SessionComplete + Recovery, MindfulBreak |
+| Auth flow | ✅ Đạt | Welcome, Login, Register, ForgotPassword, DataConsent đầy đủ với redirect logic |
+| Loading states | ✅ Đạt | Quiz loading, ThinkingHero, ResultLoading, submit transition, FutureBuilder loading đều có |
+| Error states | ✅ Đạt | ZenErrorCard tái sử dụng, _ResultErrorView, _fetchError handling, _RouteDataErrorPage |
+| Empty states | ✅ Đạt | _EmptyHeroCard, _isQuestionBankEmpty, _AiSystemPanel null snapshot, empty history |
+| Success states | ✅ Đạt | QuizSubmitSuccessState, SessionComplete celebration, badge unlock, toast messages |
+| Confirmation / fallback | ✅ Đạt | _confirmLeaveQuiz dialog, AiResultModal decision moment, HITL uncertainty dialog |
+| Adaptive UI states | ⚠️ Đạt một phần | Recovery mode gradient thay đổi, intervention mode switch. Nhưng chưa có UI runtime adaptation dựa trên Particle Filter state (focused/confused/exhausted) |
+| Human-in-the-loop flow | ✅ Đạt | Uncertainty dialog trong InterventionPage, AiResultModal accept/reject plan, HITL confirm API |
+| Trust / transparency | ✅ Đạt | ResultScreen hiển thị confidence score, risk level, diagnosis reason, AI decision transparency section, Inspection BottomSheet |
+| De-stress UI | ✅ Đạt | Pastel gradients, ZenCard, ZenButton, micro-animations (AnimatedSwitcher, AnimatedSlide), breathing animation trong Recovery |
+| i18n (VI/EN) | ✅ Đạt | context.t() pattern xuyên suốt toàn app, AppLanguageCubit |
+| Dark mode | ✅ Đạt | ThemeModeCubit, AppTheme.lightThemeFor/darkThemeFor, isDark checks |
+| Navigation | ✅ Đạt | GoRouter với auth guard, consent guard, proper redirect logic |
+| Offline awareness | ✅ Đạt | NetworkStatusIndicator, OfflineModeRepository, queued signals |
 
-### 4.3. Data Contract Alignment
+### Đánh giá tổng hợp
 
-| API Endpoint | Mock Response Keys | API Contract Keys | Match? |
-|-------------|-------------------|-------------------|--------|
-| `submitAnswer` | `answerId`, `questionId`, `isCorrect` | `answerId`, `questionId`, `isCorrect` | ✅ |
-| `getDiagnosis` | `diagnosisId`, `title`, `gapAnalysis`, `strengths`, `needsReview`, `mode`, `requiresHITL`, `confidence`, `interventionPlan` | Giống | ✅ |
-| `confirmHITL` | `hitlDecision`, `finalMode`, `interventionPlan` | Giống | ✅ |
-| `submitInterventionFeedback` | `updatedQValues`, `selectedOption` | Giống | ✅ |
-| `saveInteractionFeedback` | `eventId`, `savedAt` | Giống | ✅ |
+> **MVP Status: ĐẠT**
 
-### 4.4. Risks khi tích hợp API thật
+App đã vượt xa yêu cầu "3 màn hình chính" trong Proposal. Toàn bộ core user flow hoạt động end-to-end với mock data. Các trạng thái hệ thống (loading, error, empty, success, confirmation) được xử lý ở tất cả màn hình quan trọng. HITL flow và trust/transparency đã được triển khai tốt.
 
-| Risk | Severity | Mitigation |
-|------|---------|-----------|
-| Backend response format khác mock → crash | 🔴 Cao | BLoC handlers sử dụng `?.toString() ?? ''` và fallback. Tuy nhiên, thiếu `fromJson` models → brittle parsing. |
-| Latency > 4.5s → UX degradation | 🟡 Trung bình | Loading states tồn tại. Timeout 30s trong `RealApiService`. Nhưng cần thêm timeout-specific error message. |
-| Token expired mid-session → lost progress | 🟡 Trung bình | `RealApiService` có retry nhưng chưa có explicit token refresh re-queue logic. |
-| Backend unavailable → total block | 🟢 Thấp | `SupabaseHybridApiService` fallback. `OfflineModeRepository` queue. `NetworkStatusIndicator` app-wide. |
+**Điểm chưa hoàn thiện:** Adaptive UI theo trạng thái tinh thần (focused/confused/exhausted) từ Empathy Agent chưa thay đổi giao diện runtime — chỉ logic mode `recovery` vs `normal` được phản ánh. Đây là gap sẽ cần data thật từ backend Particle Filter.
 
 ---
 
-### INTEGRATION READINESS: ⚠️ TẠM ỔN (65%)
+## 2. UX GAPS
+
+### GAP-01: Thiếu Onboarding / First-time User Guidance
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Sau DataConsent, user mới vào TodayPage thấy EmptyHeroCard với CTA "Bắt đầu phiên đầu tiên" nhưng không có giải thích GrowMate hoạt động thế nào, quiz là gì, AI sẽ làm gì |
+| **Vì sao ảnh hưởng MVP** | User persona (Lan Anh 17 tuổi) có thể bối rối về kỳ vọng sản phẩm ⇒ drop-off ngay phiên đầu. BGK demo cũng cần hiểu flow nhanh |
+| **Mức độ** | **Important** |
+
+### GAP-02: Quiz không có xác nhận nộp toàn bộ bài
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Nút "Gửi bài" submit **từng câu đang active**, không phải toàn bộ quiz. User có 20 câu nhưng chỉ submit 1 câu hiện tại → diagnosis chỉ dựa trên 1 câu trả lời. UX label "Gửi bài" gây hiểu nhầm là nộp cả bài |
+| **Vì sao ảnh hưởng MVP** | Core flow bị lệch: user nghĩ đã nộp bài hoàn chỉnh nhưng diagnosis chỉ có 1 câu ⇒ kết quả AI không có ý nghĩa, giảm trust. Đối với demo BGK, đây là confusion point |
+| **Mức độ** | **Critical** |
+
+### GAP-03: Thiếu visual feedback cho trạng thái tinh thần (Empathy Agent output)
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Proposal §6.2 mô tả 3 chế độ UI (focused/confused/exhausted) nhưng code hiện tại chỉ phân biệt `normal` vs `recovery` mode. Không có visual indicator (badge, icon, color change) cho trạng thái tinh thần ước lượng |
+| **Vì sao ảnh hưởng MVP** | Đây là selling point cốt lõi của Empathy Agent + Particle Filter. Nếu UI không phản ánh trạng thái thì BGK không thể kiểm chứng cơ chế Agentic thứ 3 hoạt động |
+| **Mức độ** | **Critical** |
+
+### GAP-04: Diagnosis Result Screen gradient hardcoded sáng, không tương thích dark mode
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | `result_screen.dart` line 417-421 hardcode gradient `Color(0xFFEFF6FF)` và `Color(0xFFE0ECFF)`, không dùng `theme.colorScheme`. Tương tự intervention_page.dart line 131-134 |
+| **Vì sao ảnh hưởng MVP** | Demo trên dark mode sẽ có card trắng lóa giữa nền tối ⇒ UI broken, giảm ấn tượng chuyên nghiệp |
+| **Mức độ** | **Important** |
+
+### GAP-05: Không có xác nhận trước khi tự động chuyển sang Intervention
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Sau Diagnosis, nếu user accept plan, app tự động navigate sang InterventionPage sau 720ms delay mà không có animation hay confirm nào rõ ràng. User có thể không nhận ra đã chuyển context |
+| **Vì sao ảnh hưởng MVP** | Gây jarring transition. Proposal §6.3 yêu cầu "tôn trọng lựa chọn" — transition cần feel intentional |
+| **Mức độ** | **Important** |
+
+### GAP-06: Thiếu trạng thái khi timer hết trong Quiz
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Timer countdown tới 0 nhưng không trigger hành động nào (không auto-submit, không warning, không stop timer ở negative). User có thể tiếp tục làm bài sau khi hết giờ |
+| **Vì sao ảnh hưởng MVP** | Vấn đề UX cơ bản cho quiz có thời gian. Nếu demo tới BGK mà timer = 00:00 nhưng vẫn làm bài được → giảm trust vào tính nghiêm túc của hệ thống |
+| **Mức độ** | **Important** |
+
+---
+
+## 3. UI/UX IMPROVEMENTS
+
+### IMP-01: Thêm short onboarding tooltip/coach-mark ở TodayPage lần đầu
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | User mới không biết bắt đầu từ đâu |
+| **Giải pháp** | Thêm 1 overlay card (hoặc expanded EmptyHeroCard) với 3 bullet ngắn: ① Làm quiz → ② AI chẩn đoán → ③ Nhận lộ trình. Hiển thị 1 lần, dismiss vĩnh viễn bằng SharedPreferences flag |
+| **Lợi ích** | Giảm first-session drop-off; BGK hiểu flow ngay |
+
+### IMP-02: Rõ ràng hóa submit quiz flow
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | "Gửi bài" gây nhầm lẫn giữa submit 1 câu vs toàn bộ |
+| **Giải pháp** | **Option A (Recommended):** Đổi label thành "Nộp bài (X/20 đã trả lời)" và submit toàn bộ answers đã có. Hiện confirm dialog trước khi nộp nếu chưa trả lời hết. **Option B:** Giữ submit per-question nhưng đổi label thành "Gửi câu này" và thêm "Nộp toàn bộ bài" ở cuối |
+| **Lợi ích** | Tránh confusion, đảm bảo diagnosis nhận đầy đủ evidence |
+
+### IMP-03: Thêm mental state indicator nhẹ
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | UI không phản ánh output Empathy Agent |
+| **Giải pháp** | Tại TopAppBar hoặc TodayPage, thêm chip nhỏ hiển thị trạng thái: 🟢 Tập trung / 🟡 Hơi mệt / 🔴 Cần nghỉ. Giá trị lấy từ API response `mentalState` field (mock: dựa trên focusScore last session) |
+| **Lợi ích** | Chứng minh Particle Filter → UI reactive; tăng trust + wow factor |
+
+### IMP-04: Fix hardcoded colors cho dark mode
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Gradient cards dùng Color(0xFF...) cố định |
+| **Giải pháp** | Thay bằng `theme.colorScheme.primaryContainer` / `surfaceContainerLow` cho gradient. Hoặc dùng pattern `isDark ? darkVariant : lightVariant` |
+| **Lợi ích** | UI không bị vỡ trong dark mode demo |
+
+### IMP-05: Timer hết giờ behavior
+
+| Thuộc tính | Chi tiết |
+|-----------|---------|
+| **Vấn đề** | Timer đếm tới 0 nhưng không có hành động |
+| **Giải pháp** | Khi timer = 0: ① hiện warning card "Hết giờ"; ② disable thêm câu trả lời mới; ③ auto-focus nút "Nộp bài". Tùy chọn: auto-submit sau 5 giây nếu đã trả lời ≥1 câu |
+| **Lợi ích** | UX quiz chuyên nghiệp, phù hợp demo |
+
+---
+
+## 4. API INTEGRATION READINESS
+
+### Architecture Analysis
+
+| Khía cạnh | Đánh giá | Chi tiết |
+|-----------|---------|---------|
+| **API abstraction layer** | ✅ Tốt | `ApiService` abstract interface với 6 methods rõ ràng. `MockApiService`, `RealApiService`, `SupabaseHybridApiService` — swap bằng feature flag `useMockApi` |
+| **State management** | ✅ Tốt | `flutter_bloc` pattern xuyên suốt: AuthBloc, QuizCubit, ResultCubit, InterventionBloc, InspectionCubit. States rõ ràng (loading/success/failure) |
+| **Data flow & Repository pattern** | ✅ Tốt | Clean separation: Repository → ApiService → Backend. QuizRepository, DiagnosisRepository, InterventionRepository nhận sessionId |
+| **Session management** | ✅ Tốt | `LearningSessionManager` quản lý sessionId động; token storage qua `GlobalTokenStorage` |
+| **Feature flags** | ✅ Tốt | `useMockApi`, `useSupabaseRpcDataPlane` cho phép switch giữa mock/real dễ dàng |
+| **Behavioral signal pipeline** | ✅ Tốt | `BehavioralSignalService` thu thập và batch submit mỗi 5s qua `submitSignals` API |
+| **Error handling cho API calls** | ⚠️ Cần cải thiện | Quiz page có try-catch nhưng Bloc/Cubit không có retry policy nhất quán. Timeout handling chưa rõ |
+| **Hardcoded data** | ⚠️ Một số chỗ | `SessionCompletePage` hardcode `durationMinutes: 12`, `focusScore: 3.4`, `confidenceScore: 0.83` — cần thay bằng data từ API response |
+| **Missing API fields** | ⚠️ Cần bổ sung | API response không có field `mentalState` (focused/confused/exhausted), `uncertaintyScore` riêng, `beliefDistribution` cho UI. Mock data chưa map đầy đủ Proposal schema |
+| **Retry & timeout** | ⚠️ Cần bổ sung | `ApiConfig` định nghĩa retry config nhưng `RealApiService` chưa implement exponential backoff. `MockApiService` delay cố định 1s |
+| **Offline queue** | ✅ Tốt | `OfflineModeRepository` queue signals khi offline, flush khi online |
+
+### Hardcoded Values cần thay thế
+
+| File | Vị trí | Giá trị hardcode | Cần thay bằng |
+|------|--------|------------------|---------------|
+| `session_complete_page.dart` | Line 73-76 | `durationMinutes: 12`, `focusScore: 3.4/2.8`, `confidenceScore: 0.83/0.72` | Lấy từ last diagnosis API response hoặc session state |
+| `quiz_page.dart` | Line 1072 | `'Giải tích 12'` subject hardcode | Lấy từ session/topic configuration |
+| `intervention_page.dart` | Line 370, 398 | Hardcoded suggestion text | Lấy từ API `interventionPlan.suggestion` field |
+| `mock_api_service.dart` | Toàn file | Vietnamese strings hardcode | OK cho mock, nhưng cần ensure real API trả i18n-ready data |
+
+### Đánh giá tổng hợp
+
+> **Integration Readiness: TẠM ỔN — Cần 3-5 fix nhỏ trước khi integrate**
+
+**Kiến trúc tốt:** ApiService abstraction, feature flags, repository pattern, bloc pattern đều production-ready. Chuyển từ mock sang real API chỉ cần `useMockApi = false` + đảm bảo API response schema khớp.
 
 **Các vấn đề chính cần fix trước khi integrate:**
-1. **Entity models** — Thay raw Map parsing bằng typed models với `fromJson`
-2. **Today page hardcoded data** — Phải đến từ session history / API response
-3. **Error UI chuẩn hóa** — Nhất quán trước khi api thật tạo errors không lường trước
-4. **Data Consent** — Phải hoàn thành trước khi thu thập behavioral signals
-5. **Token storage nâng cấp** — `SharedPreferences` → `flutter_secure_storage` cho production
+
+1. **Thay hardcoded values** trong SessionCompletePage bằng data từ API response
+2. **Bổ sung mental state field** vào API response parsing (ResultModel cần `mentalState`, `particleDistribution`)
+3. **Implement retry/timeout** trong RealApiService theo ApiConfig
+4. **Quiz submit flow** cần rõ ràng giữa per-question vs batch submit — align với backend endpoint design
+5. **Ensure API response schema mapping** — mock data schema cần match production API contract
 
 ---
 
-## 5. Implementation Plan
+## 5. IMPLEMENTATION PLAN
 
-> Plan dưới đây được thiết kế để GPT-5.3-Codex (hoặc AI coding agent tương đương) có thể thực hiện trực tiếp. Mỗi task self-contained, có context đầy đủ.
-
----
-
-### Module A: Data Consent & Onboarding
-
-#### TASK A-1: Tạo Data Consent Page
-
-- **Issue:** Thiếu bước yêu cầu đồng thuận dữ liệu trước khi thu thập hành vi. Vi phạm Nghị định 13/2023 và cam kết Proposal §6.4.
-- **Thay đổi UI/UX cần làm:**
-  1. Tạo file `lib/features/auth/presentation/pages/data_consent_page.dart`
-  2. Nội dung: Tiêu đề "GrowMate thu thập gì?", danh sách 3 loại dữ liệu (tốc độ gõ, thời gian idle, tỷ lệ sửa đáp án), mục đích sử dụng (ước lượng trạng thái tinh thần, cá nhân hóa lộ trình), link đến Privacy Policy page.
-  3. Toggle switch `SwitchListTile` cho "Tôi đồng ý cho GrowMate thu thập tín hiệu hành vi".
-  4. CTA "Tiếp tục" disabled khi chưa đồng ý.
-  5. Style: `ZenPageContainer`, `ZenCard`, `ZenButton`. Dùng theme colors.
-  6. Lưu consent: `SharedPreferences` key `data_consent_accepted` = true/false, kèm timestamp.
-- **Expected behavior:** Sau Register, user thấy Data Consent page → toggle đồng ý → tap "Tiếp tục" → navigate to Home. Trở lại app (không phải lần đầu) → skip consent.
-- **Gợi ý kỹ thuật:** Kiểm tra `SharedPreferences.getBool('data_consent_accepted')` trong router redirect. Nếu false/null sau khi authenticated → redirect sang `/consent`.
-
-#### TASK A-2: Tích hợp Consent vào Router Flow
-
-- **Issue:** Router hiện tại chỉ check authenticated, không check consent.
-- **Thay đổi UI/UX cần làm:**
-  1. Trong `app_routes.dart`: thêm `static const String dataConsent = '/consent';`
-  2. Trong `app_router.dart`: thêm route `/consent` → `DataConsentPage()`.
-  3. Trong redirect logic: sau `isAuthenticated && visitingAuthFlow` check, thêm kiểm tra consent. Nếu authenticated nhưng chưa consent → redirect `/consent`.
-  4. Bypass consent check cho route `/consent` (tránh infinite redirect).
-- **Expected behavior:** New user: Welcome → Login → Consent → Home. Returning user (đã consent): Welcome → Login → Home. User chưa consent quay lại: bất kỳ route → Consent.
-
-#### TASK A-3: Guard Behavioral Signal Collection bằng Consent
-
-- **Issue:** `BehavioralSignalCollector` / `BehavioralSignalService` tự động thu thập tín hiệu mà không kiểm tra consent.
-- **Thay đổi UI/UX cần làm:**
-  1. Trong `BehavioralSignalService` hoặc `BehavioralSignalCollector`: thêm check `SharedPreferences.getBool('data_consent_accepted') == true` trước khi collect/submit signals.
-  2. Nếu consent == false, skip signal collection silently (không block core flow).
-- **Expected behavior:** Không thu thập tín hiệu hành vi khi user chưa đồng ý. Core flow (quiz, diagnosis, intervention) vẫn hoạt động bình thường.
+> Plan được thiết kế để GPT-5.3-Codex có thể thực hiện trực tiếp.  
+> Ưu tiên theo thứ tự: Critical gaps → Important gaps → Integration readiness.
 
 ---
 
-### Module B: Today Page — Thay Hardcoded Data
+### Module A: Quiz Page (`features/quiz/presentation/pages/quiz_page.dart`)
 
-#### TASK B-1: CompactStats đọc từ Session History
+#### Task A.1: Rõ ràng hóa submit flow (Critical — GAP-02)
 
-- **Issue:** `_CompactStats` hiển thị cứng "6 ngày", "4/5 hoàn thành", "Tốt".
-- **Thay đổi UI/UX cần làm:**
-  1. Trong `TodayPage`, thêm `StreamBuilder<List<SessionHistoryEntry>>` wrap quanh `_CompactStats`.
-  2. Tính streak từ `SessionHistoryRepository.instance.watchHistory()`: đếm ngày liên tiếp có session.
-  3. Tính completed today: count sessions có `completedAt` trong hôm nay.
-  4. Tính focus: trung bình `focusScore` từ sessions trong 24h → "Tốt" (≥3.5), "Ổn" (≥2.5), "Cần nghỉ" (<2.5).
-  5. Khi danh sách sessions rỗng: hiển thị "0 ngày", "0/0", "—".
-- **Expected behavior:** Stats phản ánh data thật. Sau khi hoàn thành 1 session → quay lại Today → thấy stats cập nhật.
+**Issue:** Nút "Gửi bài" submit 1 câu hiện tại nhưng label gây hiểu nhầm là nộp cả bài.
 
-#### TASK B-2: AI Hero Card đọc từ session gần nhất
+**Thay đổi cần làm:**
+1. Đổi label nút submit:
+   - Khi đang ở giữa quiz: `"Gửi câu ${currentNumber}"` (vi) / `"Submit Q${currentNumber}"` (en)
+   - Thêm nút riêng "Nộp toàn bộ bài" xuất hiện ở cuối question list hoặc ở question navigator sheet
+2. Khi user nhấn "Nộp toàn bộ bài":
+   - Hiện confirm dialog: "Bạn đã trả lời X/20 câu. Bạn có muốn nộp bài?" 
+   - Nếu confirm → gọi `_submitCurrentAnswer()` cho câu cuối + navigate sang diagnosis
+   - Nếu chưa trả lời câu nào → hiện warning
+3. Giữ nút "Gửi câu" cho per-question submit vẫn luôn hiển thị
 
-- **Issue:** `AIHero` hiển thị cứng topic "Ứng dụng đạo hàm", confidence 0.87.
-- **Thay đổi UI/UX cần làm:**
-  1. Lấy session history gần nhất → trích `topic` và `confidenceScore`.
-  2. Nếu chưa có session nào: hiển thị welcome message "AI chưa có dữ liệu. Làm bài đầu tiên để AI phân tích!" + CTA "Bắt đầu phiên đầu tiên".
-  3. `reason` text: nếu có session → dùng `nextAction` từ session gần nhất. Nếu không → dùng default message.
-- **Expected behavior:** Lần đầu mở app (chưa có session) → thấy empty state hero. Sau 1 session → hero hiển thị topic/confidence thật.
+**Expected behavior:** User phân biệt rõ submit 1 câu vs nộp cả bài. Confirm dialog tránh nộp bài nhầm.
 
-#### TASK B-3: AI Analysis Panel đọc từ diagnosis gần nhất
-
-- **Issue:** `_AiSystemPanel` hiển thị cứng strengths/needs review.
-- **Thay đổi UI/UX cần làm:**
-  1. Lưu diagnosis result cuối cùng vào local storage (SharedPreferences JSON hoặc SessionHistoryEntry extended fields).
-  2. `_AiSystemPanel` đọc cached diagnosis → hiển thị strengths, needsReview, confidence thật.
-  3. Khi chưa có diagnosis: ẩn panel hoặc hiển thị "Chưa có phân tích AI. Hoàn thành phiên đầu tiên để AI đánh giá."
-- **Expected behavior:** Panel cập nhật sau mỗi lần có diagnosis mới. Phản ánh đúng data thật.
+**Gợi ý kỹ thuật:** Tạo method `_submitEntireQuiz()` gọi tất cả persisted drafts, gom thành 1 batch request. Nếu backend chỉ nhận per-answer, iterate `_selectedOptionByQuestion`, `_trueFalseDraftByQuestion`, `_shortAnswerDraftByQuestion` và submit lần lượt.
 
 ---
 
-### Module C: Error UI Chuẩn Hóa
+#### Task A.2: Xử lý timer hết giờ (Important — GAP-06)
 
-#### TASK C-1: Tạo ZenErrorCard widget
+**Issue:** Timer đếm tới 0 nhưng không có hành động nào.
 
-- **Issue:** Error hiển thị không nhất quán giữa các screen.
-- **Thay đổi UI/UX cần làm:**
-  1. Tạo `lib/shared/widgets/zen_error_card.dart`.
-  2. Props: `String message`, `VoidCallback? onRetry`, `VoidCallback? onDismiss`.
-  3. Design: Container với `errorContainer` background, `error` border, warning icon, message text, Row of buttons (Retry + Dismiss).
-  4. Kiểu dáng tương tự `_ErrorStateWidget` đã có trong `today_page.dart` nhưng reusable.
-- **Expected behavior:** Import và sử dụng ở mọi nơi cần hiển thị error. Giao diện error nhất quán.
+**Thay đổi cần làm:**
+1. Trong `_countdownTimer` callback, khi `_remainingTime.inSeconds <= 0`:
+   - Set `_isTimerExpired = true` (thêm state variable mới)
+   - Cancel timer
+2. Khi `_isTimerExpired = true`:
+   - Hiện banner card (dùng `ZenCard`) màu warning: "⏰ Hết giờ! Bạn có thể nộp bài ngay hoặc tiếp tục hoàn thành."
+   - Timer text đổi thành `"00:00"` với màu `colorScheme.error`
+   - Nút nộp bài tự động focus (wrap trong `Scrollable.ensureVisible`)
+3. Không disable input (cho phép user hoàn thành) — chỉ visual warning
 
-#### TASK C-2: Áp dụng ZenErrorCard vào Diagnosis và Quiz
-
-- **Issue:** Diagnosis dùng plain text cho `DiagnosisFailure`. Quiz dùng inline message cho `QuizFailure`.
-- **Thay đổi UI/UX cần làm:**
-  1. `result_screen.dart`: khi state là `DiagnosisFailure` → render `ZenErrorCard(message: state.message, onRetry: () => bloc.add(DiagnosisRequested(...)))`.
-  2. `quiz_page.dart`: khi `QuizFailure` → ngoài inline message, thêm `ZenErrorCard` nếu lỗi là network/server (không phải validation). Giữ inline text cho validation errors ("Vui lòng nhập kết quả trước khi gửi").
-- **Expected behavior:** Network errors hiển thị card nổi bật với retry. Validation errors hiển thị inline nhẹ nhàng.
+**Expected behavior:** Khi hết giờ, user thấy rõ ràng timer hết nhưng không bị ép dừng. Visual cue mạnh.
 
 ---
 
-### Module D: Quiz Empty State & Transition
+### Module B: Diagnosis Result Screen (`features/diagnosis/presentation/pages/result_screen.dart`)
 
-#### TASK D-1: Quiz Empty State
+#### Task B.1: Fix dark mode hardcoded gradient (Important — GAP-04)
 
-- **Issue:** Quiz page không có empty state khi Supabase trả 0 câu hỏi.
-- **Thay đổi UI/UX cần làm:**
-  1. Trong `quiz_page.dart`, khi fetch question templates trả về rỗng: hiển thị `ZenCard` với icon `Icons.quiz_outlined`, message "Mình chưa có câu hỏi cho chuyên đề này. Thử quay lại sau nhé!", CTA "Quay về Trang chủ".
-  2. Không hiển thị đồng hồ bấm giờ hay input field khi không có câu hỏi.
-- **Expected behavior:** User thấy rõ ràng rằng không có câu hỏi, không bị stuck.
+**Issue:** Gradient dùng `Color(0xFFEFF6FF)` / `Color(0xFFE0ECFF)` cố định.
 
-#### TASK D-2: Smooth Transition Quiz → Diagnosis
+**Thay đổi cần làm:**
+1. Line 417-421: Thay gradient bằng:
+   ```dart
+   gradient: LinearGradient(
+     begin: Alignment.topLeft,
+     end: Alignment.bottomRight,
+     colors: [
+       theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
+       theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+     ],
+   ),
+   ```
+2. Line 423-428: Thay boxShadow color bằng `theme.colorScheme.shadow.withValues(alpha: 0.1)`
 
-- **Issue:** Blank moment khi navigate từ quiz success → diagnosis loading.
-- **Thay đổi UI/UX cần làm:**
-  1. Khi `QuizBloc` emit `QuizSuccess`: hiển thị inline card "✓ Đã nhận bài — AI đang phân tích..." (tương tự `_ThinkingHero` style) trong quiz page.
-  2. Delay `Future.delayed(Duration(milliseconds: 900))` rồi mới `context.push('/diagnosis?submissionId=...')`.
-  3. Card hiển thị animated dots hoặc circular progress.
-- **Expected behavior:** User thấy confirmation "đã nhận bài" → smooth transition → diagnosis loading screen. Không có blank moment.
-
----
-
-### Module E: Intervention Transparency
-
-#### TASK E-1: Badge cho fallback options
-
-- **Issue:** Không phân biệt AI options vs fallback defaults.
-- **Thay đổi UI/UX cần làm:**
-  1. Trong intervention page, khi render option có `fromBackend == false`: thêm `Container` nhỏ ở góc card với text "Mặc định" (vi) / "Default" (en), background `colors.surfaceContainerHigh`, rounded.
-  2. Trong `InspectionRuntimeStore`: khi dùng fallback options, log decision "Using default intervention options — backend plan was empty".
-- **Expected behavior:** BGK xem Inspection Dashboard thấy log rõ ràng. User thấy badge nhẹ trên default options. AI-generated options không có badge.
+**Expected behavior:** Hero card hòa hợp với cả light và dark theme.
 
 ---
 
-### Module F: API Integration Prep
+#### Task B.2: Smoother transition sang Intervention (Important — GAP-05)
 
-#### TASK F-1: Entity Models cho API Response
+**Issue:** Auto-navigate sau 720ms delay không có visual feedback.
 
-- **Issue:** Tất cả API response đều parse bằng raw `Map<String, dynamic>` → brittle, error-prone.
-- **Thay đổi UI/UX cần làm:**
-  1. Tạo `lib/data/models/api_models.dart` (hoặc từng file riêng):
-     - `SubmitAnswerResponse` với `fromJson`
-     - `DiagnosisResponse` với `fromJson` (bao gồm `interventionPlan` list)
-     - `HITLConfirmResponse` với `fromJson`
-     - `InterventionFeedbackResponse` với `fromJson` (bao gồm `updatedQValues`)
-     - `InteractionFeedbackResponse` với `fromJson`
-  2. Trong mỗi BLoC: thay `response['data'] as Map<String, dynamic>` bằng `ModelClass.fromJson(response['data'])`.
-  3. Mỗi model có `.fromJson()` static method và `toString()` override để debug.
-- **Expected behavior:** Compile-time safety cho API response. Nếu backend thay đổi key → lỗi rõ ràng tại `fromJson`, không phải null runtime crash.
+**Thay đổi cần làm:**
+1. Trước khi navigate (trong listener `state.navigateToIntervention`):
+   - Hiện overlay card với text: "Đang chuyển sang bước can thiệp..." + `CircularProgressIndicator`
+   - Dùng `AnimatedOpacity` fade-in
+2. Tăng delay từ 720ms lên 1200ms để user kịp đọc
+3. Thêm `context.t()` cho text overlay
 
-#### TASK F-2: Nâng cấp Token Storage
-
-- **Issue:** Auth tokens lưu trong `SharedPreferences` (plain text) → bảo mật yếu.
-- **Thay đổi UI/UX cần làm:**
-  1. Thêm dependency `flutter_secure_storage` vào `pubspec.yaml`.
-  2. Refactor `AuthRepository`: thay `SharedPreferences` bằng `FlutterSecureStorage` cho `_tokenKey`, `_emailKey`, `_nameKey`.
-  3. Refactor `GlobalTokenStorage` trong `auth_token_storage.dart` tương tự.
-  4. Mock mode giữ SharedPreferences (cho testing).
-- **Expected behavior:** Tokens encrypted at-rest. Tuân thủ yêu cầu bảo mật Proposal §4.6 (AES-256 at rest).
-- **Gợi ý kỹ thuật:** `FlutterSecureStorage(aOptions: AndroidOptions(encryptedSharedPreferences: true))`.
+**Expected behavior:** User thấy rõ ràng app đang chuyển context, transition feel intentional.
 
 ---
 
-### Tổng kết Priority
+### Module C: Intervention Page (`features/intervention/presentation/pages/intervention_page.dart`)
 
-| Priority | Module | Tasks | Estimated Effort |
-|----------|--------|-------|-----------------|
-| 🔴 P0 — Bắt buộc trước MVP submit | A: Data Consent | A-1, A-2, A-3 | 3-4 giờ |
-| 🔴 P0 — Bắt buộc trước MVP submit | B: Today Hardcoded | B-1, B-2, B-3 | 3-4 giờ |
-| 🟡 P1 — Nên có trước MVP | C: Error UI | C-1, C-2 | 2 giờ |
-| 🟡 P1 — Nên có trước MVP | D: Quiz States | D-1, D-2 | 2 giờ |
-| 🟢 P2 — Nên có trước API integration | E: Intervention | E-1 | 1 giờ |
-| 🟢 P2 — Nên có trước API integration | F: API Prep | F-1, F-2 | 4-6 giờ |
+#### Task C.1: Fix dark mode hardcoded gradient (Important — GAP-04)
 
-**Tổng effort ước lượng: ~15-19 giờ dev time.**
+**Issue:** Line 131-134 dùng `Color(0xFFEFF7E8)` / `Color(0xFFEAF2F5)` cố định.
+
+**Thay đổi cần làm:**
+1. Thay gradient colors bằng:
+   ```dart
+   colors: [
+     theme.colorScheme.tertiaryContainer.withValues(alpha: 0.5),
+     theme.colorScheme.surfaceContainerLow,
+     theme.colorScheme.surface,
+   ],
+   ```
+2. Line 370 `Color(0xFFFAF9F6)` → `theme.colorScheme.surfaceContainerLowest`
+3. Line 536 `Colors.white.withValues(alpha: 0.86)` → `theme.colorScheme.surface.withValues(alpha: 0.86)`
+
+**Expected behavior:** Intervention page đẹp trong cả light và dark mode.
 
 ---
 
-*Document generated: 2026-04-14 by UX Lead / Product Engineer review.*
+### Module D: Today Page (`features/today/presentation/pages/today_page.dart`)
+
+#### Task D.1: Thêm mental state indicator (Critical — GAP-03)
+
+**Issue:** Không có visual indicator cho trạng thái tinh thần từ Empathy Agent.
+
+**Thay đổi cần làm:**
+1. Thêm widget `_MentalStateChip` ở dưới date label (sau line 83):
+   ```dart
+   _MentalStateChip(latestSession: latestSession)
+   ```
+2. Widget logic:
+   - Nếu không có session history: ẩn
+   - Nếu `focusScore >= 3.5`: chip 🟢 "Tập trung" / "Focused"
+   - Nếu `focusScore >= 2.5`: chip 🟡 "Hơi mệt" / "Slightly tired"  
+   - Nếu `focusScore < 2.5`: chip 🔴 "Cần nghỉ" / "Needs rest"
+3. Chip style: Container với border radius 999, padding 8x4, color = `tertiaryContainer`
+4. **(Integration prep):** Khi backend API ready, thay focusScore logic bằng field `mentalState` từ API response
+
+**Expected behavior:** User thấy trạng thái tinh thần hiện tại. BGK thấy output Empathy Agent → UI reactive.
+
+---
+
+#### Task D.2: Thêm first-time onboarding card (Important — GAP-01)
+
+**Issue:** User mới không hiểu flow của GrowMate.
+
+**Thay đổi cần làm:**
+1. Thêm `_OnboardingCard` widget hiển thị khi:
+   - `history.isEmpty` (chưa có session nào)
+   - SharedPreferences key `onboarding_dismissed` = false
+2. Nội dung card (vi/en):
+   - Title: "Chào mừng bạn đến GrowMate! 🌱"
+   - 3 steps: ① Làm quiz để AI hiểu lỗ hổng → ② Nhận chẩn đoán cá nhân hóa → ③ Theo lộ trình AI gợi ý
+   - Nút: "Mình hiểu rồi" → dismiss + save flag
+3. Hiển thị **trước** `_EmptyHeroCard`
+4. Dùng `ZenCard` + icon `Icons.school_rounded`
+
+**Expected behavior:** User mới hiểu ngay phải làm gì. Card biến mất vĩnh viễn sau dismiss.
+
+---
+
+### Module E: Session Complete Page (`features/session/presentation/pages/session_complete_page.dart`)
+
+#### Task E.1: Thay hardcoded values bằng dynamic data (Integration)
+
+**Issue:** `durationMinutes`, `focusScore`, `confidenceScore` hardcoded.
+
+**Thay đổi cần làm:**
+1. Thêm query parameters cho session complete route:
+   - `duration`, `focus`, `confidence` (từ diagnosis response)
+2. Trong `_recordCompletion`, parse từ `params`:
+   ```dart
+   final durationMinutes = int.tryParse(params['duration'] ?? '') ?? 12;
+   final focusScore = double.tryParse(params['focus'] ?? '') ?? (mode == 'recovery' ? 2.8 : 3.4);
+   final confidenceScore = double.tryParse(params['confidence'] ?? '') ?? (mode == 'recovery' ? 0.72 : 0.83);
+   ```
+3. Cập nhật navigation từ InterventionPage → SessionComplete để truyền values
+
+**Expected behavior:** SessionComplete hiển thị data thực từ phiên học, không hardcode. Fallback values giữ nguyên cho mock mode.
+
+**Gợi ý kỹ thuật:** Khi integrate real API, InterventionBloc hoặc ResultCubit sẽ hold diagnosis response chứa `duration`, `focusScore`, `confidenceScore` — pass qua query params.
+
+---
+
+### Module F: API Service Layer (`core/network/`, `core/services/`)
+
+#### Task F.1: Bổ sung mental state field vào API response parsing (Integration)
+
+**Issue:** `ResultModel` và mock API response chưa có field `mentalState`.
+
+**Thay đổi cần làm:**
+1. Trong `mock_api_service.dart`, thêm vào mỗi diagnosis response `data`:
+   ```dart
+   'mentalState': 'focused',  // hoặc 'confused', 'exhausted', 'frustrated'
+   'uncertaintyScore': 0.12,
+   'particleDistribution': {'focused': 0.65, 'confused': 0.20, 'exhausted': 0.10, 'frustrated': 0.05},
+   ```
+2. Trong `ResultModel` (diagnosis domain), thêm fields:
+   ```dart
+   final String mentalState;
+   final double uncertaintyScore;
+   final Map<String, double> particleDistribution;
+   ```
+3. Update `ResultModel.fromJson()` parsing
+
+**Expected behavior:** Mock data và real API response đều chứa Empathy Agent output. UI có thể render mental state indicator.
+
+---
+
+#### Task F.2: Implement retry logic trong RealApiService (Integration)
+
+**Issue:** `RealApiService` không có retry/backoff mặc dù `ApiConfig` đã define.
+
+**Thay đổi cần làm:**
+1. Tạo helper method `_withRetry<T>(Future<T> Function() action)`:
+   - Max retries: `ApiConfig.maxRetries` (3)
+   - Exponential backoff: `initialRetryDelay * retryMultiplier^attempt`
+   - Retry chỉ cho network errors và 5xx, không retry 4xx
+2. Wrap toàn bộ HTTP calls trong `RealApiService` bằng `_withRetry`
+3. Thêm timeout handling: `ApiConfig.connectTimeout`, `receiveTimeout`
+
+**Expected behavior:** API calls tự retry tối đa 3 lần khi gặp network error, với backoff delay tăng dần. Không retry cho client errors.
+
+---
+
+### Module G: Quiz Cubit/Repository (`features/quiz/`)
+
+#### Task G.1: Chuẩn bị cho batch submit (Integration)
+
+**Issue:** QuizCubit hiện chỉ submit 1 answer, cần support batch submit toàn bộ quiz.
+
+**Thay đổi cần làm:**
+1. Thêm method `submitBatchAnswers` vào `QuizRepository`:
+   ```dart
+   Future<Map<String, dynamic>> submitBatchAnswers({
+     required List<Map<String, dynamic>> answers,
+   })
+   ```
+2. Thêm `ApiService.submitBatchAnswers` vào interface (nếu backend hỗ trợ)
+3. Trong `MockApiService`, implement mock batch submit (iterate + return combined diagnosis)
+4. `QuizCubit` thêm method `submitAllAnswers(List<QuizQuestionUserAnswer>)`
+
+**Expected behavior:** Frontend sẵn sàng gửi toàn bộ bài quiz cùng lúc khi backend endpoint ready.
+
+**Gợi ý kỹ thuật:** Nếu backend chỉ nhận per-answer, frontend có thể iterate submit + gọi getDiagnosis một lần cuối cùng.
+
+---
+
+### Tóm tắt ưu tiên thực hiện
+
+| Thứ tự | Task | Mức độ | Effort ước tính |
+|--------|------|--------|----------------|
+| 1 | A.1 — Rõ ràng hóa quiz submit flow | Critical | 2-3h |
+| 2 | D.1 — Mental state indicator | Critical | 1-2h |
+| 3 | F.1 — Bổ sung mental state vào API/model | Critical (Integration) | 1h |
+| 4 | B.1 — Fix dark mode gradient (Diagnosis) | Important | 30min |
+| 5 | C.1 — Fix dark mode gradient (Intervention) | Important | 30min |
+| 6 | A.2 — Timer hết giờ behavior | Important | 1h |
+| 7 | D.2 — Onboarding card | Important | 1-2h |
+| 8 | B.2 — Smoother transition | Important | 1h |
+| 9 | E.1 — Dynamic session complete values | Integration | 1h |
+| 10 | F.2 — Retry logic RealApiService | Integration | 1-2h |
+| 11 | G.1 — Batch submit preparation | Integration | 2h |
+
+**Tổng effort ước tính:** ~12-16 giờ dev time
+
+---
+
+*End of MVP UX & Integration Readiness Review*

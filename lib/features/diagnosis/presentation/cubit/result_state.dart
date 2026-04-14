@@ -16,6 +16,8 @@ class ResultModel extends Equatable {
     required this.uncertaintyScore,
     required this.riskLevel,
     required this.requiresHitl,
+    this.mentalState = 'focused',
+    this.particleDistribution = const <String, double>{},
   });
 
   final String submissionId;
@@ -32,6 +34,8 @@ class ResultModel extends Equatable {
   final double uncertaintyScore;
   final String riskLevel;
   final bool requiresHitl;
+  final String mentalState;
+  final Map<String, double> particleDistribution;
 
   ResultModel copyWith({
     String? submissionId,
@@ -48,6 +52,8 @@ class ResultModel extends Equatable {
     double? uncertaintyScore,
     String? riskLevel,
     bool? requiresHitl,
+    String? mentalState,
+    Map<String, double>? particleDistribution,
   }) {
     return ResultModel(
       submissionId: submissionId ?? this.submissionId,
@@ -64,6 +70,8 @@ class ResultModel extends Equatable {
       uncertaintyScore: uncertaintyScore ?? this.uncertaintyScore,
       riskLevel: riskLevel ?? this.riskLevel,
       requiresHitl: requiresHitl ?? this.requiresHitl,
+      mentalState: mentalState ?? this.mentalState,
+      particleDistribution: particleDistribution ?? this.particleDistribution,
     );
   }
 
@@ -83,6 +91,8 @@ class ResultModel extends Equatable {
     uncertaintyScore,
     riskLevel,
     requiresHitl,
+    mentalState,
+    particleDistribution,
   ];
 }
 

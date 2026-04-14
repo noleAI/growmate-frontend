@@ -549,6 +549,15 @@ class QuizRepository {
     );
   }
 
+  Future<Map<String, dynamic>> submitBatchAnswers({
+    required List<Map<String, dynamic>> answers,
+  }) {
+    return _apiService.submitBatchAnswers(
+      sessionId: sessionId,
+      answers: answers,
+    );
+  }
+
   Future<Map<String, dynamic>> submitSignals(
     List<Map<String, dynamic>> signals,
   ) async {

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
@@ -34,6 +35,9 @@ class TodayPage extends StatefulWidget {
 class _TodayPageState extends State<TodayPage> {
   Timer? _thinkingTimer;
   bool _aiReady = false;
+  bool _onboardingDismissed = true;
+
+  static const String _onboardingKey = 'onboarding_dismissed';
 
   @override
   void initState() {
@@ -45,6 +49,24 @@ class _TodayPageState extends State<TodayPage> {
       setState(() {
         _aiReady = true;
       });
+    });
+    _loadOnboardingFlag();
+  }
+
+  Future<void> _loadOnboardingFlag() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _onboardingDismissed = prefs.getBool(_onboardingKey) ?? false;
+    });
+  }
+
+  Future<void> _dismissOnboarding() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_onboardingKey, true);
+    if (!mounted) return;
+    setState(() {
+      _onboardingDismissed = true;
     });
   }
 
@@ -81,7 +103,18 @@ class _TodayPageState extends State<TodayPage> {
                     fontWeight: FontWeight.w500,
                   ),
                 ),
+                if (latestSession != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: _MentalStateChip(
+                      focusScore: latestSession.focusScore,
+                    ),
+                  ),
                 const SizedBox(height: GrowMateLayout.contentGap),
+                if (history.isEmpty && !_onboardingDismissed) ...[
+                  _OnboardingCard(onDismiss: _dismissOnboarding),
+                  const SizedBox(height: GrowMateLayout.space12),
+                ],
                 AnimatedSwitcher(
                   duration: const Duration(milliseconds: 240),
                   switchInCurve: Curves.easeOut,
@@ -115,7 +148,7 @@ class _TodayPageState extends State<TodayPage> {
                       ),
                     ),
                     child: Text(
-                      context.t(vi: 'Trang ch?', en: 'Home'),
+                      context.t(vi: 'Trang chủ', en: 'Home'),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         fontWeight: FontWeight.w600,
@@ -1008,6 +1041,162 @@ class _LoadingStateWidget extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _MentalStateChip extends StatelessWidget {
+  const _MentalStateChip({required this.focusScore});
+
+  final double focusScore;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final String emoji;
+    final String label;
+
+    if (focusScore >= 3.5) {
+      emoji = '🟢';
+      label = context.t(vi: 'Tập trung', en: 'Focused');
+    } else if (focusScore >= 2.5) {
+      emoji = '🟡';
+      label = context.t(vi: 'Hơi mệt', en: 'Slightly tired');
+    } else {
+      emoji = '🔴';
+      label = context.t(vi: 'Cần nghỉ', en: 'Needs rest');
+    }
+
+    return Align(
+      alignment: Alignment.centerLeft,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+        decoration: BoxDecoration(
+          color: colors.tertiaryContainer,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(color: colors.tertiary.withValues(alpha: 0.15)),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Text(emoji, style: const TextStyle(fontSize: 14)),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: colors.onTertiaryContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _OnboardingCard extends StatelessWidget {
+  const _OnboardingCard({required this.onDismiss});
+
+  final VoidCallback onDismiss;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      radius: 22,
+      color: colors.primaryContainer.withValues(alpha: 0.4),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.school_rounded, size: 22, color: colors.primary),
+              const SizedBox(width: GrowMateLayout.space8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Chào mừng bạn đến GrowMate! 🌱',
+                    en: 'Welcome to GrowMate! 🌱',
+                  ),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          _OnboardingStep(
+            number: '①',
+            text: context.t(
+              vi: 'Làm quiz để AI hiểu lỗ hổng kiến thức',
+              en: 'Take a quiz so AI understands your knowledge gaps',
+            ),
+          ),
+          const SizedBox(height: 6),
+          _OnboardingStep(
+            number: '②',
+            text: context.t(
+              vi: 'Nhận chẩn đoán cá nhân hóa từ AI',
+              en: 'Receive a personalized AI diagnosis',
+            ),
+          ),
+          const SizedBox(height: 6),
+          _OnboardingStep(
+            number: '③',
+            text: context.t(
+              vi: 'Theo lộ trình AI gợi ý để tiến bộ',
+              en: 'Follow the AI-suggested roadmap to improve',
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(vi: 'Mình hiểu rồi', en: 'Got it'),
+            variant: ZenButtonVariant.secondary,
+            onPressed: onDismiss,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OnboardingStep extends StatelessWidget {
+  const _OnboardingStep({required this.number, required this.text});
+
+  final String number;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          number,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            text,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurface,
+              height: 1.4,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:math' show pow;
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
@@ -134,6 +135,17 @@ class RealApiService implements ApiService {
       'memoryScope': memoryScope,
       'reason': reason,
       'metadata': metadata ?? <String, dynamic>{},
+    });
+  }
+
+  @override
+  Future<Map<String, dynamic>> submitBatchAnswers({
+    required String sessionId,
+    required List<Map<String, dynamic>> answers,
+  }) {
+    return _post('/quiz/submit-batch', <String, dynamic>{
+      'sessionId': sessionId,
+      'answers': answers,
     });
   }
 
@@ -357,7 +369,7 @@ class RealApiService implements ApiService {
   Duration _calculateRetryDelay(int attempt) {
     final baseMs = ApiConfig.initialRetryDelay.inMilliseconds;
     final multiplier = ApiConfig.retryMultiplier;
-    final delayMs = baseMs * (multiplier * attempt);
+    final delayMs = (baseMs * pow(multiplier, attempt)).toInt();
     // Thêm jitter ngẫu nhiên để tránh thundering herd
     final jitter = Duration(milliseconds: (delayMs * 0.25).toInt());
     return Duration(milliseconds: delayMs) + jitter;

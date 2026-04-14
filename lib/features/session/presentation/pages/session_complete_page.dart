@@ -4,12 +4,12 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
-import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../achievement/data/models/achievement_badge.dart';
 import '../../../achievement/data/repositories/achievement_repository.dart';
+import '../../../achievement/presentation/achievement_i18n.dart';
 import '../../../notification/data/repositories/notification_repository.dart';
 import '../../../review/data/repositories/spaced_repetition_repository.dart';
 import '../../data/models/session_history_entry.dart';
@@ -65,13 +65,21 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
         : 'submission:$submissionId|diagnosis:$diagnosisId';
     final mode = (params['mode'] ?? 'academic').toLowerCase();
 
+    final durationMinutes = int.tryParse(params['duration'] ?? '') ?? 12;
+    final focusScore =
+        double.tryParse(params['focus'] ?? '') ??
+        (mode == 'recovery' ? 2.8 : 3.4);
+    final confidenceScore =
+        double.tryParse(params['confidence'] ?? '') ??
+        (mode == 'recovery' ? 0.72 : 0.83);
+
     final entry = await widget.sessionHistoryRepository.upsertCompletedSession(
       sourceKey: sourceKey,
       topic: topic,
       mode: mode,
-      durationMinutes: 12,
-      focusScore: mode == 'recovery' ? 2.8 : 3.4,
-      confidenceScore: mode == 'recovery' ? 0.72 : 0.83,
+      durationMinutes: durationMinutes,
+      focusScore: focusScore,
+      confidenceScore: confidenceScore,
       nextAction: nextAction,
     );
 
@@ -132,7 +140,6 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
 
             return ListView(
               children: [
-                const GrowMateTopAppBar(),
                 const SizedBox(height: 8),
                 Align(
                   alignment: Alignment.centerLeft,
@@ -359,7 +366,7 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                                 const SizedBox(width: 8),
                                 Expanded(
                                   child: Text(
-                                    '${badge.title} · ${badge.description}',
+                                    '${localizedBadgeTitle(context, badge)} · ${localizedBadgeDescription(context, badge)}',
                                     style: theme.textTheme.bodySmall,
                                   ),
                                 ),
