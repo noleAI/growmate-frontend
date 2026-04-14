@@ -7,9 +7,9 @@ import 'color_palette_cubit.dart';
 class AppTheme {
   AppTheme._();
 
-  static ThemeData get lightTheme => lightThemeFor(AppColorPalette.greenYellow);
+  static ThemeData get lightTheme => lightThemeFor(AppColorPalette.mintCream);
 
-  static ThemeData get darkTheme => darkThemeFor(AppColorPalette.greenYellow);
+  static ThemeData get darkTheme => darkThemeFor(AppColorPalette.mintCream);
 
   static ThemeData lightThemeFor(AppColorPalette palette) {
     final colorScheme = _lightColorSchemeFor(palette);

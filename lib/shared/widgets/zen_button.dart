@@ -55,7 +55,7 @@ class _ZenButtonState extends State<ZenButton> {
     final disabled = widget.onPressed == null;
 
     Widget child = AnimatedScale(
-      scale: _pressed ? 0.985 : (_hovered && !disabled ? 1.005 : 1),
+      scale: _pressed ? 0.995 : (_hovered && !disabled ? 1.002 : 1),
       duration: _motionDuration,
       curve: Curves.easeOut,
       child: AnimatedContainer(
@@ -180,11 +180,11 @@ class _ZenButtonState extends State<ZenButton> {
                     color:
                         (widget.shadowColor ??
                                 theme.colorScheme.primary.withValues(
-                                  alpha: 0.2,
+                                  alpha: 0.12,
                                 ))
-                            .withValues(alpha: _hovered ? 0.16 : 0.12),
-                    blurRadius: _hovered ? 24 : 20,
-                    offset: Offset(0, _hovered ? 10 : 8),
+                            .withValues(alpha: _hovered ? 0.10 : 0.07),
+                    blurRadius: _hovered ? 16 : 12,
+                    offset: Offset(0, _hovered ? 6 : 4),
                   ),
                 ],
         );

@@ -35,9 +35,9 @@ class Section extends StatelessWidget {
         borderRadius: BorderRadius.circular(20),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.1),
-            blurRadius: 26,
-            offset: Offset(0, 10),
+            color: colors.shadow.withValues(alpha: 0.05),
+            blurRadius: 14,
+            offset: Offset(0, 4),
           ),
         ],
       ),
@@ -112,9 +112,7 @@ class StatItem extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.5),
-        ),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -261,13 +259,21 @@ class AIHero extends StatelessWidget {
     final theme = Theme.of(context);
     final primaryHsl = HSLColor.fromColor(theme.colorScheme.primary);
     final gradientStart = primaryHsl
-        .withLightness((primaryHsl.lightness + 0.08).clamp(0.0, 0.85).toDouble())
-        .withSaturation((primaryHsl.saturation - 0.05).clamp(0.0, 1.0).toDouble())
+        .withLightness(
+          (primaryHsl.lightness + 0.08).clamp(0.0, 0.85).toDouble(),
+        )
+        .withSaturation(
+          (primaryHsl.saturation - 0.05).clamp(0.0, 1.0).toDouble(),
+        )
         .toColor();
     final gradientMid = theme.colorScheme.primary;
     final gradientEnd = primaryHsl
-        .withLightness((primaryHsl.lightness + 0.14).clamp(0.0, 0.88).toDouble())
-        .withSaturation((primaryHsl.saturation - 0.1).clamp(0.0, 1.0).toDouble())
+        .withLightness(
+          (primaryHsl.lightness + 0.14).clamp(0.0, 0.88).toDouble(),
+        )
+        .withSaturation(
+          (primaryHsl.saturation - 0.1).clamp(0.0, 1.0).toDouble(),
+        )
         .toColor();
 
     return AnimatedContainer(
@@ -285,9 +291,9 @@ class AIHero extends StatelessWidget {
         borderRadius: BorderRadius.circular(22),
         boxShadow: [
           BoxShadow(
-            color: theme.colorScheme.primary.withValues(alpha: 0.12),
-            blurRadius: 28,
-            offset: const Offset(0, 12),
+            color: theme.colorScheme.primary.withValues(alpha: 0.08),
+            blurRadius: 16,
+            offset: const Offset(0, 6),
           ),
         ],
       ),

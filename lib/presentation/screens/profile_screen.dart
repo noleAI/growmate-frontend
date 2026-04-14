@@ -336,13 +336,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     subtitle: _isSettingsSection
                         ? _t(
                             context,
-                            vi: 'Quản lý quyền riêng tư, thông báo và cấu hình ứng dụng.',
-                            en: 'Manage privacy, notifications, and app preferences.',
+                            vi: 'Quyền riêng tư, thông báo và cấu hình.',
+                            en: 'Privacy, notifications, and preferences.',
                           )
                         : _t(
                             context,
-                            vi: 'Thiết lập cá nhân hóa để AI ra quyết định chính xác hơn cho từng phiên học.',
-                            en: 'Set personalization so AI can make better decisions for each study session.',
+                            vi: 'Cá nhân hóa để AI hỗ trợ tốt hơn.',
+                            en: 'Personalize for better AI support.',
                           ),
                   ),
                   const SizedBox(height: GrowMateLayout.sectionGap),
@@ -615,8 +615,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Thông tin cá nhân', en: 'Personal info'),
             subtitle: _t(
               context,
-              vi: 'Cập nhật hồ sơ để AI hỗ trợ chính xác hơn.',
-              en: 'Update your profile so AI can support you more accurately.',
+              vi: 'Cập nhật hồ sơ cho AI chính xác hơn.',
+              en: 'Update profile for better AI support.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -703,8 +703,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Chọn các môn bạn muốn AI ưu tiên trong lộ trình.',
-              en: 'Choose the subjects you want AI to prioritize.',
+              vi: 'Chọn môn AI ưu tiên.',
+              en: 'Choose AI priority subjects.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -763,8 +763,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Nhịp học AI', en: 'AI Rhythm'),
             subtitle: _t(
               context,
-              vi: 'Điều chỉnh nhịp học và phong cách gợi ý của trợ lý AI.',
-              en: 'Adjust learning pace and suggestion style of the AI assistant.',
+              vi: 'Điều chỉnh nhịp và kiểu gợi ý AI.',
+              en: 'Adjust pace and AI hint style.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -776,8 +776,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Khi mệt, hệ thống sẽ ưu tiên can thiệp dịu hơn.',
-              en: 'When tired, the system will prioritize gentler interventions.',
+              vi: 'Khi mệt, AI sẽ can thiệp dịu hơn.',
+              en: 'When tired, AI uses gentler interventions.',
             ),
             value: _recoveryModeEnabled,
             onChanged: isProcessing
@@ -874,8 +874,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Quyền riêng tư', en: 'Privacy'),
             subtitle: _t(
               context,
-              vi: 'Quản lý quyền dữ liệu học tập của bạn.',
-              en: 'Manage your learning data permissions.',
+              vi: 'Quản lý quyền dữ liệu học tập.',
+              en: 'Manage learning data permissions.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -887,8 +887,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Bật khi bạn muốn hệ thống tối ưu theo nhịp gõ.',
-              en: 'Turn on to let the system adapt to your interaction rhythm.',
+              vi: 'Tối ưu theo nhịp tương tác.',
+              en: 'Optimize by interaction rhythm.',
             ),
             value: _consentBehavioral,
             onChanged: isProcessing
@@ -900,13 +900,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _pendingSuccessMessage = value
                         ? _t(
                             context,
-                            vi: 'Đã bật thu thập tín hiệu học tập để cá nhân hóa nhịp học.',
-                            en: 'Behavioral learning signals are now enabled.',
+                            vi: 'Đã bật tín hiệu hành vi.',
+                            en: 'Behavioral signals enabled.',
                           )
                         : _t(
                             context,
-                            vi: 'Đã tắt thu thập tín hiệu học tập theo lựa chọn của bạn.',
-                            en: 'Behavioral learning signals are now disabled.',
+                            vi: 'Đã tắt tín hiệu hành vi.',
+                            en: 'Behavioral signals disabled.',
                           );
                     await cubit.toggleConsent(consentBehavioral: value);
                   },
@@ -933,13 +933,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     _pendingSuccessMessage = value
                         ? _t(
                             context,
-                            vi: 'Đã bật analytics tổng quan để cải thiện trải nghiệm.',
-                            en: 'Aggregate analytics are now enabled.',
+                            vi: 'Đã bật analytics.',
+                            en: 'Analytics enabled.',
                           )
                         : _t(
                             context,
-                            vi: 'Đã tắt analytics tổng quan theo lựa chọn của bạn.',
-                            en: 'Aggregate analytics are now disabled.',
+                            vi: 'Đã tắt analytics.',
+                            en: 'Analytics disabled.',
                           );
                     await cubit.toggleConsent(consentAnalytics: value);
                   },
@@ -965,8 +965,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Gói học tập', en: 'Study plan'),
             subtitle: _t(
               context,
-              vi: 'Quản lý gói dịch vụ phù hợp với nhu cầu học của bạn.',
-              en: 'Manage the service plan that fits your study needs.',
+              vi: 'Quản lý gói dịch vụ.',
+              en: 'Manage your service plan.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -1100,8 +1100,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Hệ thống', en: 'System'),
             subtitle: _t(
               context,
-              vi: 'Thông tin ứng dụng, hỗ trợ và phiên đăng nhập.',
-              en: 'App information, support, and login session.',
+              vi: 'Ứng dụng, hỗ trợ và đăng nhập.',
+              en: 'App info, support, and session.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.space8),
@@ -1111,8 +1111,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Thông báo', en: 'Notifications'),
             subtitle: _t(
               context,
-              vi: 'Xem nhắc nhở và cập nhật gần đây.',
-              en: 'View recent reminders and updates.',
+              vi: 'Nhắc nhở và cập nhật.',
+              en: 'Reminders and updates.',
             ),
             onTap: () {
               context.push(AppRoutes.notifications);
@@ -1124,8 +1124,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Lịch thông minh', en: 'Smart Schedule'),
             subtitle: _t(
               context,
-              vi: 'Quản lý lịch thi và hạn nộp để AI ưu tiên ôn tập.',
-              en: 'Manage exams and deadlines so AI can prioritize your review.',
+              vi: 'Lịch thi và hạn nộp để AI ưu tiên.',
+              en: 'Exams and deadlines for AI priority.',
             ),
             onTap: () {
               context.push(AppRoutes.schedule);
@@ -1137,8 +1137,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             title: _t(context, vi: 'Nghỉ thở 90 giây', en: 'Mindful Break 90s'),
             subtitle: _t(
               context,
-              vi: 'Thả lỏng nhẹ nhịp thở trước khi học tiếp.',
-              en: 'Reset your breathing rhythm before continuing.',
+              vi: 'Thư giãn trước khi học tiếp.',
+              en: 'Relax before continuing.',
             ),
             onTap: () {
               context.push(AppRoutes.mindfulBreak);
@@ -1161,13 +1161,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 subtitle: isDarkMode
                     ? _t(
                         context,
-                        vi: 'Giao diện tối đang được bật để dịu mắt hơn vào ban đêm.',
-                        en: 'Dark interface is on for more comfortable night viewing.',
+                        vi: 'Giao diện tối đang bật.',
+                        en: 'Dark interface is on.',
                       )
                     : _t(
                         context,
-                        vi: 'Bật giao diện tối để giảm chói mắt khi học buổi tối.',
-                        en: 'Enable dark interface to reduce eye strain at night.',
+                        vi: 'Bật để giảm chói khi học tối.',
+                        en: 'Enable to reduce eye strain at night.',
                       ),
                 value: isDarkMode,
                 onChanged: isProcessing
@@ -1231,8 +1231,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       child: Text(
                         _t(
                           context,
-                          vi: 'Mặc định là xanh lá - vàng. Bạn có thể đổi nhanh theo sở thích.',
-                          en: 'Default is Green - Yellow. You can quickly switch it anytime.',
+                          vi: 'Đổi nhanh theo sở thích.',
+                          en: 'Switch to your preference.',
                         ),
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
@@ -1339,19 +1339,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
               final subtitle = offlineState.enabled
                   ? _t(
                       context,
-                      vi: 'Đang lưu tín hiệu cục bộ. Hàng đợi: ${offlineState.queuedSignals}.',
-                      en: 'Saving signals locally. Queue: ${offlineState.queuedSignals}.',
+                      vi: 'Lưu cục bộ. Hàng đợi: ${offlineState.queuedSignals}.',
+                      en: 'Saving locally. Queue: ${offlineState.queuedSignals}.',
                     )
                   : offlineState.queuedSignals > 0
                   ? _t(
                       context,
-                      vi: 'Sẵn sàng đồng bộ ${offlineState.queuedSignals} tín hiệu khi mạng ổn định.',
-                      en: 'Ready to sync ${offlineState.queuedSignals} signals when network is stable.',
+                      vi: 'Sẵn sàng đồng bộ ${offlineState.queuedSignals} tín hiệu.',
+                      en: 'Ready to sync ${offlineState.queuedSignals} signals.',
                     )
                   : _t(
                       context,
-                      vi: 'Tự động queue tín hiệu khi mất mạng.',
-                      en: 'Automatically queue signals while offline.',
+                      vi: 'Tự động lưu khi mất mạng.',
+                      en: 'Auto-queue when offline.',
                     );
 
               return _ToggleLine(
@@ -1380,13 +1380,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                 value
                                     ? _t(
                                         context,
-                                        vi: 'Đã bật Chế độ ngoại tuyến. Tín hiệu sẽ được lưu cục bộ.',
-                                        en: 'Offline Mode enabled. Signals will be queued locally.',
+                                        vi: 'Đã bật ngoại tuyến.',
+                                        en: 'Offline Mode on.',
                                       )
                                     : _t(
                                         context,
-                                        vi: 'Đã tắt Chế độ ngoại tuyến. Ứng dụng sẽ đồng bộ lại khi có thể.',
-                                        en: 'Offline Mode disabled. The app will sync when possible.',
+                                        vi: 'Đã tắt ngoại tuyến.',
+                                        en: 'Offline Mode off.',
                                       ),
                                 style: _snackTextStyle(context),
                               ),
@@ -1408,8 +1408,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Gửi góp ý để GrowMate hỗ trợ bạn tốt hơn.',
-              en: 'Share feedback to help GrowMate support you better.',
+              vi: 'Gửi góp ý cho GrowMate.',
+              en: 'Share feedback for GrowMate.',
             ),
             onTap: () {
               ScaffoldMessenger.of(context)
@@ -1419,8 +1419,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     content: Text(
                       _t(
                         context,
-                        vi: 'Cảm ơn bạn. Kênh góp ý sẽ mở trong bản kế tiếp.',
-                        en: 'Thank you. Feedback channel will be available in the next release.',
+                        vi: 'Kênh góp ý sẽ mở sớm.',
+                        en: 'Feedback channel coming soon.',
                       ),
                       style: _snackTextStyle(context),
                     ),
@@ -1451,8 +1451,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Xuất JSON hồ sơ, timeline phiên và notification.',
-              en: 'Export profile JSON, session timeline, and notifications.',
+              vi: 'Xuất JSON hồ sơ và timeline.',
+              en: 'Export profile JSON and timeline.',
             ),
             onTap: () {
               final location = Uri(
@@ -1475,8 +1475,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Xem quy định sử dụng dịch vụ GrowMate.',
-              en: 'View GrowMate service terms.',
+              vi: 'Quy định dịch vụ GrowMate.',
+              en: 'GrowMate service terms.',
             ),
             onTap: () {
               context.push(AppRoutes.termsOfService);
@@ -1492,8 +1492,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
             subtitle: _t(
               context,
-              vi: 'Tìm hiểu cách GrowMate xử lý dữ liệu của bạn.',
-              en: 'Learn how GrowMate handles your data.',
+              vi: 'Cách GrowMate xử lý dữ liệu.',
+              en: 'How GrowMate handles your data.',
             ),
             onTap: () {
               context.push(AppRoutes.privacyPolicy);
@@ -1521,8 +1521,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   ),
                   subtitle: _t(
                     context,
-                    vi: 'Bật để hiện nút AI Insight ở góc phải trên Trang chủ.',
-                    en: 'Enable to show the AI Insight button on the Today top-right corner.',
+                    vi: 'Hiện nút AI Insight trên Trang chủ.',
+                    en: 'Show AI Insight button on Today page.',
                   ),
                   value: inspectionState.devModeEnabled,
                   onChanged: isProcessing
@@ -1542,13 +1542,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                   value
                                       ? _t(
                                           context,
-                                          vi: 'Đã bật Chế độ Dev. Vào Trang chủ và nhấn nút AI Insight ở góc phải trên.',
-                                          en: 'Dev Mode enabled. Open Today and tap the AI Insight button at the top-right.',
+                                          vi: 'Đã bật Dev Mode.',
+                                          en: 'Dev Mode enabled.',
                                         )
                                       : _t(
                                           context,
-                                          vi: 'Đã tắt Chế độ Dev. Nút AI Insight sẽ được ẩn.',
-                                          en: 'Dev Mode disabled. The AI Insight button is now hidden.',
+                                          vi: 'Đã tắt Dev Mode.',
+                                          en: 'Dev Mode disabled.',
                                         ),
                                   style: _snackTextStyle(context),
                                 ),
@@ -1607,8 +1607,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           content: Text(
             _t(
               context,
-              vi: 'Bạn có chắc muốn xóa toàn bộ dữ liệu cá nhân trên thiết bị và hồ sơ học tập hiện tại không?',
-              en: 'Are you sure you want to delete all personal data on this device and your current learning profile?',
+              vi: 'Xóa dữ liệu và hồ sơ học tập?',
+              en: 'Delete all data and learning profile?',
             ),
           ),
           actions: [
@@ -1660,8 +1660,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Text(
               _t(
                 context,
-                vi: 'Đã xóa dữ liệu tài khoản. Bạn có thể đăng ký lại bất cứ lúc nào.',
-                en: 'Account data deleted. You can sign up again anytime.',
+                vi: 'Đã xóa dữ liệu. Bạn có thể đăng ký lại.',
+                en: 'Data deleted. You can sign up again.',
               ),
               style: _snackTextStyle(context),
             ),
@@ -1683,8 +1683,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             content: Text(
               _t(
                 context,
-                vi: 'Mình chưa xóa được tài khoản lúc này, bạn thử lại giúp mình nhé.',
-                en: 'Unable to delete the account right now. Please try again.',
+                vi: 'Không xóa được. Thử lại nhé.',
+                en: 'Unable to delete. Try again.',
               ),
               style: _snackTextStyle(context, isError: true),
             ),

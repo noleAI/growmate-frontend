@@ -29,6 +29,7 @@ import '../../features/privacy/presentation/pages/privacy_policy_page.dart';
 import '../../features/privacy/presentation/pages/terms_of_service_page.dart';
 import '../../features/progress/presentation/pages/progress_page.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
+import '../../features/quiz/presentation/pages/mode_selection_page.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
 import '../../features/review/presentation/pages/spaced_review_page.dart';
@@ -294,6 +295,12 @@ class AppRouter {
         path: quizPath,
         builder: (context, state) {
           return QuizPage(quizRepository: _quizRepository);
+        },
+      ),
+      GoRoute(
+        path: AppRoutes.modeSelection,
+        builder: (context, state) {
+          return const ModeSelectionPage();
         },
       ),
       GoRoute(

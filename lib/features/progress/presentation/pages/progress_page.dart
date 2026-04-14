@@ -125,8 +125,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   const SizedBox(height: GrowMateLayout.space8),
                   Text(
                     context.t(
-                      vi: 'Tập trung vào chủ đề quan trọng nhất để tăng tốc trong phiên tiếp theo.',
-                      en: 'Focus on the most important topic to accelerate your next session.',
+                      vi: 'Tập trung vào chủ đề quan trọng nhất.',
+                      en: 'Focus on the most important topic.',
                     ),
                     style: theme.textTheme.bodyLarge?.copyWith(
                       color: colors.onSurfaceVariant,
@@ -273,14 +273,14 @@ class _StrengthSection extends StatelessWidget {
     return Section(
       title: context.t(vi: 'Điểm mạnh', en: 'Strengths'),
       subtitle: context.t(
-        vi: 'Những chủ đề bạn đang nắm khá chắc',
-        en: 'Topics you are handling with confidence',
+        vi: 'Chủ đề bạn nắm chắc',
+        en: 'Topics you handle well',
       ),
       child: strengths.isEmpty
           ? Text(
               context.t(
-                vi: 'Bạn đang trong giai đoạn xây nền. Hoàn thành thêm vài phiên để hệ thống nhận diện điểm mạnh rõ hơn.',
-                en: 'You are still building foundations. Complete a few more sessions so the system can identify strengths more clearly.',
+                vi: 'Hoàn thành thêm vài phiên để AI nhận diện điểm mạnh.',
+                en: 'Complete more sessions for AI to identify strengths.',
               ),
               style: Theme.of(
                 context,
@@ -327,19 +327,19 @@ class _WeaknessSection extends StatelessWidget {
     final weakest = gaps.isEmpty ? null : gaps.first;
     final recommendation = weakest == null
         ? context.t(
-            vi: 'Giữ nhịp hiện tại và thêm một bài nâng cao trong phiên tới.',
-            en: 'Keep the current rhythm and add one advanced task next session.',
+            vi: 'Giữ nhịp và thêm bài nâng cao phiên tới.',
+            en: 'Keep the rhythm, try advanced tasks next.',
           )
         : context.t(
-            vi: 'Khuyến nghị AI: luyện trọng tâm ${weakest.topic} trong 15 phút, sau đó kiểm tra lại bằng 3 câu tính giờ.',
-            en: 'AI recommendation: spend 15 minutes on ${_topicLabel(context, weakest.topic)}, then validate with 3 timed questions.',
+            vi: 'Luyện ${weakest.topic} 15 phút, rồi kiểm tra 3 câu tính giờ.',
+            en: 'Practice ${_topicLabel(context, weakest.topic)} for 15 min, then 3 timed Qs.',
           );
 
     return Section(
       title: context.t(vi: 'Điểm yếu cần ưu tiên', en: 'Priority weaknesses'),
       subtitle: context.t(
-        vi: 'Tập trung vào 1 chủ đề yếu để tăng độ tự tin nhanh hơn',
-        en: 'Focus on one weak topic to improve confidence faster',
+        vi: 'Tập trung 1 chủ đề yếu để tăng tự tin',
+        en: 'Focus on one weak topic to boost confidence',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -347,8 +347,8 @@ class _WeaknessSection extends StatelessWidget {
           if (gaps.isEmpty)
             Text(
               context.t(
-                vi: 'Tuyệt vời, hiện chưa có lỗ hổng cần ưu tiên.',
-                en: 'Great progress. There are no priority gaps right now.',
+                vi: 'Chưa có lỗ hổng cần ưu tiên.',
+                en: 'No priority gaps right now.',
               ),
               style: Theme.of(
                 context,
@@ -404,15 +404,12 @@ class _SessionTimelineSection extends StatelessWidget {
 
     return Section(
       title: context.t(vi: 'Timeline phiên học', en: 'Session timeline'),
-      subtitle: context.t(
-        vi: 'Lịch sử phiên gần đây để bạn theo dõi nhịp học',
-        en: 'Recent sessions to help you track your study rhythm',
-      ),
+      subtitle: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
       child: history.isEmpty
           ? Text(
               context.t(
-                vi: 'Chưa có phiên học nào được lưu. Sau khi hoàn thành một phiên, timeline sẽ tự động xuất hiện.',
-                en: 'No sessions have been saved yet. After you complete a session, your timeline will appear automatically.',
+                vi: 'Chưa có phiên nào. Hoàn thành phiên đầu tiên để xem.',
+                en: 'No sessions yet. Complete one to see your timeline.',
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colors.onSurfaceVariant,
@@ -527,14 +524,14 @@ class _SpacedReviewSection extends StatelessWidget {
         return Section(
           title: context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Repetition'),
           subtitle: context.t(
-            vi: 'Ôn tập đúng nhịp theo đường cong quên lãng',
-            en: 'Review at the right pace based on the forgetting curve',
+            vi: 'Ôn tập theo đường cong quên lãng',
+            en: 'Review based on forgetting curve',
           ),
           child: dueItems.isEmpty
               ? Text(
                   context.t(
-                    vi: 'Hôm nay chưa có chủ đề đến lịch ôn. Bạn đang giữ nhịp khá tốt.',
-                    en: 'There are no topics due for review today. You are maintaining a solid rhythm.',
+                    vi: 'Không có chủ đề cần ôn hôm nay.',
+                    en: 'No topics due today.',
                   ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -616,14 +613,14 @@ class _AchievementSection extends StatelessWidget {
         return Section(
           title: context.t(vi: 'Huy hiệu thành tựu', en: 'Achievement badges'),
           subtitle: context.t(
-            vi: 'Ghi nhận nỗ lực tích cực, không tạo áp lực điểm số',
-            en: 'Celebrate positive effort without score pressure',
+            vi: 'Ghi nhận nỗ lực, không tạo áp lực',
+            en: 'Celebrate effort, no pressure',
           ),
           child: badges.isEmpty
               ? Text(
                   context.t(
-                    vi: 'Hãy hoàn thành vài phiên để mở khóa huy hiệu đầu tiên.',
-                    en: 'Complete a few sessions to unlock your first badge.',
+                    vi: 'Hoàn thành vài phiên để mở khóa huy hiệu.',
+                    en: 'Complete sessions to unlock badges.',
                   ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -726,14 +723,14 @@ class _SmartScheduleInsightSection extends StatelessWidget {
         return Section(
           title: context.t(vi: 'Lịch học thông minh', en: 'Smart Schedule'),
           subtitle: context.t(
-            vi: 'Ưu tiên lộ trình theo lịch thi và hạn nộp',
-            en: 'Prioritize your plan around exams and deadlines',
+            vi: 'Ưu tiên theo lịch thi và hạn nộp',
+            en: 'Prioritize around exams & deadlines',
           ),
           child: nearest == null
               ? Text(
                   context.t(
-                    vi: 'Chưa có mốc lịch học. Bạn có thể thêm trong mục Cài đặt > Lịch thông minh.',
-                    en: 'No schedule milestones yet. You can add them in Settings > Smart Schedule.',
+                    vi: 'Chưa có mốc lịch. Thêm trong Cài đặt > Lịch thông minh.',
+                    en: 'No milestones. Add in Settings > Smart Schedule.',
                   ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                     color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -770,14 +767,14 @@ class _SmartScheduleInsightSection extends StatelessWidget {
 
     if (daysLeft <= 0) {
       return context.t(
-        vi: 'Hôm nay có $typeLabel: ${item.title} (${item.subject}). Nên dành 15-20 phút ôn trọng tâm.',
-        en: 'Today has a $typeLabel: ${item.title} (${item.subject}). Spend 15-20 minutes on focused review.',
+        vi: 'Hôm nay: $typeLabel — ${item.title} (${item.subject}). Ôn 15–20 phút.',
+        en: 'Today: $typeLabel — ${item.title} (${item.subject}). Review 15–20 min.',
       );
     }
 
     return context.t(
-      vi: 'Còn $daysLeft ngày tới $typeLabel: ${item.title} (${item.subject}). AI sẽ ưu tiên chủ đề liên quan trong kế hoạch tuần.',
-      en: '$daysLeft day(s) left until $typeLabel: ${item.title} (${item.subject}). AI will prioritize related topics in your weekly plan.',
+      vi: 'Còn $daysLeft ngày — $typeLabel: ${item.title} (${item.subject}).',
+      en: '$daysLeft days — $typeLabel: ${item.title} (${item.subject}).',
     );
   }
 }
@@ -819,12 +816,12 @@ class _WeeklyMomentumSection extends StatelessWidget {
     final weakestTopic = _resolveWeakestTopic(context, progress);
     final tomorrowAction = history.isEmpty
         ? context.t(
-            vi: 'Bắt đầu 1 phiên 10 phút để mở lại nhịp học.',
-            en: 'Start one 10-minute session to regain your rhythm.',
+            vi: 'Bắt đầu 1 phiên 10 phút để lấy lại nhịp.',
+            en: 'Start one 10-min session to regain rhythm.',
           )
         : context.t(
-            vi: 'Dành 12 phút cho $weakestTopic, sau đó làm 2 câu tự kiểm tra trong 5 phút.',
-            en: 'Spend 12 minutes on $weakestTopic, then do 2 self-check questions in 5 minutes.',
+            vi: 'Ôn $weakestTopic 12 phút, rồi 2 câu tự kiểm tra.',
+            en: '$weakestTopic for 12 min, then 2 self-check Qs.',
           );
 
     return Section(
@@ -833,8 +830,8 @@ class _WeeklyMomentumSection extends StatelessWidget {
         en: 'Weekly plan & tomorrow',
       ),
       subtitle: context.t(
-        vi: 'Biểu đồ tiến bộ và gợi ý hành động cho phiên kế tiếp',
-        en: 'Progress chart and suggested action for your next session',
+        vi: 'Biểu đồ và gợi ý phiên kế tiếp',
+        en: 'Chart and next session suggestions',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -909,8 +906,8 @@ class _WeeklyMomentumSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             context.t(
-              vi: 'Trung bình tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
-              en: '7-day average focus: ${avgFocus.toStringAsFixed(1)}/4',
+              vi: 'TB tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
+              en: '7-day focus avg: ${avgFocus.toStringAsFixed(1)}/4',
             ),
             style: Theme.of(context).textTheme.bodyMedium?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
@@ -970,8 +967,8 @@ class _ProgressEmptyState extends StatelessWidget {
         en: 'No progress data yet',
       ),
       subtitle: context.t(
-        vi: 'Hoàn tất một phiên để AI bắt đầu bản đồ hóa năng lực',
-        en: 'Complete one session to let AI start mapping your learning ability',
+        vi: 'Hoàn tất phiên đầu tiên để AI phân tích',
+        en: 'Complete one session for AI analysis',
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -984,17 +981,14 @@ class _ProgressEmptyState extends StatelessWidget {
           const SizedBox(height: GrowMateLayout.space12),
           Text(
             context.t(
-              vi: 'Khi bạn hoàn thành bài đầu tiên, hệ thống sẽ tự động hiển thị điểm mạnh, điểm yếu và lộ trình cập nhật.',
-              en: 'After your first completed session, the system will automatically display strengths, weaknesses, and an updated roadmap.',
+              vi: 'Sau phiên đầu, hệ thống sẽ hiển thị phân tích của bạn.',
+              en: 'After your first session, analysis will appear here.',
             ),
             style: TextStyle(color: colors.onSurfaceVariant),
           ),
           const SizedBox(height: GrowMateLayout.space16),
           ZenButton(
-            label: context.t(
-              vi: 'Bắt đầu quiz đầu tiên',
-              en: 'Start first quiz',
-            ),
+            label: context.t(vi: 'Bắt đầu ngay', en: 'Get started'),
             onPressed: () => context.go(AppRoutes.quiz),
             trailing: Icon(Icons.play_arrow_rounded, color: colors.onPrimary),
           ),

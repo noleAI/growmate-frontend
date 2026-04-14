@@ -20,6 +20,40 @@ enum QuizQuestionType {
   }
 }
 
+/// Hypothesis tags for the narrowed scope: "Đạo hàm cơ bản" (4 hypotheses).
+enum HypothesisTag {
+  h01TrigDerivative,   // Đạo hàm lượng giác (sin, cos, tan)
+  h02ExpLogDerivative,  // Đạo hàm mũ & logarit (eˣ, ln x)
+  h03ChainRule,         // Chain Rule (hàm hợp)
+  h04BasicRules;        // Quy tắc tính (tổng, hiệu, tích, thương)
+
+  String get storageValue => switch (this) {
+    HypothesisTag.h01TrigDerivative => 'H01',
+    HypothesisTag.h02ExpLogDerivative => 'H02',
+    HypothesisTag.h03ChainRule => 'H03',
+    HypothesisTag.h04BasicRules => 'H04',
+  };
+
+  String get displayName => switch (this) {
+    HypothesisTag.h01TrigDerivative => 'Đạo hàm lượng giác',
+    HypothesisTag.h02ExpLogDerivative => 'Đạo hàm mũ & logarit',
+    HypothesisTag.h03ChainRule => 'Chain Rule',
+    HypothesisTag.h04BasicRules => 'Quy tắc tính',
+  };
+
+  static HypothesisTag? fromStorageValue(String? raw) {
+    if (raw == null) return null;
+    final normalized = raw.trim().toUpperCase();
+    return switch (normalized) {
+      'H01' => HypothesisTag.h01TrigDerivative,
+      'H02' => HypothesisTag.h02ExpLogDerivative,
+      'H03' => HypothesisTag.h03ChainRule,
+      'H04' => HypothesisTag.h04BasicRules,
+      _ => null,
+    };
+  }
+}
+
 class QuizQuestionTemplate {
   const QuizQuestionTemplate({
     required this.id,
@@ -33,6 +67,7 @@ class QuizQuestionTemplate {
     required this.content,
     required this.payload,
     required this.isActive,
+    this.hypothesisTag,
     this.mediaUrl,
     this.metadata = const <String, dynamic>{},
     this.createdAt,
@@ -50,6 +85,7 @@ class QuizQuestionTemplate {
   final int difficultyLevel;
   final String content;
   final String? mediaUrl;
+  final HypothesisTag? hypothesisTag;
   final QuizQuestionPayload payload;
   final Map<String, dynamic> metadata;
   final bool isActive;
@@ -75,6 +111,7 @@ class QuizQuestionTemplate {
       difficultyLevel: _safeInt(json['difficulty_level'], fallback: 2),
       content: json['content']?.toString() ?? '',
       mediaUrl: json['media_url']?.toString(),
+      hypothesisTag: HypothesisTag.fromStorageValue(json['hypothesis_tag']?.toString()),
       payload: QuizQuestionPayload.fromJson(questionType, payloadJson),
       metadata: _toMap(json['metadata']),
       isActive: _safeBool(json['is_active'], fallback: true),
@@ -96,6 +133,7 @@ class QuizQuestionTemplate {
       'difficulty_level': difficultyLevel,
       'content': content,
       'media_url': mediaUrl,
+      'hypothesis_tag': hypothesisTag?.storageValue,
       'payload': payload.toJson(),
       'metadata': metadata,
       'is_active': isActive,

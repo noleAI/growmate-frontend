@@ -37,14 +37,9 @@ class AIGlassCard extends StatelessWidget {
         boxShadow: showShadow
             ? [
                 BoxShadow(
-                  color: theme.colorScheme.shadow.withValues(alpha: 0.12),
-                  blurRadius: 20,
-                  offset: const Offset(0, 4),
-                ),
-                BoxShadow(
                   color: theme.colorScheme.shadow.withValues(alpha: 0.06),
-                  blurRadius: 6,
-                  offset: const Offset(0, 1),
+                  blurRadius: 12,
+                  offset: const Offset(0, 2),
                 ),
               ]
             : const [],

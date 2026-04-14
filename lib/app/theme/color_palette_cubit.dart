@@ -57,7 +57,7 @@ extension AppColorPaletteX on AppColorPalette {
 }
 
 class ColorPaletteCubit extends Cubit<AppColorPalette> {
-  ColorPaletteCubit() : super(AppColorPalette.greenYellow);
+  ColorPaletteCubit() : super(AppColorPalette.mintCream);
 
   static const String _prefsKey = 'app_color_palette';
 
@@ -88,8 +88,9 @@ class ColorPaletteCubit extends Cubit<AppColorPalette> {
       case 'blue_white':
         return AppColorPalette.blueWhite;
       case 'green_yellow':
-      default:
         return AppColorPalette.greenYellow;
+      default:
+        return AppColorPalette.mintCream;
     }
   }
 }

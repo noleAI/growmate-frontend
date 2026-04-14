@@ -187,19 +187,16 @@ class _TodayPageState extends State<TodayPage> {
         en: 'Start a new session with',
       ),
       topic: latestSession.topic.trim().isEmpty
-          ? context.t(vi: 'Lộ trình cá nhân hóa', en: 'Personalized roadmap')
+          ? context.t(vi: 'Đạo hàm cơ bản', en: 'Basic Derivatives')
           : latestSession.topic,
       reason: latestSession.nextAction.trim().isEmpty
           ? context.t(
-              vi: 'AI sẽ cập nhật gợi ý ngay sau khi bạn hoàn thành phiên mới.',
-              en: 'AI will refresh guidance right after your next session.',
+              vi: 'AI cập nhật gợi ý sau phiên tiếp theo.',
+              en: 'AI updates after your next session.',
             )
           : latestSession.nextAction,
       confidence: latestSession.confidenceScore.clamp(0.0, 1.0),
-      ctaLabel: context.t(
-        vi: 'Bắt đầu phiên AI gợi ý',
-        en: 'Start AI-guided session',
-      ),
+      ctaLabel: context.t(vi: 'Bắt đầu phiên mới', en: 'Start session'),
       onPressed: () => context.push(AppRoutes.quiz),
     );
   }
@@ -368,8 +365,8 @@ class _EmptyHeroCard extends StatelessWidget {
           const SizedBox(height: GrowMateLayout.space12),
           Text(
             context.t(
-              vi: 'AI chưa có dữ liệu. Làm bài đầu tiên để AI phân tích!',
-              en: 'AI has no data yet. Complete your first session to unlock insights!',
+              vi: 'Hoàn thành phiên đầu tiên để AI phân tích!',
+              en: 'Complete your first session for AI insights!',
             ),
             style: theme.textTheme.bodyLarge?.copyWith(
               color: colors.onSurface,
@@ -378,10 +375,7 @@ class _EmptyHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: GrowMateLayout.space16),
           ZenButton(
-            label: context.t(
-              vi: 'Bắt đầu phiên đầu tiên',
-              en: 'Start your first session',
-            ),
+            label: context.t(vi: 'Bắt đầu ngay', en: 'Get started'),
             onPressed: () => context.push(AppRoutes.quiz),
           ),
         ],
@@ -457,10 +451,7 @@ class _CompactStats extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            context.t(
-              vi: 'Cập nhật nhanh trong 24 giờ qua',
-              en: 'Quick update in the last 24 hours',
-            ),
+            context.t(vi: '24 giờ qua', en: 'Last 24 hours'),
             style: theme.textTheme.bodySmall?.copyWith(
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w600,
@@ -592,8 +583,8 @@ class _AiSystemPanel extends StatelessWidget {
         ),
         child: Text(
           context.t(
-            vi: 'Chưa có phân tích AI. Hoàn thành phiên đầu tiên để AI đánh giá.',
-            en: 'No AI analysis yet. Complete your first session to unlock insights.',
+            vi: 'Hoàn thành phiên đầu tiên để AI đánh giá.',
+            en: 'Complete your first session for insights.',
           ),
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colors.onSurfaceVariant,
@@ -626,10 +617,7 @@ class _AiSystemPanel extends StatelessWidget {
         _InsightTile(
           icon: Icons.check_circle_rounded,
           iconColor: colors.tertiary,
-          title: context.t(
-            vi: 'Bạn làm tốt ở điểm nào',
-            en: 'What you did well',
-          ),
+          title: context.t(vi: 'Điểm tốt', en: 'Strengths'),
           subtitle: strength,
         ),
         const SizedBox(height: GrowMateLayout.space12),
@@ -643,10 +631,7 @@ class _AiSystemPanel extends StatelessWidget {
         _InsightTile(
           icon: Icons.lightbulb_outline_rounded,
           iconColor: colors.primary,
-          title: context.t(
-            vi: 'Bước tiếp theo AI gợi ý',
-            en: 'Suggested next step',
-          ),
+          title: context.t(vi: 'Bước tiếp theo', en: 'Next step'),
           subtitle: nextStep,
         ),
       ],
@@ -768,8 +753,8 @@ class _ReviewDueStrip extends StatelessWidget {
 
         final subtitle = dueItems.isEmpty
             ? context.t(
-                vi: 'Không có chủ đề nào cần ôn hôm nay. Tiếp tục giữ nhịp!',
-                en: 'No topics to review today. Keep up the streak!',
+                vi: 'Không có chủ đề cần ôn hôm nay.',
+                en: 'No topics to review today.',
               )
             : context.t(
                 vi: 'Ưu tiên: ${dueItems.first.topic}',
@@ -811,12 +796,12 @@ class _MindfulBreakStrip extends StatelessWidget {
             : context.t(vi: 'Giữ nhịp ổn định', en: 'Keep steady rhythm');
         final subtitle = shouldSuggestBreak
             ? context.t(
-                vi: 'Phiên gần nhất cho thấy bạn nên nghỉ nhẹ trước khi học tiếp.',
-                en: 'Recent session suggests taking a short break before continuing.',
+                vi: 'Nghỉ nhẹ trước khi tiếp tục nhé.',
+                en: 'Take a short break before continuing.',
               )
             : context.t(
-                vi: 'Nếu thấy mệt, bạn vẫn có thể chủ động nghỉ thở 90 giây.',
-                en: 'If you feel tired, take a proactive 90-second breathing break.',
+                vi: 'Thấy mệt? Thử nghỉ thở 90 giây.',
+                en: 'Tired? Try a 90-second breathing break.',
               );
 
         return _QuickStrip(
@@ -857,8 +842,8 @@ class _SchedulePriorityStrip extends StatelessWidget {
 
         final subtitle = nearest == null
             ? context.t(
-                vi: 'Thêm lịch thi/hạn nộp để AI ưu tiên kế hoạch học.',
-                en: 'Add exams/deadlines so AI can prioritize your study plan.',
+                vi: 'Thêm lịch thi để AI ưu tiên ôn tập.',
+                en: 'Add exams for AI prioritization.',
               )
             : _scheduleSubtitle(context, nearest, now);
 
@@ -886,14 +871,14 @@ class _SchedulePriorityStrip extends StatelessWidget {
 
     if (daysLeft <= 0) {
       return context.t(
-        vi: 'Hôm nay có $label, nên ưu tiên ôn ${item.subject} 15 phút.',
-        en: 'There is a $label today. Prioritize a 15-minute review on ${item.subject}.',
+        vi: 'Hôm nay: $label — ôn ${item.subject}.',
+        en: 'Today: $label — review ${item.subject}.',
       );
     }
 
     return context.t(
-      vi: 'Còn $daysLeft ngày tới $label (${item.subject}).',
-      en: '$daysLeft days left until $label (${item.subject}).',
+      vi: 'Còn $daysLeft ngày — $label ${item.subject}.',
+      en: '$daysLeft days — $label ${item.subject}.',
     );
   }
 }
@@ -1135,8 +1120,8 @@ class _OnboardingCard extends StatelessWidget {
           _OnboardingStep(
             number: '①',
             text: context.t(
-              vi: 'Làm quiz để AI hiểu lỗ hổng kiến thức',
-              en: 'Take a quiz so AI understands your knowledge gaps',
+              vi: 'Làm quiz Đạo hàm cơ bản để AI hiểu lỗ hổng kiến thức',
+              en: 'Take a Derivatives quiz so AI understands your knowledge gaps',
             ),
           ),
           const SizedBox(height: 6),
