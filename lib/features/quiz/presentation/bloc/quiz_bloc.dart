@@ -1,6 +1,5 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../data/models/api_models.dart';
 import '../../data/repositories/quiz_repository.dart';
 import 'quiz_event.dart';
 import 'quiz_state.dart';
@@ -52,16 +51,11 @@ class QuizBloc extends Bloc<QuizEvent, QuizState> {
     emit(QuizLoading(answer: event.answer));
 
     try {
-      final response = await _quizRepository.submitAnswer(
+      final submitResponse = await _quizRepository.submitAnswer(
         questionId: questionId,
         answer: trimmedAnswer,
         context: <String, dynamic>{'questionText': questionText},
       );
-
-      final responseData = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final submitResponse = SubmitAnswerResponse.fromJson(responseData);
 
       final submissionId = submitResponse.submissionId.isNotEmpty
           ? submitResponse.submissionId

@@ -44,6 +44,12 @@ class AgenticSessionState extends Equatable {
     this.planRepaired,
     this.errorMessage,
     this.stepCount = 0,
+    this.reasoningMode = 'adaptive',
+    this.reasoningTrace = const [],
+    this.reasoningContent,
+    this.reasoningConfidence,
+    this.knowledgeChunks = const [],
+    this.latestReflection,
   });
 
   final AgenticPhase phase;
@@ -78,6 +84,26 @@ class AgenticSessionState extends Equatable {
   /// Number of interaction steps in this session.
   final int stepCount;
 
+  // ─── Agentic AI Fields ─────────────────────────────────────────────────
+
+  /// Reasoning mode: 'agentic' (LLM-driven) or 'adaptive' (pipeline).
+  final String reasoningMode;
+
+  /// Steps in the LLM reasoning chain for the current orchestrator step.
+  final List<ReasoningStep> reasoningTrace;
+
+  /// LLM reasoning text explaining the decision.
+  final String? reasoningContent;
+
+  /// LLM confidence in its decision [0, 1].
+  final double? reasoningConfidence;
+
+  /// Knowledge chunks retrieved via RAG.
+  final List<KnowledgeChunk> knowledgeChunks;
+
+  /// Latest self-reflection result.
+  final ReflectionResult? latestReflection;
+
   // ─── Derived Getters ───────────────────────────────────────────────────
 
   bool get isLoading => phase == AgenticPhase.processing;
@@ -107,6 +133,10 @@ class AgenticSessionState extends Equatable {
   OrchestratorDecision? get orchestratorDecision =>
       latestDashboard?.orchestrator?.decision;
 
+  bool get isAgenticMode => reasoningMode == 'agentic';
+  bool get hasReasoningTrace => reasoningTrace.isNotEmpty;
+  bool get hasKnowledge => knowledgeChunks.isNotEmpty;
+
   factory AgenticSessionState.initial() {
     return const AgenticSessionState(phase: AgenticPhase.idle);
   }
@@ -125,6 +155,12 @@ class AgenticSessionState extends Equatable {
     bool? planRepaired,
     String? errorMessage,
     int? stepCount,
+    String? reasoningMode,
+    List<ReasoningStep>? reasoningTrace,
+    String? reasoningContent,
+    double? reasoningConfidence,
+    List<KnowledgeChunk>? knowledgeChunks,
+    ReflectionResult? latestReflection,
   }) {
     return AgenticSessionState(
       phase: phase ?? this.phase,
@@ -140,6 +176,12 @@ class AgenticSessionState extends Equatable {
       planRepaired: planRepaired ?? this.planRepaired,
       errorMessage: errorMessage ?? this.errorMessage,
       stepCount: stepCount ?? this.stepCount,
+      reasoningMode: reasoningMode ?? this.reasoningMode,
+      reasoningTrace: reasoningTrace ?? this.reasoningTrace,
+      reasoningContent: reasoningContent ?? this.reasoningContent,
+      reasoningConfidence: reasoningConfidence ?? this.reasoningConfidence,
+      knowledgeChunks: knowledgeChunks ?? this.knowledgeChunks,
+      latestReflection: latestReflection ?? this.latestReflection,
     );
   }
 
@@ -158,5 +200,11 @@ class AgenticSessionState extends Equatable {
     planRepaired,
     errorMessage,
     stepCount,
+    reasoningMode,
+    reasoningTrace,
+    reasoningContent,
+    reasoningConfidence,
+    knowledgeChunks,
+    latestReflection,
   ];
 }

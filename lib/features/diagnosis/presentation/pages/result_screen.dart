@@ -7,7 +7,6 @@ import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/premium_sections.dart';
-import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -56,6 +55,15 @@ class _ResultScreenState extends State<ResultScreen> {
       value: _resultCubit,
       child: Scaffold(
         backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+        appBar: AppBar(
+          backgroundColor: Theme.of(context).scaffoldBackgroundColor,
+          elevation: 0,
+          leading: IconButton(
+            icon: const Icon(Icons.close_rounded),
+            tooltip: context.t(vi: 'Đóng', en: 'Close'),
+            onPressed: () => context.go(AppRoutes.home),
+          ),
+        ),
         body: SafeArea(
           child: BlocConsumer<ResultCubit, ResultState>(
             listener: (context, state) {
@@ -389,8 +397,7 @@ class _ResultContent extends StatelessWidget {
       includeBottomSafeArea: false,
       child: ListView(
         children: [
-          const GrowMateTopAppBar(),
-          const SizedBox(height: 32),
+          const SizedBox(height: 16),
           Text(
             context.t(vi: 'Kết quả phân tích AI', en: 'AI analysis result'),
             style: theme.textTheme.displayLarge?.copyWith(height: 1.05),
@@ -896,7 +903,7 @@ class _ResultLoadingView extends StatelessWidget {
     return ZenPageContainer(
       child: Column(
         children: [
-          const GrowMateTopAppBar(),
+          const SizedBox(height: 16),
           const Spacer(),
           Section(
             title: context.t(
@@ -933,7 +940,6 @@ class _ResultErrorView extends StatelessWidget {
     return ZenPageContainer(
       child: Column(
         children: [
-          const GrowMateTopAppBar(),
           const SizedBox(height: GrowMateLayout.sectionGap),
           ZenErrorCard(message: message, onRetry: onRetry),
         ],

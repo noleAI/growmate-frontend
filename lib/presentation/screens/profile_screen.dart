@@ -3,7 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
-import '../../app/i18n/app_strings.dart';
+import '../../app/i18n/build_context_i18n.dart';
 import '../../app/router/app_routes.dart';
 import '../../app/theme/app_theme.dart';
 import '../../app/theme/color_palette_cubit.dart';
@@ -13,7 +13,6 @@ import '../../data/models/user_profile.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
-import '../../features/auth/presentation/bloc/auth_state.dart';
 import '../../features/inspection/presentation/cubit/inspection_cubit.dart';
 import '../../features/notification/data/repositories/notification_repository.dart';
 import '../../features/offline/data/models/offline_state.dart';
@@ -121,54 +120,45 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  String _t(BuildContext context, {required String vi, required String en}) {
-    return AppStrings.of(context).pick(vi: vi, en: en);
-  }
-
   String _paletteLabel(BuildContext context, AppColorPalette palette) {
     switch (palette) {
       case AppColorPalette.greenYellow:
-        return _t(context, vi: 'Xanh lá - vàng', en: 'Green - Yellow');
+        return context.t(vi: 'Xanh lá - vàng', en: 'Green - Yellow');
       case AppColorPalette.blueWhite:
-        return _t(context, vi: 'Xanh dương - trắng', en: 'Blue - White');
+        return context.t(vi: 'Xanh dương - trắng', en: 'Blue - White');
       case AppColorPalette.sunsetPeach:
-        return _t(context, vi: 'Hoàng hôn đào', en: 'Sunset Peach');
+        return context.t(vi: 'Hoàng hôn đào', en: 'Sunset Peach');
       case AppColorPalette.mintCream:
-        return _t(context, vi: 'Bạc hà - kem', en: 'Mint - Cream');
+        return context.t(vi: 'Bạc hà - kem', en: 'Mint - Cream');
       case AppColorPalette.oceanSlate:
-        return _t(context, vi: 'Biển đêm', en: 'Ocean Slate');
+        return context.t(vi: 'Biển đêm', en: 'Ocean Slate');
     }
   }
 
   String _paletteDescription(BuildContext context, AppColorPalette palette) {
     switch (palette) {
       case AppColorPalette.greenYellow:
-        return _t(
-          context,
+        return context.t(
           vi: 'Gam màu tươi, tạo cảm giác năng lượng và tập trung.',
           en: 'A vibrant palette that feels energetic and focused.',
         );
       case AppColorPalette.blueWhite:
-        return _t(
-          context,
+        return context.t(
           vi: 'Gam màu dịu mắt, tối giản và cân bằng.',
           en: 'A calm palette with a clean and balanced look.',
         );
       case AppColorPalette.sunsetPeach:
-        return _t(
-          context,
+        return context.t(
           vi: 'Tông cam hồng ấm, tạo cảm giác tích cực và gần gũi.',
           en: 'A warm peach tone that feels positive and inviting.',
         );
       case AppColorPalette.mintCream:
-        return _t(
-          context,
+        return context.t(
           vi: 'Sắc bạc hà sáng, nhẹ nhàng và thư giãn khi học lâu.',
           en: 'A light mint palette that stays soft during long study sessions.',
         );
       case AppColorPalette.oceanSlate:
-        return _t(
-          context,
+        return context.t(
           vi: 'Xanh biển trầm hiện đại, tập trung và rõ tương phản.',
           en: 'A deep modern ocean tone with strong focus and contrast.',
         );
@@ -178,32 +168,27 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _paletteChangedMessage(BuildContext context, AppColorPalette palette) {
     switch (palette) {
       case AppColorPalette.greenYellow:
-        return _t(
-          context,
+        return context.t(
           vi: 'Đã chuyển sang bảng màu xanh lá - vàng.',
           en: 'Switched to the Green - Yellow palette.',
         );
       case AppColorPalette.blueWhite:
-        return _t(
-          context,
+        return context.t(
           vi: 'Đã chuyển sang bảng màu xanh dương - trắng.',
           en: 'Switched to the Blue - White palette.',
         );
       case AppColorPalette.sunsetPeach:
-        return _t(
-          context,
+        return context.t(
           vi: 'Đã chuyển sang bảng màu hoàng hôn đào.',
           en: 'Switched to the Sunset Peach palette.',
         );
       case AppColorPalette.mintCream:
-        return _t(
-          context,
+        return context.t(
           vi: 'Đã chuyển sang bảng màu bạc hà - kem.',
           en: 'Switched to the Mint - Cream palette.',
         );
       case AppColorPalette.oceanSlate:
-        return _t(
-          context,
+        return context.t(
           vi: 'Đã chuyển sang bảng màu biển đêm.',
           en: 'Switched to the Ocean Slate palette.',
         );
@@ -231,7 +216,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     _recoveryModeEnabled = profile.recoveryModeEnabled;
     _consentBehavioral = profile.consentBehavioral;
     _consentAnalytics = profile.consentAnalytics;
-    _subscriptionTier = 'free';
+    _subscriptionTier = profile.subscriptionTier;
     _hydrated = true;
 
     if (mounted) {
@@ -293,6 +278,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
           }
 
           if (state is ProfileError) {
+            if (_isSettingsSection && state.previous != null) {
+              return;
+            }
             ScaffoldMessenger.of(context)
               ..hideCurrentSnackBar()
               ..showSnackBar(
@@ -327,20 +315,16 @@ class _ProfileScreenState extends State<ProfileScreen> {
               includeBottomSafeArea: false,
               child: ListView(
                 children: [
-                  _buildHeader(profile: profile, authState: authBloc.state),
-                  const SizedBox(height: GrowMateLayout.sectionGap),
                   _buildSectionHeader(
                     title: _isSettingsSection
-                        ? _t(context, vi: 'Cài đặt', en: 'Settings')
-                        : _t(context, vi: 'Hồ sơ', en: 'Profile'),
+                        ? context.t(vi: 'Cài đặt', en: 'Settings')
+                        : context.t(vi: 'Hồ sơ', en: 'Profile'),
                     subtitle: _isSettingsSection
-                        ? _t(
-                            context,
+                        ? context.t(
                             vi: 'Quyền riêng tư, thông báo và cấu hình.',
                             en: 'Privacy, notifications, and preferences.',
                           )
-                        : _t(
-                            context,
+                        : context.t(
                             vi: 'Cá nhân hóa để AI hỗ trợ tốt hơn.',
                             en: 'Personalize for better AI support.',
                           ),
@@ -360,8 +344,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 16),
                           Text(
-                            _t(
-                              context,
+                            context.t(
                               vi: 'Đang tải hồ sơ của bạn...',
                               en: 'Loading your profile...',
                             ),
@@ -385,8 +368,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: 12),
                           Text(
-                            _t(
-                              context,
+                            context.t(
                               vi: 'Mình chưa tải được hồ sơ lúc này.',
                               en: 'Unable to load your profile right now.',
                             ),
@@ -396,7 +378,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                           ),
                           const SizedBox(height: GrowMateLayout.contentGap),
                           _PrimaryGradientButton(
-                            label: _t(context, vi: 'Tải lại', en: 'Retry'),
+                            label: context.t(vi: 'Tải lại', en: 'Retry'),
                             onPressed: isProcessing ? null : cubit.loadProfile,
                           ),
                         ],
@@ -429,13 +411,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             const SizedBox(height: GrowMateLayout.sectionGapLg),
                             _PrimaryGradientButton(
                               label: isProcessing
-                                  ? _t(
-                                      context,
+                                  ? context.t(
                                       vi: 'Đang lưu...',
                                       en: 'Saving...',
                                     )
-                                  : _t(
-                                      context,
+                                  : context.t(
                                       vi: 'Lưu thay đổi',
                                       en: 'Save changes',
                                     ),
@@ -445,8 +425,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                                       if (!_formKey.currentState!.validate()) {
                                         return;
                                       }
-                                      _pendingSuccessMessage = _t(
-                                        context,
+                                      _pendingSuccessMessage = context.t(
                                         vi: 'Hồ sơ đã được cập nhật nhẹ nhàng rồi nè.',
                                         en: 'Your profile has been updated successfully.',
                                       );
@@ -493,91 +472,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildHeader({
-    required UserProfile? profile,
-    required AuthState authState,
-  }) {
-    final name = _resolveHeaderName(profile: profile, authState: authState);
-    final avatarUrl = profile?.avatarUrl?.trim();
-    final hasAvatar = avatarUrl != null && avatarUrl.isNotEmpty;
-    final initial = name.isNotEmpty ? name.characters.first.toUpperCase() : 'B';
-    final theme = Theme.of(context);
-    final colors = Theme.of(context).colorScheme;
-
-    return Row(
-      children: [
-        InkWell(
-          borderRadius: BorderRadius.circular(999),
-          onTap: null,
-          child: Container(
-            width: 42,
-            height: 42,
-            decoration: BoxDecoration(
-              shape: BoxShape.circle,
-              color: colors.primaryContainer.withValues(
-                alpha: _isDark(context) ? 0.7 : 1,
-              ),
-              boxShadow: const [
-                BoxShadow(
-                  color: Color(0x140F172A),
-                  blurRadius: 14,
-                  offset: Offset(0, 6),
-                ),
-              ],
-            ),
-            child: ClipOval(
-              child: hasAvatar
-                  ? Image.network(
-                      avatarUrl,
-                      fit: BoxFit.cover,
-                      errorBuilder: (context, error, stackTrace) {
-                        return _AvatarFallback(initial: initial);
-                      },
-                    )
-                  : _AvatarFallback(initial: initial),
-            ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                _t(context, vi: 'CHÀO MỪNG TRỞ LẠI', en: 'WELCOME BACK'),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                  letterSpacing: 1.0,
-                ),
-              ),
-              const SizedBox(height: 1),
-              Text(
-                name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleMedium?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w800,
-                  height: 1.05,
-                ),
-              ),
-            ],
-          ),
-        ),
-        _IconCircleButton(
-          icon: Icons.notifications_none_rounded,
-          onTap: () {
-            context.push(AppRoutes.notifications);
-          },
-        ),
-      ],
-    );
-  }
-
   Widget _buildSectionHeader({
     required String title,
     required String subtitle,
@@ -612,27 +506,25 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(context, vi: 'Thông tin cá nhân', en: 'Personal info'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Thông tin cá nhân', en: 'Personal info'),
+            subtitle: context.t(
               vi: 'Cập nhật hồ sơ cho AI chính xác hơn.',
               en: 'Update profile for better AI support.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
-          _FieldCaption(_t(context, vi: 'Tên hiển thị', en: 'Display name')),
+          _FieldCaption(context.t(vi: 'Tên hiển thị', en: 'Display name')),
           const SizedBox(height: GrowMateLayout.space8),
           TextFormField(
             controller: _fullNameController,
             enabled: !isProcessing,
             decoration: _softFieldDecoration(
-              hint: _t(context, vi: 'Nhập tên của bạn', en: 'Enter your name'),
+              hint: context.t(vi: 'Nhập tên của bạn', en: 'Enter your name'),
             ),
             validator: (value) {
               final trimmed = value?.trim() ?? '';
               if (trimmed.isEmpty) {
-                return _t(
-                  context,
+                return context.t(
                   vi: 'Bạn thêm tên để mình xưng hô dễ hơn nhé.',
                   en: 'Please add your name so the app can address you better.',
                 );
@@ -641,7 +533,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           const SizedBox(height: 12),
-          _FieldCaption(_t(context, vi: 'Email', en: 'Email')),
+          _FieldCaption(context.t(vi: 'Email', en: 'Email')),
           const SizedBox(height: GrowMateLayout.space8),
           TextFormField(
             initialValue: profile.email,
@@ -649,7 +541,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             decoration: _softFieldDecoration(),
           ),
           const SizedBox(height: 12),
-          _FieldCaption(_t(context, vi: 'Khối lớp', en: 'Grade level')),
+          _FieldCaption(context.t(vi: 'Khối lớp', en: 'Grade level')),
           const SizedBox(height: GrowMateLayout.space8),
           DropdownButtonFormField<String>(
             initialValue: _gradeOptions.contains(_gradeLevel)
@@ -696,13 +588,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Môn học đang tập trung',
               en: 'Focus subjects',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Chọn môn AI ưu tiên.',
               en: 'Choose AI priority subjects.',
             ),
@@ -760,22 +650,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(context, vi: 'Nhịp học AI', en: 'AI Rhythm'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Nhịp học AI', en: 'AI Rhythm'),
+            subtitle: context.t(
               vi: 'Điều chỉnh nhịp và kiểu gợi ý AI.',
               en: 'Adjust pace and AI hint style.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
           _ToggleLine(
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Bật chế độ phục hồi',
               en: 'Enable Recovery Mode',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Khi mệt, AI sẽ can thiệp dịu hơn.',
               en: 'When tired, AI uses gentler interventions.',
             ),
@@ -790,7 +677,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
           _FieldCaption(
-            _t(context, vi: 'Nhịp học ưu tiên', en: 'Preferred pace'),
+            context.t(vi: 'Nhịp học ưu tiên', en: 'Preferred pace'),
           ),
           const SizedBox(height: GrowMateLayout.space8),
           DropdownButtonFormField<String>(
@@ -823,7 +710,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   },
           ),
           const SizedBox(height: 12),
-          _FieldCaption(_t(context, vi: 'Kiểu gợi ý', en: 'Hint style')),
+          _FieldCaption(context.t(vi: 'Kiểu gợi ý', en: 'Hint style')),
           const SizedBox(height: GrowMateLayout.space8),
           DropdownButtonFormField<String>(
             initialValue:
@@ -871,22 +758,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(context, vi: 'Quyền riêng tư', en: 'Privacy'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Quyền riêng tư', en: 'Privacy'),
+            subtitle: context.t(
               vi: 'Quản lý quyền dữ liệu học tập.',
               en: 'Manage learning data permissions.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
           _ToggleLine(
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Cho phép tín hiệu hành vi',
               en: 'Allow behavioral signals',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Tối ưu theo nhịp tương tác.',
               en: 'Optimize by interaction rhythm.',
             ),
@@ -898,13 +782,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _consentBehavioral = value;
                     });
                     _pendingSuccessMessage = value
-                        ? _t(
-                            context,
+                        ? context.t(
                             vi: 'Đã bật tín hiệu hành vi.',
                             en: 'Behavioral signals enabled.',
                           )
-                        : _t(
-                            context,
+                        : context.t(
                             vi: 'Đã tắt tín hiệu hành vi.',
                             en: 'Behavioral signals disabled.',
                           );
@@ -913,13 +795,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const Divider(height: 22, thickness: 0.6, color: Color(0x1A64748B)),
           _ToggleLine(
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Cho phép analytics tổng quan',
               en: 'Allow aggregate analytics',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Không ảnh hưởng đến bài học cốt lõi.',
               en: 'This does not affect your core learning flow.',
             ),
@@ -931,13 +811,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       _consentAnalytics = value;
                     });
                     _pendingSuccessMessage = value
-                        ? _t(
-                            context,
+                        ? context.t(
                             vi: 'Đã bật analytics.',
                             en: 'Analytics enabled.',
                           )
-                        : _t(
-                            context,
+                        : context.t(
                             vi: 'Đã tắt analytics.',
                             en: 'Analytics disabled.',
                           );
@@ -962,15 +840,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(context, vi: 'Gói học tập', en: 'Study plan'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Gói học tập', en: 'Study plan'),
+            subtitle: context.t(
               vi: 'Quản lý gói dịch vụ.',
               en: 'Manage your service plan.',
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
-          _FieldCaption(_t(context, vi: 'Lựa chọn gói', en: 'Plan option')),
+          _FieldCaption(context.t(vi: 'Lựa chọn gói', en: 'Plan option')),
           const SizedBox(height: GrowMateLayout.space8),
           DropdownButtonFormField<String>(
             key: ValueKey('subscription_picker_$_subscriptionPickerVersion'),
@@ -989,7 +866,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       context,
                       tier == 'free'
                           ? _toTierLabel(tier)
-                          : '${_toTierLabel(tier)} (${_t(context, vi: 'Chưa khả dụng', en: 'Unavailable')})',
+                          : '${_toTierLabel(tier)} (${context.t(vi: 'Chưa khả dụng', en: 'Unavailable')})',
                     ),
                   ),
                 )
@@ -1016,8 +893,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ..showSnackBar(
                           SnackBar(
                             content: Text(
-                              _t(
-                                context,
+                              context.t(
                                 vi: 'Gói ${_toTierLabel(value)} chưa khả dụng trong phiên bản hiện tại.',
                                 en: '${_toTierLabel(value)} plan is not available in the current version.',
                               ),
@@ -1045,8 +921,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         ..showSnackBar(
                           SnackBar(
                             content: Text(
-                              _t(
-                                context,
+                              context.t(
                                 vi: 'Bạn đang ở gói Free.',
                                 en: 'You are currently on the Free plan.',
                               ),
@@ -1059,8 +934,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                       return;
                     }
 
-                    _pendingSuccessMessage = _t(
-                      context,
+                    _pendingSuccessMessage = context.t(
                       vi: 'Đã chuyển về gói Free.',
                       en: 'Switched back to Free plan.',
                     );
@@ -1069,7 +943,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           const SizedBox(height: GrowMateLayout.space8),
           Text(
-            '${_t(context, vi: 'Hiện tại', en: 'Current')}: ${_toTierLabel(_subscriptionTier)}',
+            '${context.t(vi: 'Hiện tại', en: 'Current')}: ${_toTierLabel(_subscriptionTier)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: theme.colorScheme.onSurfaceVariant,
             ),
@@ -1097,9 +971,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _CardHeading(
-            title: _t(context, vi: 'Hệ thống', en: 'System'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Hệ thống', en: 'System'),
+            subtitle: context.t(
               vi: 'Ứng dụng, hỗ trợ và đăng nhập.',
               en: 'App info, support, and session.',
             ),
@@ -1108,9 +981,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           _settingsClusterLabel(context, vi: 'Dùng hằng ngày', en: 'Daily use'),
           _MenuTile(
             icon: Icons.notifications_none_rounded,
-            title: _t(context, vi: 'Thông báo', en: 'Notifications'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Thông báo', en: 'Notifications'),
+            subtitle: context.t(
               vi: 'Nhắc nhở và cập nhật.',
               en: 'Reminders and updates.',
             ),
@@ -1121,9 +993,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.calendar_month_rounded,
-            title: _t(context, vi: 'Lịch thông minh', en: 'Smart Schedule'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Lịch thông minh', en: 'Smart Schedule'),
+            subtitle: context.t(
               vi: 'Lịch thi và hạn nộp để AI ưu tiên.',
               en: 'Exams and deadlines for AI priority.',
             ),
@@ -1134,9 +1005,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.spa_rounded,
-            title: _t(context, vi: 'Nghỉ thở 90 giây', en: 'Mindful Break 90s'),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Nghỉ thở 90 giây', en: 'Mindful Break 90s'),
+            subtitle: context.t(
               vi: 'Thư giãn trước khi học tiếp.',
               en: 'Relax before continuing.',
             ),
@@ -1157,15 +1027,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
               return _ToggleLine(
                 icon: Icons.dark_mode_rounded,
-                title: _t(context, vi: 'Chế độ tối', en: 'Dark Mode'),
+                title: context.t(vi: 'Chế độ tối', en: 'Dark Mode'),
                 subtitle: isDarkMode
-                    ? _t(
-                        context,
+                    ? context.t(
                         vi: 'Giao diện tối đang bật.',
                         en: 'Dark interface is on.',
                       )
-                    : _t(
-                        context,
+                    : context.t(
                         vi: 'Bật để giảm chói khi học tối.',
                         en: 'Enable to reduce eye strain at night.',
                       ),
@@ -1185,13 +1053,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SnackBar(
                               content: Text(
                                 value
-                                    ? _t(
-                                        context,
+                                    ? context.t(
                                         vi: 'Đã bật Chế độ tối.',
                                         en: 'Dark Mode enabled.',
                                       )
-                                    : _t(
-                                        context,
+                                    : context.t(
                                         vi: 'Đã chuyển về Chế độ sáng.',
                                         en: 'Switched to Light Mode.',
                                       ),
@@ -1219,8 +1085,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   children: [
                     _settingFieldHeader(
                       icon: Icons.palette_outlined,
-                      title: _t(
-                        context,
+                      title: context.t(
                         vi: 'Bảng màu giao diện',
                         en: 'Color palette',
                       ),
@@ -1229,8 +1094,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Padding(
                       padding: const EdgeInsets.only(left: settingContentInset),
                       child: Text(
-                        _t(
-                          context,
+                        context.t(
                           vi: 'Đổi nhanh theo sở thích.',
                           en: 'Switch to your preference.',
                         ),
@@ -1337,30 +1201,23 @@ class _ProfileScreenState extends State<ProfileScreen> {
                   );
 
               final subtitle = offlineState.enabled
-                  ? _t(
-                      context,
+                  ? context.t(
                       vi: 'Lưu cục bộ. Hàng đợi: ${offlineState.queuedSignals}.',
                       en: 'Saving locally. Queue: ${offlineState.queuedSignals}.',
                     )
                   : offlineState.queuedSignals > 0
-                  ? _t(
-                      context,
+                  ? context.t(
                       vi: 'Sẵn sàng đồng bộ ${offlineState.queuedSignals} tín hiệu.',
                       en: 'Ready to sync ${offlineState.queuedSignals} signals.',
                     )
-                  : _t(
-                      context,
+                  : context.t(
                       vi: 'Tự động lưu khi mất mạng.',
                       en: 'Auto-queue when offline.',
                     );
 
               return _ToggleLine(
                 icon: Icons.cloud_off_rounded,
-                title: _t(
-                  context,
-                  vi: 'Chế độ ngoại tuyến',
-                  en: 'Offline Mode',
-                ),
+                title: context.t(vi: 'Chế độ ngoại tuyến', en: 'Offline Mode'),
                 subtitle: subtitle,
                 value: offlineState.enabled,
                 onChanged: isProcessing
@@ -1378,13 +1235,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                             SnackBar(
                               content: Text(
                                 value
-                                    ? _t(
-                                        context,
+                                    ? context.t(
                                         vi: 'Đã bật ngoại tuyến.',
                                         en: 'Offline Mode on.',
                                       )
-                                    : _t(
-                                        context,
+                                    : context.t(
                                         vi: 'Đã tắt ngoại tuyến.',
                                         en: 'Offline Mode off.',
                                       ),
@@ -1401,13 +1256,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.support_agent_rounded,
-            title: _t(
-              context,
-              vi: 'Hỗ trợ & phản hồi',
-              en: 'Support & feedback',
-            ),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Hỗ trợ & phản hồi', en: 'Support & feedback'),
+            subtitle: context.t(
               vi: 'Gửi góp ý cho GrowMate.',
               en: 'Share feedback for GrowMate.',
             ),
@@ -1417,8 +1267,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 ..showSnackBar(
                   SnackBar(
                     content: Text(
-                      _t(
-                        context,
+                      context.t(
                         vi: 'Kênh góp ý sẽ mở sớm.',
                         en: 'Feedback channel coming soon.',
                       ),
@@ -1433,7 +1282,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.verified_rounded,
-            title: _t(context, vi: 'Phiên bản ứng dụng', en: 'App version'),
+            title: context.t(vi: 'Phiên bản ứng dụng', en: 'App version'),
             subtitle: widget.appVersion,
           ),
           const SizedBox(height: GrowMateLayout.space24),
@@ -1444,13 +1293,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           ),
           _MenuTile(
             icon: Icons.download_rounded,
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Tải dữ liệu cá nhân',
               en: 'Export personal data',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Xuất JSON hồ sơ và timeline.',
               en: 'Export profile JSON and timeline.',
             ),
@@ -1468,13 +1315,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.policy_outlined,
-            title: _t(
-              context,
-              vi: 'Điều khoản sử dụng',
-              en: 'Terms of service',
-            ),
-            subtitle: _t(
-              context,
+            title: context.t(vi: 'Điều khoản sử dụng', en: 'Terms of service'),
+            subtitle: context.t(
               vi: 'Quy định dịch vụ GrowMate.',
               en: 'GrowMate service terms.',
             ),
@@ -1485,13 +1327,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const Divider(height: 1, color: Color(0x1464748B)),
           _MenuTile(
             icon: Icons.privacy_tip_outlined,
-            title: _t(
-              context,
+            title: context.t(
               vi: 'Chính sách quyền riêng tư',
               en: 'Privacy policy',
             ),
-            subtitle: _t(
-              context,
+            subtitle: context.t(
               vi: 'Cách GrowMate xử lý dữ liệu.',
               en: 'How GrowMate handles your data.',
             ),
@@ -1514,13 +1354,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
 
                 return _ToggleLine(
                   icon: Icons.developer_mode_rounded,
-                  title: _t(
-                    context,
+                  title: context.t(
                     vi: 'Chế độ Dev (Auditor)',
                     en: 'Dev Mode (Auditor)',
                   ),
-                  subtitle: _t(
-                    context,
+                  subtitle: context.t(
                     vi: 'Hiện nút AI Insight trên Trang chủ.',
                     en: 'Show AI Insight button on Today page.',
                   ),
@@ -1540,13 +1378,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
                               SnackBar(
                                 content: Text(
                                   value
-                                      ? _t(
-                                          context,
+                                      ? context.t(
                                           vi: 'Đã bật Dev Mode.',
                                           en: 'Dev Mode enabled.',
                                         )
-                                      : _t(
-                                          context,
+                                      : context.t(
                                           vi: 'Đã tắt Dev Mode.',
                                           en: 'Dev Mode disabled.',
                                         ),
@@ -1568,8 +1404,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: GrowMateLayout.space8),
           _GhostButton(
             label: isProcessing
-                ? _t(context, vi: 'Đang xử lý...', en: 'Processing...')
-                : _t(context, vi: 'Xóa tài khoản', en: 'Delete account'),
+                ? context.t(vi: 'Đang xử lý...', en: 'Processing...')
+                : context.t(vi: 'Xóa tài khoản', en: 'Delete account'),
             onPressed: isProcessing
                 ? null
                 : () {
@@ -1582,8 +1418,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: GrowMateLayout.contentGap),
           _GhostButton(
             label: isProcessing
-                ? _t(context, vi: 'Đang xử lý...', en: 'Processing...')
-                : _t(context, vi: 'Đăng xuất', en: 'Log out'),
+                ? context.t(vi: 'Đang xử lý...', en: 'Processing...')
+                : context.t(vi: 'Đăng xuất', en: 'Log out'),
             onPressed: isProcessing
                 ? null
                 : () {
@@ -1603,10 +1439,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       context: context,
       builder: (dialogContext) {
         return AlertDialog(
-          title: Text(_t(context, vi: 'Xóa tài khoản', en: 'Delete account')),
+          title: Text(context.t(vi: 'Xóa tài khoản', en: 'Delete account')),
           content: Text(
-            _t(
-              context,
+            context.t(
               vi: 'Xóa dữ liệu và hồ sơ học tập?',
               en: 'Delete all data and learning profile?',
             ),
@@ -1616,13 +1451,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
               onPressed: () {
                 Navigator.of(dialogContext).pop(false);
               },
-              child: Text(_t(context, vi: 'Hủy', en: 'Cancel')),
+              child: Text(context.t(vi: 'Hủy', en: 'Cancel')),
             ),
             FilledButton(
               onPressed: () {
                 Navigator.of(dialogContext).pop(true);
               },
-              child: Text(_t(context, vi: 'Xóa ngay', en: 'Delete now')),
+              child: Text(context.t(vi: 'Xóa ngay', en: 'Delete now')),
             ),
           ],
         );
@@ -1658,8 +1493,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              _t(
-                context,
+              context.t(
                 vi: 'Đã xóa dữ liệu. Bạn có thể đăng ký lại.',
                 en: 'Data deleted. You can sign up again.',
               ),
@@ -1681,8 +1515,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ..showSnackBar(
           SnackBar(
             content: Text(
-              _t(
-                context,
+              context.t(
                 vi: 'Không xóa được. Thử lại nhé.',
                 en: 'Unable to delete. Try again.',
               ),
@@ -1750,7 +1583,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
     return Padding(
       padding: const EdgeInsets.fromLTRB(2, 12, 2, 10),
       child: Text(
-        _t(context, vi: vi, en: en),
+        context.t(vi: vi, en: en),
         style: Theme.of(context).textTheme.titleMedium?.copyWith(
           color: colors.onSurface,
           fontWeight: FontWeight.w700,
@@ -1788,40 +1621,6 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  static String _displayName(String? fullName) {
-    final value = fullName?.trim();
-    if (value == null || value.isEmpty) {
-      return '';
-    }
-    final parts = value.split(RegExp(r'\s+'));
-    return parts.isEmpty ? '' : parts.last;
-  }
-
-  String _resolveHeaderName({
-    required UserProfile? profile,
-    required AuthState authState,
-  }) {
-    final fromProfile = _displayName(profile?.fullName);
-    if (fromProfile.isNotEmpty) {
-      return fromProfile;
-    }
-
-    if (authState is AuthAuthenticated) {
-      final fromSessionName = _displayName(authState.session.displayName);
-      if (fromSessionName.isNotEmpty) {
-        return fromSessionName;
-      }
-
-      final localPart = authState.session.email.trim().split('@').first;
-      final fromEmail = _displayName(localPart);
-      if (fromEmail.isNotEmpty) {
-        return fromEmail;
-      }
-    }
-
-    return _t(context, vi: 'Bạn', en: 'You');
-  }
-
   static String _toTierLabel(String tier) {
     switch (tier) {
       case 'plus':
@@ -1836,17 +1635,17 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _subjectLabel(BuildContext context, String subject) {
     switch (subject) {
       case 'Toán':
-        return _t(context, vi: 'Toán', en: 'Mathematics');
+        return context.t(vi: 'Toán', en: 'Mathematics');
       case 'Vật lý':
-        return _t(context, vi: 'Vật lý', en: 'Physics');
+        return context.t(vi: 'Vật lý', en: 'Physics');
       case 'Hóa học':
-        return _t(context, vi: 'Hóa học', en: 'Chemistry');
+        return context.t(vi: 'Hóa học', en: 'Chemistry');
       case 'Sinh học':
-        return _t(context, vi: 'Sinh học', en: 'Biology');
+        return context.t(vi: 'Sinh học', en: 'Biology');
       case 'Ngữ văn':
-        return _t(context, vi: 'Ngữ văn', en: 'Literature');
+        return context.t(vi: 'Ngữ văn', en: 'Literature');
       case 'Tiếng Anh':
-        return _t(context, vi: 'Tiếng Anh', en: 'English');
+        return context.t(vi: 'Tiếng Anh', en: 'English');
       default:
         return subject;
     }
@@ -1855,13 +1654,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _gradeLabel(BuildContext context, String grade) {
     switch (grade) {
       case 'Lớp 10':
-        return _t(context, vi: 'Lớp 10', en: 'Grade 10');
+        return context.t(vi: 'Lớp 10', en: 'Grade 10');
       case 'Lớp 11':
-        return _t(context, vi: 'Lớp 11', en: 'Grade 11');
+        return context.t(vi: 'Lớp 11', en: 'Grade 11');
       case 'Lớp 12':
-        return _t(context, vi: 'Lớp 12', en: 'Grade 12');
+        return context.t(vi: 'Lớp 12', en: 'Grade 12');
       case 'Đại học năm 1':
-        return _t(context, vi: 'Đại học năm 1', en: 'University year 1');
+        return context.t(vi: 'Đại học năm 1', en: 'University year 1');
       default:
         return grade;
     }
@@ -1870,22 +1669,22 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _toPaceLabel(BuildContext context, String pace) {
     switch (pace) {
       case 'focused':
-        return _t(context, vi: 'Tập trung', en: 'Focused');
+        return context.t(vi: 'Tập trung', en: 'Focused');
       case 'balanced':
-        return _t(context, vi: 'Cân bằng', en: 'Balanced');
+        return context.t(vi: 'Cân bằng', en: 'Balanced');
       default:
-        return _t(context, vi: 'Nhẹ nhàng', en: 'Gentle');
+        return context.t(vi: 'Nhẹ nhàng', en: 'Gentle');
     }
   }
 
   String _toHintStyleLabel(BuildContext context, String hintStyle) {
     switch (hintStyle) {
       case 'concept_first':
-        return _t(context, vi: 'Ưu tiên khái niệm', en: 'Concept first');
+        return context.t(vi: 'Ưu tiên khái niệm', en: 'Concept first');
       case 'minimal':
-        return _t(context, vi: 'Gợi ý tối giản', en: 'Minimal hints');
+        return context.t(vi: 'Gợi ý tối giản', en: 'Minimal hints');
       default:
-        return _t(context, vi: 'Từng bước', en: 'Step by step');
+        return context.t(vi: 'Từng bước', en: 'Step by step');
     }
   }
 
@@ -2121,66 +1920,6 @@ class _ToggleLine extends StatelessWidget {
           const SizedBox(width: 8),
           switchControl,
         ],
-      ),
-    );
-  }
-}
-
-class _IconCircleButton extends StatelessWidget {
-  const _IconCircleButton({required this.icon, required this.onTap});
-
-  final IconData icon;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(999),
-      onTap: onTap,
-      child: Ink(
-        width: 48,
-        height: 48,
-        decoration: BoxDecoration(
-          color: Colors.transparent,
-          shape: BoxShape.circle,
-        ),
-        child: Center(
-          child: Container(
-            width: 30,
-            height: 30,
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(10),
-            ),
-            alignment: Alignment.center,
-            child: Icon(icon, color: colors.primary, size: 19),
-          ),
-        ),
-      ),
-    );
-  }
-}
-
-class _AvatarFallback extends StatelessWidget {
-  const _AvatarFallback({required this.initial});
-
-  final String initial;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      color: colors.primaryContainer,
-      alignment: Alignment.center,
-      child: Text(
-        initial,
-        style: Theme.of(context).textTheme.titleLarge?.copyWith(
-          color: colors.primary,
-          fontWeight: FontWeight.w700,
-        ),
       ),
     );
   }

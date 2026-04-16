@@ -17,6 +17,7 @@ import 'package:growmate_frontend/features/privacy/data/repositories/privacy_rep
 import 'package:growmate_frontend/features/quiz/data/repositories/quiz_repository.dart';
 import 'package:growmate_frontend/features/quiz/presentation/widgets/quiz_answer_widget_factory.dart';
 import 'package:growmate_frontend/features/session/data/repositories/session_history_repository.dart';
+import 'package:growmate_frontend/features/onboarding/data/repositories/mock_onboarding_repository.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
@@ -55,7 +56,7 @@ void main() {
         apiService: apiService,
         sessionId: sessionId,
       );
-      final diagnosisRepository = DiagnosisRepository(
+      final diagnosisRepository = MockDiagnosisRepository(
         apiService: apiService,
         sessionId: sessionId,
       );
@@ -82,6 +83,7 @@ void main() {
         sessionHistoryRepository: sessionHistoryRepository,
         privacyRepository: privacyRepository,
         dataConsentRepository: DataConsentRepository.instance,
+        onboardingRepository: MockOnboardingRepository(),
       );
 
       await tester.pumpWidget(

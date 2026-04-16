@@ -167,6 +167,12 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
           currentContent: result.payload.text,
           latestDashboard: result.dashboardUpdate,
           stepCount: state.stepCount + 1,
+          reasoningMode: result.reasoningMode,
+          reasoningTrace: result.reasoningTrace,
+          reasoningContent: result.reasoningContent,
+          reasoningConfidence: result.reasoningConfidence,
+          knowledgeChunks: result.knowledgeChunks,
+          latestReflection: result.reflection ?? state.latestReflection,
         ),
       );
     } catch (e) {

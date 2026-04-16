@@ -19,8 +19,8 @@ class AppStrings {
   }
 
   String get tabHome => pick(vi: 'Trang chủ', en: 'Home');
-  String get tabProgress => pick(vi: 'Tiến trình', en: 'Progress');
-  String get tabRoadmap => pick(vi: 'Roadmap', en: 'Roadmap');
+  String get tabProgress => pick(vi: 'Phân tích', en: 'Insights');
+  String get tabLeaderboard => pick(vi: 'Xếp hạng', en: 'Ranking');
   String get tabProfile => pick(vi: 'Hồ sơ', en: 'Profile');
   String get tabSettings => pick(vi: 'Cài đặt', en: 'Settings');
 

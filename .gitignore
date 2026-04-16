@@ -24,6 +24,10 @@ venv/
 .fvm/
 .qwen/
 
+# Claude Code — personal overrides (not committed)
+CLAUDE.local.md
+.claude/settings.local.json
+
 # IntelliJ related
 *.iml
 *.ipr

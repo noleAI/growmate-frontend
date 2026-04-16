@@ -29,4 +29,14 @@ class AppRoutes {
   static const String diagnosis = '/diagnosis';
   static const String intervention = '/intervention';
   static const String sessionComplete = '/session-complete';
+  static const String leaderboard = '/leaderboard';
+  static const String chat = '/chat';
+  static const String multiplayer = '/multiplayer';
+  static const String mascotSelection = '/mascot-selection';
+  static const String focusTimer = '/focus-timer';
+  static const String onboarding = '/onboarding';
+  static const String onboardingGoal = '/onboarding/goal';
+  static const String onboardingQuiz = '/onboarding/quiz';
+  static const String onboardingResult = '/onboarding/result';
+  static const String devReasoning = '/dev/reasoning';
 }

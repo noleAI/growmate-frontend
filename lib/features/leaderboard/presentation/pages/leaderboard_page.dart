@@ -1,0 +1,216 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
+
+import '../../../../app/i18n/build_context_i18n.dart';
+import '../../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../../shared/widgets/nav_tab_routing.dart';
+import '../../../../shared/widgets/zen_error_card.dart';
+import '../../../../shared/widgets/shimmer/shimmer_text.dart';
+import '../cubit/leaderboard_cubit.dart';
+import '../cubit/leaderboard_state.dart';
+import '../widgets/badge_showcase_grid.dart';
+import '../widgets/leaderboard_card.dart';
+import '../widgets/my_rank_banner.dart';
+import '../widgets/period_tab_bar.dart';
+import '../widgets/top_three_podium.dart';
+
+class LeaderboardPage extends StatelessWidget {
+  const LeaderboardPage({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return const _LeaderboardView();
+  }
+}
+
+class _LeaderboardView extends StatefulWidget {
+  const _LeaderboardView();
+
+  @override
+  State<_LeaderboardView> createState() => _LeaderboardViewState();
+}
+
+class _LeaderboardViewState extends State<_LeaderboardView>
+    with SingleTickerProviderStateMixin {
+  late final TabController _tabController;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabController = TabController(length: 2, vsync: this);
+  }
+
+  @override
+  void dispose() {
+    _tabController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        title: Text(
+          context.t(vi: '🏆 Bảng Xếp Hạng', en: '🏆 Leaderboard'),
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        bottom: TabBar(
+          controller: _tabController,
+          tabs: [
+            Tab(
+              text: context.t(vi: 'Bảng xếp hạng', en: 'Leaderboard'),
+            ),
+            Tab(
+              text: context.t(vi: 'Huy hiệu', en: 'Badges'),
+            ),
+          ],
+        ),
+      ),
+      body: BlocBuilder<LeaderboardCubit, LeaderboardState>(
+        builder: (context, state) {
+          if (state is LeaderboardLoading) {
+            return Padding(
+              padding: const EdgeInsets.all(24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: const [
+                  ShimmerText(width: 200, height: 16),
+                  SizedBox(height: 12),
+                  ShimmerText(width: double.infinity, height: 12),
+                  SizedBox(height: 8),
+                  ShimmerText(width: 160, height: 12),
+                  SizedBox(height: 8),
+                  ShimmerText(width: double.infinity, height: 12),
+                ],
+              ),
+            );
+          }
+
+          if (state is LeaderboardError) {
+            return Center(
+              child: Padding(
+                padding: const EdgeInsets.all(24),
+                child: ZenErrorCard(
+                  message: context.t(
+                    vi: 'Không tải được bảng xếp hạng',
+                    en: 'Could not load leaderboard',
+                  ),
+                  onRetry: () =>
+                      context.read<LeaderboardCubit>().loadLeaderboard(),
+                ),
+              ),
+            );
+          }
+
+          if (state is LeaderboardLoaded) {
+            return Stack(
+              children: [
+                TabBarView(
+                  controller: _tabController,
+                  children: [
+                    _RankingTab(
+                      state: state,
+                      myUserId: state.myRank?.userId ?? '',
+                    ),
+                    _BadgesTab(state: state),
+                  ],
+                ),
+                if (state.myRank != null)
+                  Align(
+                    alignment: Alignment.bottomCenter,
+                    child: MyRankBanner(myEntry: state.myRank!),
+                  ),
+              ],
+            );
+          }
+
+          return const SizedBox.shrink();
+        },
+      ),
+      bottomNavigationBar: GrowMateBottomNavBar(
+        currentTab: GrowMateTab.leaderboard,
+        onTabSelected: (tab) => handleTabNavigation(context, tab),
+      ),
+    );
+  }
+}
+
+class _RankingTab extends StatelessWidget {
+  const _RankingTab({required this.state, required this.myUserId});
+
+  final LeaderboardLoaded state;
+  final String myUserId;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () => context.read<LeaderboardCubit>().loadLeaderboard(
+        period: state.selectedPeriod,
+      ),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
+        children: [
+          PeriodTabBar(
+            selected: state.selectedPeriod,
+            onSelected: (period) =>
+                context.read<LeaderboardCubit>().switchPeriod(period),
+          ),
+          const SizedBox(height: 20),
+          if (state.entries.length >= 3) ...[
+            TopThreePodium(entries: state.entries.take(3).toList()),
+            const SizedBox(height: 20),
+          ],
+          ...state.entries
+              .skip(state.entries.length >= 3 ? 3 : 0)
+              .map(
+                (entry) => LeaderboardCard(
+                  entry: entry,
+                  isMe: entry.userId == myUserId,
+                ),
+              ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgesTab extends StatelessWidget {
+  const _BadgesTab({required this.state});
+
+  final LeaderboardLoaded state;
+
+  @override
+  Widget build(BuildContext context) {
+    return RefreshIndicator(
+      onRefresh: () => context.read<LeaderboardCubit>().loadBadges(),
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
+        children: [
+          Text(
+            context.t(vi: 'Huy hiệu của bạn', en: 'Your badges'),
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              vi: '${state.myBadges.length}/${state.badges.length} badges đã đạt',
+              en: '${state.myBadges.length}/${state.badges.length} badges earned',
+            ),
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 16),
+          BadgeShowcaseGrid(allBadges: state.badges, myBadges: state.myBadges),
+        ],
+      ),
+    );
+  }
+}

@@ -7,23 +7,33 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
+import '../../../../core/constants/colors.dart';
 import '../../../../core/constants/layout.dart';
-import '../../../review/data/models/spaced_review_item.dart';
-import '../../../review/data/repositories/spaced_repetition_repository.dart';
-import '../../../schedule/data/models/study_schedule_item.dart';
-import '../../../schedule/data/repositories/study_schedule_repository.dart';
 import '../../../session/data/models/session_history_entry.dart';
 import '../../../session/data/repositories/session_history_repository.dart';
 import '../../../diagnosis/data/repositories/diagnosis_snapshot_cache_repository.dart';
+import '../../../leaderboard/data/repositories/leaderboard_repository.dart';
+import '../../../leaderboard/presentation/cubit/leaderboard_cubit.dart';
+import '../../../leaderboard/presentation/cubit/leaderboard_state.dart';
+import '../../../../shared/widgets/ambient/ambient_gradient.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../../shared/widgets/confidence/confidence_arc.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
-import '../../../../shared/widgets/premium_sections.dart';
+import '../../../../shared/widgets/streak/streak_popup.dart';
+import '../../../../shared/widgets/shimmer/shimmer_card.dart';
+import '../../../../shared/widgets/shimmer/shimmer_text.dart';
 import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
+import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../../shared/widgets/ai_components.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
 import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
+import '../../../wellness/presentation/widgets/mood_check_dialog.dart';
+import '../../../session_recovery/data/repositories/session_recovery_repository.dart';
+import '../widgets/resume_banner.dart';
+import '../../../mascot/presentation/pages/mascot_selection_page.dart';
 
 class TodayPage extends StatefulWidget {
   const TodayPage({super.key});
@@ -36,6 +46,9 @@ class _TodayPageState extends State<TodayPage> {
   Timer? _thinkingTimer;
   bool _aiReady = false;
   bool _onboardingDismissed = true;
+  bool _resumeDismissed = false;
+  String _emotion = 'focused';
+  double _confidence = 0.0;
 
   static const String _onboardingKey = 'onboarding_dismissed';
 
@@ -43,14 +56,61 @@ class _TodayPageState extends State<TodayPage> {
   void initState() {
     super.initState();
     _thinkingTimer = Timer(const Duration(milliseconds: 880), () {
-      if (!mounted) {
-        return;
-      }
+      if (!mounted) return;
       setState(() {
         _aiReady = true;
       });
     });
     _loadOnboardingFlag();
+    _loadDiagnosisSnapshot();
+    _checkDailyStreak();
+  }
+
+  Future<void> _checkDailyStreak() async {
+    final prefs = await SharedPreferences.getInstance();
+    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final lastShown = prefs.getString('streak_popup_date');
+    if (lastShown == today) return;
+
+    await prefs.setString('streak_popup_date', today);
+    if (!mounted) return;
+
+    int streakDays = 1;
+    int xpBonus = 10;
+    try {
+      final repo = context.read<LeaderboardRepository>();
+      final response = await repo.addXp(eventType: 'daily_login');
+      streakDays = response.currentStreak;
+      xpBonus = response.xpAdded;
+    } catch (_) {
+      if (!mounted) return;
+      // Fallback: read streak from cubit or local counter.
+      try {
+        final lbCubit = context.read<LeaderboardCubit>();
+        final lbState = lbCubit.state;
+        if (lbState is LeaderboardLoaded && lbState.myRank != null) {
+          streakDays = lbState.myRank!.currentStreak;
+        } else {
+          await lbCubit.loadLeaderboard();
+          final refreshed = lbCubit.state;
+          if (refreshed is LeaderboardLoaded && refreshed.myRank != null) {
+            streakDays = refreshed.myRank!.currentStreak;
+          }
+        }
+      } catch (_) {
+        streakDays = (prefs.getInt('streak_days') ?? 0) + 1;
+        await prefs.setInt('streak_days', streakDays);
+      }
+      xpBonus = streakDays * 10;
+    }
+    if (!mounted || streakDays <= 0) return;
+
+    StreakPopup.show(
+      context,
+      streakDays: streakDays,
+      xpBonus: xpBonus,
+      weekDays: List.generate(7, (i) => i < streakDays),
+    );
   }
 
   Future<void> _loadOnboardingFlag() async {
@@ -70,6 +130,15 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
+  Future<void> _loadDiagnosisSnapshot() async {
+    final cached = await DiagnosisSnapshotCacheRepository.instance
+        .readSnapshot();
+    if (!mounted || cached == null) return;
+    setState(() {
+      _confidence = cached.confidenceScore.clamp(0.0, 1.0);
+    });
+  }
+
   @override
   void dispose() {
     _thinkingTimer?.cancel();
@@ -80,7 +149,6 @@ class _TodayPageState extends State<TodayPage> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
 
     return StreamBuilder<List<SessionHistoryEntry>>(
       stream: SessionHistoryRepository.instance.watchHistory(),
@@ -88,116 +156,116 @@ class _TodayPageState extends State<TodayPage> {
         final history = snapshot.data ?? const <SessionHistoryEntry>[];
         final latestSession = history.isEmpty ? null : history.first;
 
+        // Derive emotion from latest session focus
+        if (latestSession != null && _emotion == 'focused') {
+          final focus = latestSession.focusScore;
+          if (focus < 2.0) {
+            _emotion = 'exhausted';
+          } else if (focus < 3.0) {
+            _emotion = 'confused';
+          }
+        }
+
         return Scaffold(
-          backgroundColor: theme.scaffoldBackgroundColor,
+          backgroundColor: AmbientGradient.colorFor(
+            theme.scaffoldBackgroundColor,
+            _emotion,
+          ),
           body: ZenPageContainer(
             includeBottomSafeArea: false,
-            child: ListView(
-              children: [
-                _buildTopAppBar(context),
-                const SizedBox(height: GrowMateLayout.space16),
-                Text(
-                  _dateLabel(context, DateTime.now()),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                if (latestSession != null)
-                  Padding(
-                    padding: const EdgeInsets.only(top: 8),
-                    child: _MentalStateChip(
-                      focusScore: latestSession.focusScore,
+            child: RefreshIndicator(
+              onRefresh: () async {
+                setState(() {
+                  _aiReady = false;
+                });
+                await _loadDiagnosisSnapshot();
+                await Future.delayed(const Duration(milliseconds: 500));
+                if (!mounted) return;
+                setState(() {
+                  _aiReady = true;
+                });
+              },
+              child: ListView(
+                children: [
+                  _buildTopAppBar(context),
+
+                  const SizedBox(height: GrowMateLayout.space16),
+                  Text(
+                    _dateLabel(context, DateTime.now()),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                const SizedBox(height: GrowMateLayout.contentGap),
-                if (history.isEmpty && !_onboardingDismissed) ...[
-                  _OnboardingCard(onDismiss: _dismissOnboarding),
-                  const SizedBox(height: GrowMateLayout.space12),
+                  const SizedBox(height: GrowMateLayout.contentGap),
+
+                  if (history.isEmpty && !_onboardingDismissed) ...[
+                    FadeSlideIn(
+                      delayMs: 0,
+                      child: _OnboardingCard(onDismiss: _dismissOnboarding),
+                    ),
+                    const SizedBox(height: GrowMateLayout.space12),
+                  ],
+
+                  if (!_resumeDismissed)
+                    ResumeBanner(
+                      onResume: () => context.go(AppRoutes.quiz),
+                      onDismiss: () {
+                        setState(() => _resumeDismissed = true);
+                      },
+                      sessionRecoveryRepository: _tryReadSessionRecovery(
+                        context,
+                      ),
+                    ),
+
+                  // ── AI State Card (focal point) ──
+                  AnimatedSwitcher(
+                    duration: const Duration(milliseconds: 240),
+                    switchInCurve: Curves.easeOut,
+                    switchOutCurve: Curves.easeOut,
+                    child: _aiReady
+                        ? FadeSlideIn(
+                            delayMs: 150,
+                            child: _AiStateCard(
+                              latestSession: latestSession,
+                              confidence: _confidence,
+                              emotion: _emotion,
+                              onStartSession: () =>
+                                  context.push(AppRoutes.quiz),
+                            ),
+                          )
+                        : _ThinkingHero(theme: theme),
+                  ),
+
+                  const SizedBox(height: GrowMateLayout.breath),
+
+                  // ── Pulse Metrics ──
+                  if (_aiReady)
+                    FadeSlideIn(
+                      delayMs: 250,
+                      child: _PulseMetrics(history: history),
+                    ),
+
+                  const SizedBox(height: GrowMateLayout.breath),
+
+                  // ── Quick Actions ──
+                  FadeSlideIn(delayMs: 350, child: const _FeatureHubSection()),
+
+                  const SizedBox(height: GrowMateLayout.breath),
+
+                  // Đã loại bỏ mục "Phân tích AI gần nhất"
                 ],
-                AnimatedSwitcher(
-                  duration: const Duration(milliseconds: 240),
-                  switchInCurve: Curves.easeOut,
-                  switchOutCurve: Curves.easeOut,
-                  child: _aiReady
-                      ? _buildHero(context, latestSession)
-                      : _ThinkingHero(theme: theme),
-                ),
-                const SizedBox(height: GrowMateLayout.space12),
-                const _PhaseTwoQuickPanel(),
-                const SizedBox(height: GrowMateLayout.space16),
-                Section(
-                  title: context.t(vi: 'Tóm tắt', en: 'Summary'),
-                  subtitle: context.t(
-                    vi: 'Nhịp học hôm nay',
-                    en: 'Today learning rhythm',
-                  ),
-                  backgroundColor: isDark
-                      ? colors.surfaceContainerLow.withValues(alpha: 0.98)
-                      : colors.surfaceContainerLow,
-                  trailing: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: GrowMateLayout.space12,
-                      vertical: GrowMateLayout.space8,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: colors.outlineVariant.withValues(alpha: 0.5),
-                      ),
-                    ),
-                    child: Text(
-                      context.t(vi: 'Trang chủ', en: 'Home'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [_CompactStats(history: history)],
-                  ),
-                ),
-                const SizedBox(height: GrowMateLayout.space16),
-                const _AiAnalysisSection(),
-                const SizedBox(height: GrowMateLayout.sectionGap),
-              ],
+              ),
             ),
           ),
           bottomNavigationBar: GrowMateBottomNavBar(
             currentTab: GrowMateTab.today,
             onTabSelected: (tab) => handleTabNavigation(context, tab),
           ),
+          floatingActionButton: _ChatFab(),
+          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
-    );
-  }
-
-  Widget _buildHero(BuildContext context, SessionHistoryEntry? latestSession) {
-    if (latestSession == null) {
-      return const _EmptyHeroCard();
-    }
-
-    return AIHero(
-      key: const ValueKey<String>('ai-hero-ready'),
-      title: context.t(
-        vi: 'Bắt đầu phiên mới với',
-        en: 'Start a new session with',
-      ),
-      topic: latestSession.topic.trim().isEmpty
-          ? context.t(vi: 'Đạo hàm cơ bản', en: 'Basic Derivatives')
-          : latestSession.topic,
-      reason: latestSession.nextAction.trim().isEmpty
-          ? context.t(
-              vi: 'AI cập nhật gợi ý sau phiên tiếp theo.',
-              en: 'AI updates after your next session.',
-            )
-          : latestSession.nextAction,
-      confidence: latestSession.confidenceScore.clamp(0.0, 1.0),
-      ctaLabel: context.t(vi: 'Bắt đầu phiên mới', en: 'Start session'),
-      onPressed: () => context.push(AppRoutes.quiz),
     );
   }
 
@@ -219,7 +287,7 @@ class _TodayPageState extends State<TodayPage> {
       initialData: inspectionCubit.state,
       builder: (context, snapshot) {
         if (snapshot.hasError) {
-          return _ErrorStateWidget(
+          return ZenErrorCard(
             message: context.t(
               vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
               en: 'Unable to load data. Please try again.',
@@ -276,6 +344,18 @@ class _TodayPageState extends State<TodayPage> {
     final weekday = weekdays[now.weekday] ?? 'Hôm nay';
     return '$weekday, ${now.day}/${now.month}';
   }
+
+  /// Safely reads [SessionRecoveryRepository] from the widget tree.
+  /// Returns null when the repository is not registered (mock mode).
+  static SessionRecoveryRepository? _tryReadSessionRecovery(
+    BuildContext context,
+  ) {
+    try {
+      return context.read<SessionRecoveryRepository>();
+    } catch (_) {
+      return null;
+    }
+  }
 }
 
 class _ThinkingHero extends StatelessWidget {
@@ -285,98 +365,174 @@ class _ThinkingHero extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = theme.colorScheme;
-
     return Container(
       key: const ValueKey<String>('ai-hero-thinking'),
       width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: GrowMateLayout.contentGap,
-        vertical: GrowMateLayout.contentGap,
-      ),
+      padding: const EdgeInsets.all(GrowMateLayout.breath),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusLg),
         boxShadow: [
           BoxShadow(
-            color: colors.shadow.withValues(alpha: 0.08),
+            color: theme.colorScheme.shadow.withValues(alpha: 0.08),
             blurRadius: 24,
-            offset: Offset(0, 9),
+            offset: const Offset(0, 9),
           ),
         ],
       ),
-      child: Row(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const SizedBox(
-            width: 24,
-            height: 24,
-            child: CircularProgressIndicator(strokeWidth: 2.6),
-          ),
-          const SizedBox(width: GrowMateLayout.space12),
-          Expanded(
-            child: Text(
-              context.t(
-                vi: 'AI đang phân tích tiến độ của bạn...',
-                en: 'AI is analyzing your progress...',
+          Row(
+            children: [
+              const ShimmerCard(height: 72, width: 72, radius: 36),
+              const SizedBox(width: GrowMateLayout.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: const [
+                    ShimmerText(width: 80, height: 12),
+                    SizedBox(height: 8),
+                    ShimmerText(width: 140, height: 16),
+                    SizedBox(height: 6),
+                    ShimmerText(width: 100, height: 12),
+                  ],
+                ),
               ),
-              style: theme.textTheme.bodyLarge?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
+            ],
           ),
+          const SizedBox(height: GrowMateLayout.space16),
+          const ShimmerText(width: double.infinity, height: 12),
+          const SizedBox(height: 8),
+          const ShimmerText(width: 200, height: 12),
+          const SizedBox(height: GrowMateLayout.space16),
+          const ShimmerCard(height: 48, radius: 16),
         ],
       ),
     );
   }
 }
 
-class _EmptyHeroCard extends StatelessWidget {
-  const _EmptyHeroCard();
+/// ── AI State Card (focal point of the Living Dashboard) ──
+///
+/// Combines: confidence arc, emotion state, topic suggestion, and CTA.
+class _AiStateCard extends StatelessWidget {
+  const _AiStateCard({
+    required this.latestSession,
+    required this.confidence,
+    required this.emotion,
+    required this.onStartSession,
+  });
+
+  final SessionHistoryEntry? latestSession;
+  final double confidence;
+  final String emotion;
+  final VoidCallback onStartSession;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return ZenCard(
-      key: const ValueKey<String>('ai-hero-empty'),
-      radius: 22,
-      color: colors.surfaceContainerLow,
+    if (latestSession == null) {
+      return const _EmptyHeroCard();
+    }
+
+    final topic = latestSession!.topic.trim().isEmpty
+        ? context.t(vi: 'Đạo hàm cơ bản', en: 'Basic Derivatives')
+        : latestSession!.topic;
+    final reason = latestSession!.nextAction.trim().isEmpty
+        ? context.t(
+            vi: 'AI cập nhật gợi ý sau phiên tiếp theo.',
+            en: 'AI updates after your next session.',
+          )
+        : latestSession!.nextAction;
+
+    return Container(
+      key: const ValueKey<String>('ai-state-card'),
+      width: double.infinity,
+      padding: GrowMateLayout.cardPaddingAi,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusLg),
+        border: Border.all(
+          color: GrowMateColors.confidenceColor(
+            confidence,
+            Theme.of(context).brightness,
+          ).withValues(alpha: 0.2),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: GrowMateColors.confidenceColor(
+              confidence,
+              Theme.of(context).brightness,
+            ).withValues(alpha: 0.08),
+            blurRadius: 32,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // ── Top row: Confidence Arc + State ──
           Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(Icons.auto_awesome_rounded, size: 18, color: colors.primary),
-              const SizedBox(width: GrowMateLayout.space8),
-              Text(
-                context.t(
-                  vi: 'AI gợi ý phiên mới',
-                  en: 'AI session suggestion',
-                ),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w700,
+              ConfidenceArc(confidence: confidence, size: 72, strokeWidth: 5),
+              const SizedBox(width: GrowMateLayout.space16),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _EmotionTag(emotion: emotion),
+                    const SizedBox(height: 6),
+                    Text(
+                      context.t(
+                        vi: 'AI gợi ý cho bạn',
+                        en: 'AI suggests for you',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w500,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      topic,
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w700,
+                        color: colors.onSurface,
+                        height: 1.25,
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
                 ),
               ),
             ],
           ),
+
           const SizedBox(height: GrowMateLayout.space12),
+
+          // ── Reason ──
           Text(
-            context.t(
-              vi: 'Hoàn thành phiên đầu tiên để AI phân tích!',
-              en: 'Complete your first session for AI insights!',
-            ),
-            style: theme.textTheme.bodyLarge?.copyWith(
-              color: colors.onSurface,
+            reason,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
               height: 1.4,
             ),
+            maxLines: 3,
+            overflow: TextOverflow.ellipsis,
           ),
+
           const SizedBox(height: GrowMateLayout.space16),
+
+          // ── CTA Row ──
           ZenButton(
-            label: context.t(vi: 'Bắt đầu ngay', en: 'Get started'),
-            onPressed: () => context.push(AppRoutes.quiz),
+            label: context.t(vi: 'Bắt đầu phiên mới', en: 'Start session'),
+            onPressed: onStartSession,
           ),
         ],
       ),
@@ -384,42 +540,60 @@ class _EmptyHeroCard extends StatelessWidget {
   }
 }
 
-class _AiAnalysisSection extends StatelessWidget {
-  const _AiAnalysisSection();
+class _EmotionTag extends StatelessWidget {
+  const _EmotionTag({required this.emotion});
+
+  final String emotion;
 
   @override
   Widget build(BuildContext context) {
-    return FutureBuilder<DiagnosisSnapshot?>(
-      future: DiagnosisSnapshotCacheRepository.instance.readSnapshot(),
-      builder: (context, snapshot) {
-        final cached = snapshot.data;
-        final subtitle = cached == null
-            ? context.t(
-                vi: 'Chưa có dữ liệu phân tích',
-                en: 'No AI analysis yet',
-              )
-            : context.t(
-                vi: 'Độ tự tin ${(cached.confidenceScore.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
-                en: 'Confidence ${(cached.confidenceScore.clamp(0.0, 1.0) * 100).toStringAsFixed(0)}%',
-              );
+    final theme = Theme.of(context);
 
-        return Section(
-          title: context.t(
-            vi: 'Phân tích AI gần nhất',
-            en: 'Latest AI analysis',
+    final (String emoji, String label) = switch (emotion) {
+      'focused' => ('🟢', context.t(vi: 'Tập trung', en: 'Focused')),
+      'confused' => ('🟡', context.t(vi: 'Hơi mệt', en: 'Slightly tired')),
+      'exhausted' => ('🔴', context.t(vi: 'Cần nghỉ', en: 'Needs rest')),
+      'frustrated' => ('🟠', context.t(vi: 'Khó chịu', en: 'Frustrated')),
+      _ => ('🟢', context.t(vi: 'Tập trung', en: 'Focused')),
+    };
+
+    final brightness = Theme.of(context).brightness;
+    final color = switch (emotion) {
+      'focused' => GrowMateColors.focused(brightness),
+      'confused' => GrowMateColors.confused(brightness),
+      'exhausted' => GrowMateColors.exhausted(brightness),
+      'frustrated' => GrowMateColors.frustrated(brightness),
+      _ => GrowMateColors.focused(brightness),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(emoji, style: const TextStyle(fontSize: 12)),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-          subtitle: subtitle,
-          child: snapshot.connectionState == ConnectionState.waiting
-              ? const _LoadingStateWidget()
-              : _AiSystemPanel(snapshot: cached),
-        );
-      },
+        ],
+      ),
     );
   }
 }
 
-class _CompactStats extends StatelessWidget {
-  const _CompactStats({required this.history});
+/// ── Pulse Metrics — animated circles replacing flat stat boxes ──
+class _PulseMetrics extends StatelessWidget {
+  const _PulseMetrics({required this.history});
 
   final List<SessionHistoryEntry> history;
 
@@ -427,78 +601,52 @@ class _CompactStats extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final isDark = theme.brightness == Brightness.dark;
     final now = DateTime.now();
 
     final streak = _calculateStreak(history, now);
     final sessionsToday = _sessionsToday(history, now);
-    final sessionsLast24h = _sessionsLast24Hours(history, now);
     final focusLabel = _focusLabel(context, history, now);
 
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(GrowMateLayout.space12),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh.withValues(
-          alpha: isDark ? 0.7 : 0.9,
-        ),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: isDark ? 0.45 : 0.7),
-        ),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            context.t(vi: '24 giờ qua', en: 'Last 24 hours'),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-              fontWeight: FontWeight.w600,
-            ),
+    return Row(
+      children: [
+        Expanded(
+          child: _PulseCircle(
+            value: '$streak',
+            label: context.t(vi: 'ngày', en: 'days'),
+            icon: Icons.local_fire_department_rounded,
+            accent: colors.tertiary,
+            staggerDelayMs: 0,
           ),
-          const SizedBox(height: GrowMateLayout.space12),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                StatItem(
-                  label: context.t(vi: 'ngày', en: 'days'),
-                  value: '$streak',
-                  icon: Icons.local_fire_department_rounded,
-                  accent: colors.tertiary,
-                ),
-                const SizedBox(width: GrowMateLayout.space12),
-                StatItem(
-                  label: context.t(vi: 'hoàn thành', en: 'completed'),
-                  value: '$sessionsToday/$sessionsLast24h',
-                  icon: Icons.task_alt_rounded,
-                  accent: colors.tertiary,
-                ),
-                const SizedBox(width: GrowMateLayout.space12),
-                StatItem(
-                  label: context.t(vi: 'Tập trung', en: 'Focus'),
-                  value: focusLabel,
-                  icon: Icons.bolt_rounded,
-                  accent: colors.primary,
-                ),
-              ],
-            ),
+        ),
+        const SizedBox(width: GrowMateLayout.space12),
+        Expanded(
+          child: _PulseCircle(
+            value: '$sessionsToday',
+            label: context.t(vi: 'phiên', en: 'sessions'),
+            icon: Icons.task_alt_rounded,
+            accent: GrowMateColors.aiCore(Theme.of(context).brightness),
+            staggerDelayMs: 120,
           ),
-        ],
-      ),
+        ),
+        const SizedBox(width: GrowMateLayout.space12),
+        Expanded(
+          child: _PulseCircle(
+            value: focusLabel,
+            label: context.t(vi: 'tập trung', en: 'focus'),
+            icon: Icons.bolt_rounded,
+            accent: colors.primary,
+            staggerDelayMs: 240,
+          ),
+        ),
+      ],
     );
   }
 
   static int _calculateStreak(List<SessionHistoryEntry> entries, DateTime now) {
-    if (entries.isEmpty) {
-      return 0;
-    }
-
+    if (entries.isEmpty) return 0;
     final activeDays = entries
-        .map((entry) => _dateOnly(entry.completedAt.toLocal()))
+        .map((e) => _dateOnly(e.completedAt.toLocal()))
         .toSet();
-
     var streak = 0;
     var cursor = _dateOnly(now);
     while (activeDays.contains(cursor)) {
@@ -510,20 +658,9 @@ class _CompactStats extends StatelessWidget {
 
   static int _sessionsToday(List<SessionHistoryEntry> entries, DateTime now) {
     final today = _dateOnly(now);
-    return entries.where((entry) {
-      final entryDay = _dateOnly(entry.completedAt.toLocal());
-      return entryDay == today;
+    return entries.where((e) {
+      return _dateOnly(e.completedAt.toLocal()) == today;
     }).length;
-  }
-
-  static int _sessionsLast24Hours(
-    List<SessionHistoryEntry> entries,
-    DateTime now,
-  ) {
-    final threshold = now.toUtc().subtract(const Duration(hours: 24));
-    return entries
-        .where((entry) => !entry.completedAt.toUtc().isBefore(threshold))
-        .length;
   }
 
   static String _focusLabel(
@@ -533,352 +670,373 @@ class _CompactStats extends StatelessWidget {
   ) {
     final threshold = now.toUtc().subtract(const Duration(hours: 24));
     final recent = entries
-        .where((entry) => !entry.completedAt.toUtc().isBefore(threshold))
+        .where((e) => !e.completedAt.toUtc().isBefore(threshold))
         .toList(growable: false);
-
-    if (recent.isEmpty) {
-      return '—';
-    }
-
+    if (recent.isEmpty) return '—';
     final average =
-        recent.map((entry) => entry.focusScore).reduce((a, b) => a + b) /
-        recent.length;
-
-    if (average >= 3.5) {
-      return context.t(vi: 'Tốt', en: 'Good');
-    }
-
-    if (average >= 2.5) {
-      return context.t(vi: 'Ổn', en: 'Okay');
-    }
-
+        recent.map((e) => e.focusScore).reduce((a, b) => a + b) / recent.length;
+    if (average >= 3.5) return context.t(vi: 'Tốt', en: 'Good');
+    if (average >= 2.5) return context.t(vi: 'Ổn', en: 'Okay');
     return context.t(vi: 'Cần nghỉ', en: 'Need rest');
   }
 
-  static DateTime _dateOnly(DateTime value) {
-    return DateTime(value.year, value.month, value.day);
-  }
+  static DateTime _dateOnly(DateTime v) => DateTime(v.year, v.month, v.day);
 }
 
-class _AiSystemPanel extends StatelessWidget {
-  const _AiSystemPanel({required this.snapshot});
+class _PulseCircle extends StatefulWidget {
+  const _PulseCircle({
+    required this.value,
+    required this.label,
+    required this.icon,
+    required this.accent,
+    this.staggerDelayMs = 0,
+  });
 
-  final DiagnosisSnapshot? snapshot;
+  final String value;
+  final String label;
+  final IconData icon;
+  final Color accent;
+  final int staggerDelayMs;
+
+  @override
+  State<_PulseCircle> createState() => _PulseCircleState();
+}
+
+class _PulseCircleState extends State<_PulseCircle>
+    with TickerProviderStateMixin {
+  late final AnimationController _breatheController;
+  late final AnimationController _enterController;
+  late final Animation<double> _scaleAnim;
+  late final Animation<double> _enterOpacity;
+  late final Animation<Offset> _enterSlide;
+
+  @override
+  void initState() {
+    super.initState();
+    _breatheController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 2200),
+    );
+    _scaleAnim = Tween<double>(begin: 1.0, end: 1.04).animate(
+      CurvedAnimation(parent: _breatheController, curve: Curves.easeInOut),
+    );
+
+    _enterController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 500),
+    );
+    _enterOpacity = Tween<double>(
+      begin: 0.0,
+      end: 1.0,
+    ).animate(CurvedAnimation(parent: _enterController, curve: Curves.easeOut));
+    _enterSlide = Tween<Offset>(begin: const Offset(0, 0.25), end: Offset.zero)
+        .animate(
+          CurvedAnimation(parent: _enterController, curve: Curves.easeOutCubic),
+        );
+
+    Future.delayed(Duration(milliseconds: widget.staggerDelayMs), () {
+      if (mounted) {
+        _enterController.forward();
+        _breatheController.repeat(reverse: true);
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _breatheController.dispose();
+    _enterController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    if (snapshot == null) {
-      return Container(
-        width: double.infinity,
-        padding: const EdgeInsets.symmetric(
-          horizontal: GrowMateLayout.space12,
-          vertical: GrowMateLayout.space12,
-        ),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        child: Text(
-          context.t(
-            vi: 'Hoàn thành phiên đầu tiên để AI đánh giá.',
-            en: 'Complete your first session for insights.',
-          ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-            height: 1.4,
-          ),
-        ),
-      );
-    }
-
-    final safeConfidence = snapshot!.confidenceScore.clamp(0.0, 1.0);
-    final strength = _firstOrDash(snapshot!.strengths);
-    final needReview = _firstOrDash(snapshot!.needsReview);
-    final nextStep = snapshot!.nextSuggestedTopic.trim().isEmpty
-        ? '—'
-        : snapshot!.nextSuggestedTopic;
-
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
-            minHeight: 6,
-            value: safeConfidence,
-            backgroundColor: colors.surfaceContainerHigh,
-            valueColor: AlwaysStoppedAnimation<Color>(colors.primary),
-          ),
-        ),
-        const SizedBox(height: GrowMateLayout.contentGap),
-        _InsightTile(
-          icon: Icons.check_circle_rounded,
-          iconColor: colors.tertiary,
-          title: context.t(vi: 'Điểm tốt', en: 'Strengths'),
-          subtitle: strength,
-        ),
-        const SizedBox(height: GrowMateLayout.space12),
-        _InsightTile(
-          icon: Icons.warning_amber_rounded,
-          iconColor: colors.secondary,
-          title: context.t(vi: 'Điểm cần cải thiện', en: 'Needs improvement'),
-          subtitle: needReview,
-        ),
-        const SizedBox(height: GrowMateLayout.space12),
-        _InsightTile(
-          icon: Icons.lightbulb_outline_rounded,
-          iconColor: colors.primary,
-          title: context.t(vi: 'Bước tiếp theo', en: 'Next step'),
-          subtitle: nextStep,
-        ),
-      ],
-    );
-  }
-
-  static String _firstOrDash(List<String> values) {
-    if (values.isEmpty) {
-      return '—';
-    }
-
-    final first = values.first.trim();
-    return first.isEmpty ? '—' : first;
-  }
-}
-
-class _InsightTile extends StatelessWidget {
-  const _InsightTile({
-    required this.icon,
-    required this.iconColor,
-    required this.title,
-    required this.subtitle,
-  });
-
-  final IconData icon;
-  final Color iconColor;
-  final String title;
-  final String subtitle;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.symmetric(
-        horizontal: GrowMateLayout.space12,
-        vertical: GrowMateLayout.space12,
-      ),
+    final child = Container(
+      padding: const EdgeInsets.symmetric(vertical: 16, horizontal: 10),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+        border: Border.all(color: widget.accent.withValues(alpha: 0.15)),
+        boxShadow: [
+          BoxShadow(
+            color: widget.accent.withValues(alpha: 0.06),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
+      child: Column(
         children: [
-          Icon(icon, size: 18, color: iconColor),
-          const SizedBox(width: GrowMateLayout.space8),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  title,
-                  style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                    color: colors.onSurface,
-                    fontWeight: FontWeight.w600,
-                  ),
-                ),
-                const SizedBox(height: GrowMateLayout.space8),
-                Text(
-                  subtitle,
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
+          Container(
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              color: widget.accent.withValues(alpha: 0.12),
+              boxShadow: [
+                BoxShadow(
+                  color: widget.accent.withValues(alpha: 0.15),
+                  blurRadius: 10,
                 ),
               ],
+            ),
+            child: Icon(widget.icon, size: 18, color: widget.accent),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            widget.value,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+              letterSpacing: -0.3,
+              height: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            widget.label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ],
       ),
     );
+
+    return SlideTransition(
+      position: _enterSlide,
+      child: FadeTransition(
+        opacity: _enterOpacity,
+        child: ScaleTransition(scale: _scaleAnim, child: child),
+      ),
+    );
   }
 }
 
-class _PhaseTwoQuickPanel extends StatelessWidget {
-  const _PhaseTwoQuickPanel();
+/// ── Feature Hub Section ──
+///
+/// Replaces the old quick-strip panel with a prominent grid that surfaces
+/// all major features so users can discover them at a glance.
+class _FeatureHubSection extends StatelessWidget {
+  const _FeatureHubSection();
 
   @override
   Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
     return Column(
-      children: const [
-        _ReviewDueStrip(),
-        SizedBox(height: GrowMateLayout.space12),
-        _MindfulBreakStrip(),
-        SizedBox(height: GrowMateLayout.space12),
-        _SchedulePriorityStrip(),
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // ── Mood check strip (special — opens dialog, not a page) ──
+        _MoodCheckStrip(),
+        const SizedBox(height: GrowMateLayout.breath),
+
+        // ── Section header ──
+        Text(
+          context.t(vi: 'Tính năng', en: 'Features'),
+          style: theme.textTheme.titleMedium?.copyWith(
+            fontWeight: FontWeight.w700,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: GrowMateLayout.space12),
+
+        // ── Study row ──
+        _FeatureTileRow(
+          tiles: [
+            _FeatureTileData(
+              icon: Icons.edit_note_rounded,
+              label: context.t(vi: 'Làm bài', en: 'Quiz'),
+              color: colors.primary,
+              route: AppRoutes.quiz,
+            ),
+            _FeatureTileData(
+              icon: Icons.refresh_rounded,
+              label: context.t(vi: 'Ôn tập', en: 'Review'),
+              color: colors.tertiary,
+              route: AppRoutes.spacedReview,
+            ),
+            _FeatureTileData(
+              icon: Icons.timer_rounded,
+              label: context.t(vi: 'Hẹn giờ', en: 'Focus'),
+              color: const Color(0xFF6366F1),
+              route: AppRoutes.focusTimer,
+            ),
+            _FeatureTileData(
+              icon: Icons.map_rounded,
+              label: context.t(vi: 'Lộ trình', en: 'Roadmap'),
+              color: const Color(0xFF0EA5E9),
+              route: AppRoutes.thptRoadmap,
+            ),
+          ],
+        ),
+        const SizedBox(height: GrowMateLayout.space12),
+
+        // ── Explore row ──
+        _FeatureTileRow(
+          tiles: [
+            _FeatureTileData(
+              icon: Icons.calendar_month_rounded,
+              label: context.t(vi: 'Lịch học', en: 'Schedule'),
+              color: const Color(0xFFF59E0B),
+              route: AppRoutes.schedule,
+            ),
+            _FeatureTileData(
+              icon: Icons.groups_rounded,
+              label: context.t(vi: 'Đấu đội', en: 'Versus'),
+              color: const Color(0xFF10B981),
+              route: AppRoutes.multiplayer,
+            ),
+            _FeatureTileData(
+              icon: Icons.spa_rounded,
+              label: context.t(vi: 'Thư giãn', en: 'Relax'),
+              color: const Color(0xFF14B8A6),
+              route: AppRoutes.mindfulBreak,
+            ),
+          ],
+        ),
+        const SizedBox(height: GrowMateLayout.space16),
+        // ── Mascot feature tile (in grid) ──
+        _FeatureTileRow(
+          tiles: [
+            _FeatureTileData(
+              icon: Icons.pets_rounded,
+              label: context.t(vi: 'Linh vật', en: 'Mascot'),
+              color: const Color(0xFF8B5CF6),
+              route: AppRoutes.mascotSelection,
+            ),
+          ],
+        ),
       ],
     );
   }
 }
 
-class _ReviewDueStrip extends StatelessWidget {
-  const _ReviewDueStrip();
+class _FeatureTileData {
+  const _FeatureTileData({
+    required this.icon,
+    required this.label,
+    required this.color,
+    required this.route,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+  final String route;
+}
+
+class _FeatureTileRow extends StatelessWidget {
+  const _FeatureTileRow({required this.tiles});
+
+  final List<_FeatureTileData> tiles;
 
   @override
   Widget build(BuildContext context) {
-    final now = DateTime.now().toUtc();
+    return Row(
+      children: [
+        for (int i = 0; i < tiles.length; i++) ...[
+          if (i > 0) const SizedBox(width: GrowMateLayout.space12),
+          Expanded(child: _FeatureTile(data: tiles[i])),
+        ],
+        // Fill remaining space if row has fewer than 4 items
+        for (int i = tiles.length; i < 4; i++) ...[
+          const SizedBox(width: GrowMateLayout.space12),
+          const Expanded(child: SizedBox.shrink()),
+        ],
+      ],
+    );
+  }
+}
 
-    return StreamBuilder<List<SpacedReviewItem>>(
-      stream: SpacedRepetitionRepository.instance.watchItems(),
-      builder: (context, snapshot) {
-        final items = snapshot.data ?? const <SpacedReviewItem>[];
-        final dueItems = items
-            .where((item) => !item.dueAt.isAfter(now))
-            .toList(growable: false);
+class _FeatureTile extends StatelessWidget {
+  const _FeatureTile({required this.data});
 
-        // Hide card if no topics exist at all
-        if (items.isEmpty) {
-          return const SizedBox.shrink();
+  final _FeatureTileData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final theme = Theme.of(context);
+
+    return Material(
+      color: colors.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+        onTap: () => context.push(data.route),
+        child: Container(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.35),
+            ),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: data.color.withValues(alpha: 0.12),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(data.icon, size: 20, color: data.color),
+              ),
+              const SizedBox(height: 8),
+              Text(
+                data.label,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  color: colors.onSurface,
+                ),
+                textAlign: TextAlign.center,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _MoodCheckStrip extends StatelessWidget {
+  const _MoodCheckStrip();
+
+  @override
+  Widget build(BuildContext context) {
+    return _QuickStrip(
+      icon: Icons.mood_rounded,
+      title: context.t(vi: 'Cảm xúc hôm nay', en: 'Today\'s mood'),
+      subtitle: context.t(
+        vi: 'Ghi lại cảm xúc giúp AI hiểu bạn hơn.',
+        en: 'Log your mood to help AI understand you better.',
+      ),
+      onTap: () async {
+        final mood = await MoodCheckDialog.show(context);
+        if (mood != null && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                context.t(
+                  vi: 'Đã ghi nhận: ${mood.emoji} ${mood.viLabel}',
+                  en: 'Recorded: ${mood.emoji} ${mood.enLabel}',
+                ),
+              ),
+              behavior: SnackBarBehavior.floating,
+              duration: const Duration(seconds: 2),
+            ),
+          );
         }
-
-        final title = dueItems.isEmpty
-            ? context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Review')
-            : context.t(
-                vi: 'Ôn tập ngắt quãng (${dueItems.length})',
-                en: 'Spaced Review (${dueItems.length})',
-              );
-
-        final subtitle = dueItems.isEmpty
-            ? context.t(
-                vi: 'Không có chủ đề cần ôn hôm nay.',
-                en: 'No topics to review today.',
-              )
-            : context.t(
-                vi: 'Ưu tiên: ${dueItems.first.topic}',
-                en: 'Priority: ${dueItems.first.topic}',
-              );
-
-        return _QuickStrip(
-          icon: Icons.refresh_rounded,
-          title: title,
-          subtitle: subtitle,
-          onTap: () {
-            context.push(AppRoutes.spacedReview);
-          },
-        );
       },
-    );
-  }
-}
-
-class _MindfulBreakStrip extends StatelessWidget {
-  const _MindfulBreakStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    return StreamBuilder<List<SessionHistoryEntry>>(
-      stream: SessionHistoryRepository.instance.watchHistory(),
-      builder: (context, snapshot) {
-        final history = snapshot.data ?? const <SessionHistoryEntry>[];
-        final latest = history.isEmpty ? null : history.first;
-        final shouldSuggestBreak =
-            latest != null &&
-            (latest.mode == 'recovery' || latest.focusScore < 3.0);
-
-        final title = shouldSuggestBreak
-            ? context.t(
-                vi: 'Gợi ý nghỉ thở 90 giây',
-                en: 'Mindful Break suggestion (90s)',
-              )
-            : context.t(vi: 'Giữ nhịp ổn định', en: 'Keep steady rhythm');
-        final subtitle = shouldSuggestBreak
-            ? context.t(
-                vi: 'Nghỉ nhẹ trước khi tiếp tục nhé.',
-                en: 'Take a short break before continuing.',
-              )
-            : context.t(
-                vi: 'Thấy mệt? Thử nghỉ thở 90 giây.',
-                en: 'Tired? Try a 90-second breathing break.',
-              );
-
-        return _QuickStrip(
-          icon: Icons.spa_rounded,
-          title: title,
-          subtitle: subtitle,
-          onTap: () {
-            context.push(AppRoutes.mindfulBreak);
-          },
-        );
-      },
-    );
-  }
-}
-
-class _SchedulePriorityStrip extends StatelessWidget {
-  const _SchedulePriorityStrip();
-
-  @override
-  Widget build(BuildContext context) {
-    final now = DateTime.now();
-
-    return StreamBuilder<List<StudyScheduleItem>>(
-      stream: StudyScheduleRepository.instance.watchItems(),
-      builder: (context, snapshot) {
-        final items = snapshot.data ?? const <StudyScheduleItem>[];
-        final pending =
-            items.where((item) => !item.completed).toList(growable: false)
-              ..sort((a, b) => a.dueAt.compareTo(b.dueAt));
-
-        final nearest = pending.isEmpty ? null : pending.first;
-        final title = nearest == null
-            ? context.t(vi: 'Lịch thông minh', en: 'Smart Schedule')
-            : context.t(
-                vi: 'Mốc gần nhất: ${nearest.title}',
-                en: 'Nearest milestone: ${nearest.title}',
-              );
-
-        final subtitle = nearest == null
-            ? context.t(
-                vi: 'Thêm lịch thi để AI ưu tiên ôn tập.',
-                en: 'Add exams for AI prioritization.',
-              )
-            : _scheduleSubtitle(context, nearest, now);
-
-        return _QuickStrip(
-          icon: Icons.calendar_month_rounded,
-          title: title,
-          subtitle: subtitle,
-          onTap: () {
-            context.push(AppRoutes.schedule);
-          },
-        );
-      },
-    );
-  }
-
-  static String _scheduleSubtitle(
-    BuildContext context,
-    StudyScheduleItem item,
-    DateTime now,
-  ) {
-    final daysLeft = item.dueAt.toLocal().difference(now).inDays;
-    final label = item.type == 'exam'
-        ? context.t(vi: 'bài thi', en: 'exam')
-        : context.t(vi: 'hạn nộp', en: 'deadline');
-
-    if (daysLeft <= 0) {
-      return context.t(
-        vi: 'Hôm nay: $label — ôn ${item.subject}.',
-        en: 'Today: $label — review ${item.subject}.',
-      );
-    }
-
-    return context.t(
-      vi: 'Còn $daysLeft ngày — $label ${item.subject}.',
-      en: '$daysLeft days — $label ${item.subject}.',
     );
   }
 }
@@ -950,133 +1108,94 @@ class _QuickStrip extends StatelessWidget {
   }
 }
 
-class _ErrorStateWidget extends StatelessWidget {
-  const _ErrorStateWidget({required this.message, required this.onRetry});
-
-  final String message;
-  final VoidCallback onRetry;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
-      decoration: BoxDecoration(
-        color: colors.errorContainer.withValues(alpha: 0.15),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.error.withValues(alpha: 0.3)),
-      ),
-      child: Column(
-        children: [
-          Icon(Icons.warning_amber_rounded, size: 32, color: colors.error),
-          const SizedBox(height: GrowMateLayout.space12),
-          Text(
-            message,
-            textAlign: TextAlign.center,
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onErrorContainer,
-            ),
-          ),
-          const SizedBox(height: GrowMateLayout.space12),
-          TextButton.icon(
-            onPressed: onRetry,
-            icon: Icon(Icons.refresh_rounded, size: 18, color: colors.error),
-            label: Text(
-              context.t(vi: 'Thử lại', en: 'Retry'),
-              style: TextStyle(color: colors.error),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
 class _LoadingStateWidget extends StatelessWidget {
   const _LoadingStateWidget();
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-
     return Container(
       width: double.infinity,
       padding: const EdgeInsets.all(GrowMateLayout.contentGap),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
+        color: Theme.of(context).colorScheme.surfaceContainerLow,
         borderRadius: BorderRadius.circular(14),
       ),
-      child: Row(
-        children: [
-          SizedBox(
-            width: 20,
-            height: 20,
-            child: CircularProgressIndicator(strokeWidth: 2.5),
-          ),
-          const SizedBox(width: GrowMateLayout.space12),
-          Text(
-            context.t(vi: 'Đang tải dữ liệu...', en: 'Loading data...'),
-            style: theme.textTheme.bodyMedium?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          ShimmerText(width: 180, height: 14),
+          SizedBox(height: 10),
+          ShimmerText(width: double.infinity, height: 10),
+          SizedBox(height: 8),
+          ShimmerText(width: 140, height: 10),
         ],
       ),
     );
   }
 }
 
-class _MentalStateChip extends StatelessWidget {
-  const _MentalStateChip({required this.focusScore});
-
-  final double focusScore;
+class _EmptyHeroCard extends StatelessWidget {
+  const _EmptyHeroCard();
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    final String emoji;
-    final String label;
-
-    if (focusScore >= 3.5) {
-      emoji = '🟢';
-      label = context.t(vi: 'Tập trung', en: 'Focused');
-    } else if (focusScore >= 2.5) {
-      emoji = '🟡';
-      label = context.t(vi: 'Hơi mệt', en: 'Slightly tired');
-    } else {
-      emoji = '🔴';
-      label = context.t(vi: 'Cần nghỉ', en: 'Needs rest');
-    }
-
-    return Align(
-      alignment: Alignment.centerLeft,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-        decoration: BoxDecoration(
-          color: colors.tertiaryContainer,
-          borderRadius: BorderRadius.circular(999),
-          border: Border.all(color: colors.tertiary.withValues(alpha: 0.15)),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Text(emoji, style: const TextStyle(fontSize: 14)),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: theme.textTheme.labelMedium?.copyWith(
-                color: colors.onTertiaryContainer,
-                fontWeight: FontWeight.w700,
+    return Container(
+      key: const ValueKey<String>('ai-hero-empty'),
+      width: double.infinity,
+      padding: GrowMateLayout.cardPaddingAi,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusLg),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.primary.withValues(alpha: 0.1),
+                ),
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  size: 16,
+                  color: colors.primary,
+                ),
               ),
+              const SizedBox(width: GrowMateLayout.space8),
+              Text(
+                context.t(vi: 'AI đang chờ bạn', en: 'AI is waiting for you'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            context.t(
+              vi: 'Hoàn thành phiên đầu tiên để AI phân tích tiềm năng của bạn!',
+              en: 'Complete your first session so AI can analyze your potential!',
             ),
-          ],
-        ),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.onSurface,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(vi: 'Bắt đầu ngay', en: 'Get started'),
+            onPressed: () => context.push(AppRoutes.quiz),
+          ),
+        ],
       ),
     );
   }
@@ -1182,6 +1301,47 @@ class _OnboardingStep extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// Floating Chat AI button displayed above the bottom navigation bar.
+class _ChatFab extends StatefulWidget {
+  @override
+  State<_ChatFab> createState() => _ChatFabState();
+}
+
+class _ChatFabState extends State<_ChatFab> {
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return FutureBuilder<SharedPreferences>(
+      future: SharedPreferences.getInstance(),
+      builder: (context, snap) {
+        String? name;
+        if (snap.hasData) name = snap.data!.getString('selected_mascot');
+        final MascotId? sel = name == null
+            ? null
+            : MascotId.values.firstWhere(
+                (e) => e.name == name,
+                orElse: () => MascotId.cat,
+              );
+        final child = sel != null
+            ? Text(
+                Mascot.all.firstWhere((m) => m.id == sel).emoji,
+                style: const TextStyle(fontSize: 22),
+              )
+            : const Icon(Icons.smart_toy_rounded, size: 26);
+
+        return FloatingActionButton(
+          onPressed: () => context.push(AppRoutes.chat),
+          backgroundColor: colors.primary,
+          foregroundColor: colors.onPrimary,
+          elevation: 4,
+          tooltip: 'Chat AI',
+          child: child,
+        );
+      },
     );
   }
 }

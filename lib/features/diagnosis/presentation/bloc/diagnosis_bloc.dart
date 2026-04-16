@@ -22,14 +22,9 @@ class DiagnosisBloc extends Bloc<DiagnosisEvent, DiagnosisState> {
     emit(const DiagnosisLoading());
 
     try {
-      final response = await _diagnosisRepository.getDiagnosis(
+      final diagnosis = await _diagnosisRepository.getDiagnosis(
         answerId: event.submissionId,
       );
-
-      final data = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final diagnosis = DiagnosisResponse.fromJson(data);
 
       emit(
         DiagnosisSuccess(

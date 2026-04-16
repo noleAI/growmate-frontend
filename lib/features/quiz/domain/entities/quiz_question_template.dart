@@ -1,3 +1,5 @@
+import '../../data/models/quiz_api_models.dart';
+
 enum QuizQuestionType {
   multipleChoice,
   trueFalseCluster,
@@ -22,10 +24,10 @@ enum QuizQuestionType {
 
 /// Hypothesis tags for the narrowed scope: "Đạo hàm cơ bản" (4 hypotheses).
 enum HypothesisTag {
-  h01TrigDerivative,   // Đạo hàm lượng giác (sin, cos, tan)
-  h02ExpLogDerivative,  // Đạo hàm mũ & logarit (eˣ, ln x)
-  h03ChainRule,         // Chain Rule (hàm hợp)
-  h04BasicRules;        // Quy tắc tính (tổng, hiệu, tích, thương)
+  h01TrigDerivative, // Đạo hàm lượng giác (sin, cos, tan)
+  h02ExpLogDerivative, // Đạo hàm mũ & logarit (eˣ, ln x)
+  h03ChainRule, // Chain Rule (hàm hợp)
+  h04BasicRules; // Quy tắc tính (tổng, hiệu, tích, thương)
 
   String get storageValue => switch (this) {
     HypothesisTag.h01TrigDerivative => 'H01',
@@ -111,7 +113,9 @@ class QuizQuestionTemplate {
       difficultyLevel: _safeInt(json['difficulty_level'], fallback: 2),
       content: json['content']?.toString() ?? '',
       mediaUrl: json['media_url']?.toString(),
-      hypothesisTag: HypothesisTag.fromStorageValue(json['hypothesis_tag']?.toString()),
+      hypothesisTag: HypothesisTag.fromStorageValue(
+        json['hypothesis_tag']?.toString(),
+      ),
       payload: QuizQuestionPayload.fromJson(questionType, payloadJson),
       metadata: _toMap(json['metadata']),
       isActive: _safeBool(json['is_active'], fallback: true),
@@ -149,6 +153,64 @@ class QuizQuestionTemplate {
       QuizQuestionType.trueFalseCluster => 2,
       QuizQuestionType.shortAnswer => 3,
     };
+  }
+
+  /// Convert a backend API response into a [QuizQuestionTemplate].
+  ///
+  /// Used when quiz questions come from `GET /quiz/next` (backend-driven mode)
+  /// instead of from the local Supabase table.
+  factory QuizQuestionTemplate.fromApiResponse(QuizNextQuestion apiQ) {
+    final questionType = QuizQuestionType.fromStorageValue(apiQ.type);
+
+    final QuizQuestionPayload payload;
+    switch (questionType) {
+      case QuizQuestionType.multipleChoice:
+        payload = MultipleChoicePayload(
+          options: apiQ.options
+              .map((o) => MultipleChoiceOption(id: o.id, text: o.text))
+              .toList(growable: false),
+          // Backend doesn't expose correct answer during delivery.
+          correctOptionId: '',
+          explanation: '',
+        );
+      case QuizQuestionType.trueFalseCluster:
+        final subs = apiQ.subQuestions ?? const [];
+        payload = TrueFalseClusterPayload(
+          subQuestions: subs
+              .map(
+                (s) => TrueFalseStatement(
+                  id: (s['id'] ?? '').toString(),
+                  text: (s['text'] ?? '').toString(),
+                  isTrue: false, // unknown during delivery
+                  explanation: '',
+                ),
+              )
+              .toList(growable: false),
+          generalHint: apiQ.generalHint ?? '',
+        );
+      case QuizQuestionType.shortAnswer:
+        payload = const ShortAnswerPayload(
+          exactAnswer: '',
+          acceptedAnswers: [],
+          explanation: '',
+        );
+    }
+
+    return QuizQuestionTemplate(
+      id: apiQ.questionId,
+      subject: 'math',
+      topicCode: null,
+      topicName: null,
+      examYear: 2026,
+      questionType: questionType,
+      partNo: _partFromType(questionType),
+      difficultyLevel: apiQ.difficultyLevel ?? 2,
+      content: apiQ.content,
+      mediaUrl: apiQ.mediaUrl,
+      payload: payload,
+      isActive: true,
+      metadata: apiQ.metadata ?? const {},
+    );
   }
 }
 

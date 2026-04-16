@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
@@ -5,10 +7,16 @@ import '../../../../app/i18n/build_context_i18n.dart';
 /// Spam warning dialog — "Chậm lại suy nghĩ kỹ nhé! 🤔"
 ///
 /// Shown when the user submits multiple answers in rapid succession (< 2s).
-class SpamWarningDialog extends StatelessWidget {
-  const SpamWarningDialog({super.key, this.consecutiveCount = 2});
+/// Auto-dismisses after [autoDismissSeconds] seconds.
+class SpamWarningDialog extends StatefulWidget {
+  const SpamWarningDialog({
+    super.key,
+    this.consecutiveCount = 2,
+    this.autoDismissSeconds = 5,
+  });
 
   final int consecutiveCount;
+  final int autoDismissSeconds;
 
   static Future<void> show(BuildContext context, {int consecutiveCount = 2}) {
     return showDialog<void>(
@@ -16,6 +24,34 @@ class SpamWarningDialog extends StatelessWidget {
       barrierDismissible: false,
       builder: (_) => SpamWarningDialog(consecutiveCount: consecutiveCount),
     );
+  }
+
+  @override
+  State<SpamWarningDialog> createState() => _SpamWarningDialogState();
+}
+
+class _SpamWarningDialogState extends State<SpamWarningDialog> {
+  late int _remaining;
+  Timer? _timer;
+
+  @override
+  void initState() {
+    super.initState();
+    _remaining = widget.autoDismissSeconds;
+    _timer = Timer.periodic(const Duration(seconds: 1), (_) {
+      if (!mounted) return;
+      setState(() => _remaining--);
+      if (_remaining <= 0) {
+        _timer?.cancel();
+        if (mounted) Navigator.of(context).pop();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
   }
 
   @override
@@ -45,10 +81,10 @@ class SpamWarningDialog extends StatelessWidget {
           Text(
             context.t(
               vi:
-                  'Trả lời quá nhanh ($consecutiveCount lần). '
+                  'Trả lời quá nhanh (${widget.consecutiveCount} lần). '
                   'Đọc kỹ đề rồi chọn nhé.',
               en:
-                  'Answering too fast ($consecutiveCount times). '
+                  'Answering too fast (${widget.consecutiveCount} times). '
                   'Read carefully before choosing.',
             ),
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -64,7 +100,12 @@ class SpamWarningDialog extends StatelessWidget {
           width: double.infinity,
           child: FilledButton(
             onPressed: () => Navigator.of(context).pop(),
-            child: Text(context.t(vi: 'Mình hiểu rồi', en: 'Got it')),
+            child: Text(
+              context.t(
+                vi: 'Mình hiểu rồi ($_remaining)',
+                en: 'Got it ($_remaining)',
+              ),
+            ),
           ),
         ),
       ],

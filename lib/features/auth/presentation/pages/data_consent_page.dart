@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
@@ -10,6 +11,8 @@ import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/repositories/data_consent_repository.dart';
+import '../bloc/auth_bloc.dart';
+import '../bloc/auth_state.dart';
 
 class DataConsentPage extends StatefulWidget {
   const DataConsentPage({super.key, required this.dataConsentRepository});
@@ -32,7 +35,13 @@ class _DataConsentPageState extends State<DataConsentPage> {
   }
 
   Future<void> _hydrate() async {
-    final accepted = await widget.dataConsentRepository.isAccepted();
+    final authState = context.read<AuthBloc>().state;
+    final userKey = authState is AuthAuthenticated
+        ? authState.session.email
+        : null;
+    final accepted = await widget.dataConsentRepository.isAccepted(
+      userKey: userKey,
+    );
     if (!mounted) {
       return;
     }
@@ -57,7 +66,14 @@ class _DataConsentPageState extends State<DataConsentPage> {
       _saving = true;
     });
 
-    await widget.dataConsentRepository.saveConsent(accepted: true);
+    final authState = context.read<AuthBloc>().state;
+    final userKey = authState is AuthAuthenticated
+        ? authState.session.email
+        : null;
+    await widget.dataConsentRepository.saveConsent(
+      accepted: true,
+      userKey: userKey,
+    );
     BehavioralSignalService.instance.setCollectionEnabled(true);
     BehavioralSignalCollector.instance.setCollectionEnabled(true);
 

@@ -9,14 +9,16 @@ import '../network/api_config.dart';
 ///
 /// Session được tạo khi user bắt đầu học và đóng khi hoàn thành.
 /// Integration với:
-/// - Supabase: `start_learning_session()` RPC
-/// - REST API: `POST /sessions/start`
+/// - REST API: `POST /sessions` (preferred when [restSessionCreator] provided)
+/// - Supabase: `start_learning_session()` RPC (fallback)
 ///
 /// Lưu ý: FlutterSecureStorage không hỗ trợ Web, nên trên web chỉ dùng in-memory cache.
 class LearningSessionManager {
   LearningSessionManager({
     FlutterSecureStorage? secureStorage,
     SupabaseClient? supabaseClient,
+    this.restSessionCreator,
+    this.restSessionCompleter,
   }) : _storage = secureStorage ?? _defaultSecureStorage,
        _supabaseClient = supabaseClient ?? _tryResolveSupabaseClient();
 
@@ -30,11 +32,40 @@ class LearningSessionManager {
   final SupabaseClient? _supabaseClient;
   static const String _sessionCreatedAtStorageKey = 'session_created_at';
 
+  /// Optional REST API session creator — returns a session ID string.
+  /// Used when useAgenticBackend=true (calls POST /sessions).
+  /// Receives [subject], [topic], [mode], [classificationLevel], and
+  /// [onboardingResults] so the backend can bootstrap beliefs/agents.
+  final Future<String> Function({
+    required String subject,
+    required String topic,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
+  })?
+  restSessionCreator;
+
+  /// Optional REST API session completer — calls PATCH /sessions/{id}.
+  /// Used when useAgenticBackend=true.
+  final Future<void> Function(String sessionId, String status)?
+  restSessionCompleter;
+
   String? _cachedSessionId;
   DateTime? _sessionCreatedAt;
 
   /// Session ID hiện tại. Nếu chưa có, sẽ tạo mới.
-  Future<String> getActiveSessionId() async {
+  ///
+  /// [subject] and [topic] are forwarded to the backend when creating a
+  /// new session via REST API. [mode], [classificationLevel], and
+  /// [onboardingResults] are optional params the backend uses to bootstrap
+  /// the agentic pipeline.
+  Future<String> getActiveSessionId({
+    String subject = 'math',
+    String topic = 'general',
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
+  }) async {
     // Trả về cached session nếu còn hợp lệ (cùng user, chưa quá cũ)
     if (_cachedSessionId != null && _sessionCreatedAt != null) {
       final age = DateTime.now().difference(_sessionCreatedAt!);
@@ -52,13 +83,45 @@ class LearningSessionManager {
     }
 
     // Tạo session mới
-    return _createNewSession();
+    return _createNewSession(
+      subject: subject,
+      topic: topic,
+      mode: mode,
+      classificationLevel: classificationLevel,
+      onboardingResults: onboardingResults,
+    );
   }
 
   /// Tạo learning session mới.
-  Future<String> _createNewSession() async {
+  Future<String> _createNewSession({
+    required String subject,
+    required String topic,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
+  }) async {
     try {
-      // Ưu tiên dùng Supabase RPC
+      // Ưu tiên REST API khi có agentic backend
+      if (restSessionCreator != null) {
+        try {
+          final sessionId = await restSessionCreator!(
+            subject: subject,
+            topic: topic,
+            mode: mode,
+            classificationLevel: classificationLevel,
+            onboardingResults: onboardingResults,
+          );
+          if (sessionId.isNotEmpty) {
+            await _saveSessionToStorage(sessionId);
+            debugPrint('✅ Tạo session qua REST API: $sessionId');
+            return sessionId;
+          }
+        } catch (e) {
+          debugPrint('⚠️ REST session creation failed, trying Supabase: $e');
+        }
+      }
+
+      // Fallback: dùng Supabase RPC
       if (_supabaseClient != null) {
         final sessionId = await _createSessionViaSupabase();
         if (sessionId.isNotEmpty) {
@@ -67,7 +130,7 @@ class LearningSessionManager {
         }
       }
 
-      // Fallback: generate local session ID
+      // Fallback cuối: generate local session ID
       final localSessionId = _createLocalSession();
       await _saveSessionToStorage(localSessionId);
       return localSessionId;
@@ -111,23 +174,28 @@ class LearningSessionManager {
   }
 
   /// Đóng learning session hiện tại.
-  Future<void> completeSession({String? sessionId}) async {
+  Future<void> completeSession({
+    String? sessionId,
+    String status = 'completed',
+  }) async {
     final targetSessionId = sessionId ?? _cachedSessionId;
     if (targetSessionId == null) {
       return; // Không có session để đóng
     }
 
     try {
-      final client = _supabaseClient;
-      if (client != null && _isUuid(targetSessionId)) {
-        await client.rpc(
-          'complete_learning_session',
-          params: <String, dynamic>{
-            'p_session_id': targetSessionId,
-            'p_status': 'completed',
-          },
-        );
-        debugPrint('✅ Đóng session thành công: $targetSessionId');
+      // Ưu tiên REST API khi có agentic backend
+      if (restSessionCompleter != null) {
+        try {
+          await restSessionCompleter!(targetSessionId, status);
+          debugPrint('✅ Đóng session qua REST API: $targetSessionId ($status)');
+        } catch (e) {
+          debugPrint('⚠️ REST session complete failed, trying Supabase: $e');
+          // Fallback to Supabase
+          await _completeSessionViaSupabase(targetSessionId);
+        }
+      } else {
+        await _completeSessionViaSupabase(targetSessionId);
       }
     } catch (e) {
       debugPrint('⚠️ Lỗi khi đóng session: $e');
@@ -136,6 +204,20 @@ class LearningSessionManager {
       await _clearSessionFromStorage();
       _cachedSessionId = null;
       _sessionCreatedAt = null;
+    }
+  }
+
+  Future<void> _completeSessionViaSupabase(String targetSessionId) async {
+    final client = _supabaseClient;
+    if (client != null && _isUuid(targetSessionId)) {
+      await client.rpc(
+        'complete_learning_session',
+        params: <String, dynamic>{
+          'p_session_id': targetSessionId,
+          'p_status': 'completed',
+        },
+      );
+      debugPrint('✅ Đóng session qua Supabase: $targetSessionId');
     }
   }
 

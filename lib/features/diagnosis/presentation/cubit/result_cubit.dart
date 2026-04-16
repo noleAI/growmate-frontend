@@ -29,13 +29,9 @@ class ResultCubit extends Cubit<ResultState> {
     emit(const ResultLoading());
 
     try {
-      final response = await _diagnosisRepository.getDiagnosis(
+      final diagnosis = await _diagnosisRepository.getDiagnosis(
         answerId: submissionId,
       );
-      final data = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final diagnosis = DiagnosisResponse.fromJson(data);
       final resolvedDiagnosisId = _resolveDiagnosisId(
         rawId: diagnosis.diagnosisId,
         submissionId: submissionId,
@@ -70,10 +66,11 @@ class ResultCubit extends Cubit<ResultState> {
       final interventionPlan = _extractPlanList(diagnosis.interventionPlan);
 
       // Parse Empathy Agent / Particle Filter fields
-      final mentalState = (data['mentalState'] as String?)?.isNotEmpty == true
-          ? data['mentalState'] as String
+      final raw = diagnosis.raw;
+      final mentalState = (raw['mentalState'] as String?)?.isNotEmpty == true
+          ? raw['mentalState'] as String
           : (finalMode == 'recovery' ? 'exhausted' : 'focused');
-      final particleDistribution = _extractParticleDistribution(data);
+      final particleDistribution = _extractParticleDistribution(raw);
 
       await _diagnosisSnapshotCacheRepository.saveSnapshot(
         DiagnosisSnapshot(

@@ -103,6 +103,12 @@ class OrchestratorStepResponse {
     required this.dataDriven,
     required this.dashboardUpdate,
     required this.latencyMs,
+    this.reasoningMode = 'adaptive',
+    this.reasoningTrace = const [],
+    this.reasoningContent,
+    this.reasoningConfidence,
+    this.knowledgeChunks = const [],
+    this.reflection,
   });
 
   final String action;
@@ -110,6 +116,14 @@ class OrchestratorStepResponse {
   final DataDrivenPayload? dataDriven;
   final DashboardUpdate dashboardUpdate;
   final int latencyMs;
+
+  // Agentic AI fields (backward compatible — all optional with defaults)
+  final String reasoningMode; // 'agentic' | 'adaptive'
+  final List<ReasoningStep> reasoningTrace;
+  final String? reasoningContent;
+  final double? reasoningConfidence;
+  final List<KnowledgeChunk> knowledgeChunks;
+  final ReflectionResult? reflection;
 
   factory OrchestratorStepResponse.fromJson(Map<String, dynamic> json) {
     // The /orchestrator/step wraps in {"status": "ok", "result": {...}}
@@ -125,11 +139,34 @@ class OrchestratorStepResponse {
         _asMap(result['dashboard_update']),
       ),
       latencyMs: _asInt(result['latency_ms']),
+      // Agentic fields (fallback for backward compat with old backend)
+      reasoningMode: (result['reasoning_mode'] ?? 'adaptive').toString(),
+      reasoningTrace:
+          (result['reasoning_trace'] as List<dynamic>?)
+              ?.map((e) => ReasoningStep.fromJson(_asMap(e)))
+              .toList() ??
+          const [],
+      reasoningContent: result['reasoning_content']?.toString(),
+      reasoningConfidence: result['reasoning_confidence'] != null
+          ? _asDouble(result['reasoning_confidence'])
+          : null,
+      knowledgeChunks:
+          (result['knowledge_chunks'] as List<dynamic>?)
+              ?.map((e) => KnowledgeChunk.fromJson(_asMap(e)))
+              .toList() ??
+          const [],
+      reflection: result['reflection'] != null
+          ? ReflectionResult.fromJson(_asMap(result['reflection']))
+          : null,
     );
   }
 
   bool get isHitlPending => action == 'hitl_pending' || action == 'hitl';
   bool get isRecovery => action == 'de_stress' || action == 'recovery';
+  bool get isAgenticMode => reasoningMode == 'agentic';
+  bool get hasReasoningTrace => reasoningTrace.isNotEmpty;
+  bool get hasKnowledge => knowledgeChunks.isNotEmpty;
+  bool get hasReflection => reflection != null;
 }
 
 class ActionPayload {
@@ -164,12 +201,16 @@ class DataDrivenPayload {
     required this.interventions,
     required this.selectedIntervention,
     required this.systemBehavior,
+    this.formulaRecommendations = const [],
   });
 
   final Map<String, dynamic>? diagnosis;
   final List<Map<String, dynamic>> interventions;
   final Map<String, dynamic>? selectedIntervention;
   final SystemBehavior systemBehavior;
+
+  /// Formula recommendations from the data-driven pipeline.
+  final List<Map<String, dynamic>> formulaRecommendations;
 
   factory DataDrivenPayload.fromJson(Map<String, dynamic> json) {
     final rawInterventions = json['interventions'];
@@ -182,6 +223,16 @@ class DataDrivenPayload {
       }
     }
 
+    final rawFormulas = json['formulaRecommendations'];
+    final formulasList = <Map<String, dynamic>>[];
+    if (rawFormulas is List) {
+      for (final item in rawFormulas) {
+        if (item is Map) {
+          formulasList.add(Map<String, dynamic>.from(item));
+        }
+      }
+    }
+
     return DataDrivenPayload(
       diagnosis: json['diagnosis'] is Map
           ? Map<String, dynamic>.from(json['diagnosis'] as Map)
@@ -190,9 +241,8 @@ class DataDrivenPayload {
       selectedIntervention: json['selectedIntervention'] is Map
           ? Map<String, dynamic>.from(json['selectedIntervention'] as Map)
           : null,
-      systemBehavior: SystemBehavior.fromJson(
-        _asMap(json['systemBehavior']),
-      ),
+      systemBehavior: SystemBehavior.fromJson(_asMap(json['systemBehavior'])),
+      formulaRecommendations: formulasList,
     );
   }
 
@@ -221,8 +271,8 @@ class SystemBehavior {
   factory SystemBehavior.fromJson(Map<String, dynamic> json) {
     return SystemBehavior(
       riskBand: (json['riskBandFromThresholds'] ?? 'medium').toString(),
-      confidenceBand:
-          (json['confidenceBandFromThresholds'] ?? 'medium').toString(),
+      confidenceBand: (json['confidenceBandFromThresholds'] ?? 'medium')
+          .toString(),
       hitlTriggered: json['hitlTriggered'] == true,
       fallbackRuleApplied: json['fallbackRuleApplied']?.toString(),
       finalMode: (json['finalMode'] ?? 'normal').toString(),
@@ -343,15 +393,14 @@ class EmpathyState {
   factory EmpathyState.fromJson(Map<String, dynamic> json) {
     // Handle both direct and nested (format_pf_payload) structures
     final estimation = _asMap(json['estimation']);
-    final confusion = _asDouble(
-      estimation['confusion'] ?? json['confusion'],
-    );
+    final confusion = _asDouble(estimation['confusion'] ?? json['confusion']);
     final fatigue = _asDouble(estimation['fatigue'] ?? json['fatigue']);
     final uncertainty = _asDouble(
       estimation['uncertainty'] ?? json['uncertainty'],
     );
 
-    final rawDist = json['particle_distribution'] ?? json['belief_distribution'];
+    final rawDist =
+        json['particle_distribution'] ?? json['belief_distribution'];
     final dist = <String, double>{};
     if (rawDist is Map) {
       for (final entry in rawDist.entries) {
@@ -418,10 +467,7 @@ class StrategyState {
 }
 
 class OrchestratorState {
-  const OrchestratorState({
-    required this.decision,
-    required this.monitoring,
-  });
+  const OrchestratorState({required this.decision, required this.monitoring});
 
   final OrchestratorDecision decision;
   final Map<String, double> monitoring;
@@ -596,6 +642,137 @@ class BehaviorWsEvent {
   bool get isInterventionProposed => event == 'intervention_proposed';
   bool get isHitlTriggered => event == 'hitl_triggered';
   bool get isInvalidPayload => event == 'invalid_payload';
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Agentic AI Models (reasoning trace, RAG knowledge, self-reflection)
+// ─────────────────────────────────────────────────────────────────────────────
+
+/// A single step in the LLM's reasoning chain.
+class ReasoningStep {
+  const ReasoningStep({
+    required this.step,
+    required this.tool,
+    this.args = const {},
+    this.resultSummary = '',
+  });
+
+  final int step;
+  final String tool;
+  final Map<String, dynamic> args;
+  final String resultSummary;
+
+  factory ReasoningStep.fromJson(Map<String, dynamic> json) {
+    return ReasoningStep(
+      step: _asInt(json['step']),
+      tool: (json['tool'] ?? '').toString(),
+      args: _asMap(json['args']),
+      resultSummary: (json['result_summary'] ?? '').toString(),
+    );
+  }
+
+  Map<String, dynamic> toJson() => {
+    'step': step,
+    'tool': tool,
+    'args': args,
+    'result_summary': resultSummary,
+  };
+
+  /// Icon cho từng loại tool.
+  String get toolIcon {
+    return switch (tool) {
+      'get_academic_beliefs' => '🧠',
+      'get_empathy_state' => '💛',
+      'get_strategy_suggestion' => '🎯',
+      'search_knowledge' => '📚',
+      'get_student_history' => '📊',
+      'get_formula_bank' => '📐',
+      'get_orchestrator_score' => '⚙️',
+      _ => '🔧',
+    };
+  }
+
+  /// Label tiếng Việt cho tool.
+  String get toolLabel {
+    return switch (tool) {
+      'get_academic_beliefs' => 'Phân tích kiến thức',
+      'get_empathy_state' => 'Đánh giá cảm xúc',
+      'get_strategy_suggestion' => 'Gợi ý chiến lược',
+      'search_knowledge' => 'Tra cứu kiến thức',
+      'get_student_history' => 'Xem lịch sử',
+      'get_formula_bank' => 'Tìm công thức',
+      'get_orchestrator_score' => 'Tính điểm utility',
+      _ => tool,
+    };
+  }
+}
+
+/// A knowledge chunk retrieved via RAG pipeline.
+class KnowledgeChunk {
+  const KnowledgeChunk({
+    required this.content,
+    required this.source,
+    this.chapter = '',
+    this.similarity = 0.0,
+  });
+
+  final String content;
+  final String source;
+  final String chapter;
+  final double similarity;
+
+  factory KnowledgeChunk.fromJson(Map<String, dynamic> json) {
+    return KnowledgeChunk(
+      content: (json['content'] ?? '').toString(),
+      source: (json['source'] ?? '').toString(),
+      chapter: (json['chapter'] ?? '').toString(),
+      similarity: _asDouble(json['similarity']),
+    );
+  }
+
+  /// Label tiếng Việt cho source.
+  String get sourceLabel {
+    return switch (source) {
+      'sgk_toan_12' => 'SGK Toán 12',
+      'cong_thuc' => 'Công thức',
+      'bai_giai_mau' => 'Bài giải mẫu',
+      'loi_thuong_gap' => 'Lỗi thường gặp',
+      _ => source,
+    };
+  }
+}
+
+/// AI self-reflection result.
+class ReflectionResult {
+  const ReflectionResult({
+    required this.effectiveness,
+    required this.shouldChangeStrategy,
+    this.entropyTrend = 'stable',
+    this.accuracyTrend = 'stable',
+    this.emotionTrend = 'stable',
+    this.recommendation = '',
+    this.reasoning = '',
+  });
+
+  final String effectiveness;
+  final bool shouldChangeStrategy;
+  final String entropyTrend;
+  final String accuracyTrend;
+  final String emotionTrend;
+  final String recommendation;
+  final String reasoning;
+
+  factory ReflectionResult.fromJson(Map<String, dynamic> json) {
+    return ReflectionResult(
+      effectiveness: (json['effectiveness'] ?? 'neutral').toString(),
+      shouldChangeStrategy: json['should_change_strategy'] == true,
+      entropyTrend: (json['entropy_trend'] ?? 'stable').toString(),
+      accuracyTrend: (json['accuracy_trend'] ?? 'stable').toString(),
+      emotionTrend: (json['emotion_trend'] ?? 'stable').toString(),
+      recommendation: (json['recommendation'] ?? '').toString(),
+      reasoning: (json['reasoning'] ?? '').toString(),
+    );
+  }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────

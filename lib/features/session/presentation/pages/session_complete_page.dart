@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/widgets/badge_unlock_popup.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -34,6 +35,7 @@ class SessionCompletePage extends StatefulWidget {
 class _SessionCompletePageState extends State<SessionCompletePage> {
   late Future<_CompletionPayload> _payloadFuture;
   bool _completionStarted = false;
+  bool _badgePopupShown = false;
 
   @override
   void didChangeDependencies() {
@@ -42,7 +44,17 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
       return;
     }
     _completionStarted = true;
-    _payloadFuture = _recordCompletion(isEnglish: context.isEnglish);
+    _payloadFuture = _recordCompletion(isEnglish: context.isEnglish)
+      ..then((payload) {
+        if (payload.newBadges.isNotEmpty && mounted && !_badgePopupShown) {
+          _badgePopupShown = true;
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) {
+              BadgeUnlockPopup.showAll(context, payload.newBadges);
+            }
+          });
+        }
+      });
   }
 
   Future<_CompletionPayload> _recordCompletion({
@@ -144,12 +156,8 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
                 Align(
                   alignment: Alignment.centerLeft,
                   child: IconButton(
-                    tooltip: context.t(vi: 'Quay lại', en: 'Back'),
+                    tooltip: context.t(vi: 'Về trang chủ', en: 'Go home'),
                     onPressed: () {
-                      if (context.canPop()) {
-                        context.pop();
-                        return;
-                      }
                       context.go(AppRoutes.home);
                     },
                     padding: EdgeInsets.all(12),

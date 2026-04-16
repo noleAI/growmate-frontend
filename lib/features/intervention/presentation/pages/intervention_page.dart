@@ -415,8 +415,8 @@ class _InterventionPageState extends State<InterventionPage> {
                                 en: 'Finish this session',
                               )
                             : context.t(
-                                vi: 'Tiếp tục học ngay',
-                                en: 'Continue studying now',
+                                vi: 'Luyện tập tiếp',
+                                en: 'Continue practice',
                               ),
                         onPressed: () {
                           if (state.feedbackRecorded) {
@@ -441,7 +441,6 @@ class _InterventionPageState extends State<InterventionPage> {
                                     : 'academic',
                                 'topic': selectedLabel,
                                 'nextAction': selectedLabel,
-                                // TODO: pass real values once API integration provides them
                                 'duration': '',
                                 'focus': '',
                                 'confidence': '',
@@ -527,88 +526,57 @@ class _InterventionOptionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final icon = _iconByType(option.type);
     final iconBg = _iconBgByType(option.type, theme.colorScheme);
-    final showDefaultBadge = !option.fromBackend;
 
     return GestureDetector(
       onTap: isSubmitting ? null : onTap,
-      child: Stack(
-        children: [
-          ZenCard(
-            radius: 24,
-            color: theme.colorScheme.surface.withValues(alpha: 0.86),
-            padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
-            child: Row(
-              children: [
-                Container(
-                  width: 66,
-                  height: 66,
-                  decoration: BoxDecoration(
-                    color: iconBg,
-                    borderRadius: BorderRadius.circular(
-                      GrowMateLayout.cardRadius,
-                    ),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(icon, color: theme.colorScheme.primary, size: 30),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _labelByType(context, option),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          color: theme.colorScheme.onSurface,
-                          fontWeight: FontWeight.w700,
-                          height: 1.32,
-                        ),
-                      ),
-                      const SizedBox(height: 4),
-                      Text(
-                        _descriptionByType(context, option.type),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
-                          height: 1.4,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 4),
-                const Icon(
-                  Icons.chevron_right_rounded,
-                  color: Color(0xFFA3A3A3),
-                  size: 28,
-                ),
-              ],
+      child: ZenCard(
+        radius: 24,
+        color: theme.colorScheme.surface.withValues(alpha: 0.86),
+        padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+        child: Row(
+          children: [
+            Container(
+              width: 66,
+              height: 66,
+              decoration: BoxDecoration(
+                color: iconBg,
+                borderRadius: BorderRadius.circular(GrowMateLayout.cardRadius),
+              ),
+              alignment: Alignment.center,
+              child: Icon(icon, color: theme.colorScheme.primary, size: 30),
             ),
-          ),
-          if (showDefaultBadge)
-            Positioned(
-              top: 10,
-              right: 12,
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(999),
-                  border: Border.all(
-                    color: theme.colorScheme.outlineVariant.withValues(
-                      alpha: 0.6,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _labelByType(context, option),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: theme.colorScheme.onSurface,
+                      fontWeight: FontWeight.w700,
+                      height: 1.32,
                     ),
                   ),
-                ),
-                child: Text(
-                  context.t(vi: 'Mặc định', en: 'Default'),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                    fontWeight: FontWeight.w700,
+                  const SizedBox(height: 4),
+                  Text(
+                    _descriptionByType(context, option.type),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.4,
+                    ),
                   ),
-                ),
+                ],
               ),
             ),
-        ],
+            const SizedBox(width: 4),
+            const Icon(
+              Icons.chevron_right_rounded,
+              color: Color(0xFFA3A3A3),
+              size: 28,
+            ),
+          ],
+        ),
       ),
     );
   }

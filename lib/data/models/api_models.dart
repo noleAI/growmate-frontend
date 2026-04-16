@@ -51,6 +51,9 @@ class DiagnosisResponse {
     required this.nextSuggestedTopic,
     required this.interventionPlan,
     required this.raw,
+    this.planRepaired = false,
+    this.beliefEntropy = 0.0,
+    this.formulaRecommendations = const [],
   });
 
   final String diagnosisId;
@@ -67,6 +70,15 @@ class DiagnosisResponse {
   final String nextSuggestedTopic;
   final List<Map<String, dynamic>> interventionPlan;
   final Map<String, dynamic> raw;
+
+  /// Whether the agentic planner had to repair its plan for this diagnosis.
+  final bool planRepaired;
+
+  /// Bayesian belief entropy from the backend.
+  final double beliefEntropy;
+
+  /// Formula recommendations from the data-driven pipeline.
+  final List<Map<String, dynamic>> formulaRecommendations;
 
   factory DiagnosisResponse.fromJson(Map<String, dynamic> json) {
     return DiagnosisResponse(

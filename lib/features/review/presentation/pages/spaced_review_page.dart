@@ -1,5 +1,4 @@
 import 'package:flutter/material.dart';
-import 'package:go_router/go_router.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/layout.dart';
@@ -22,34 +21,40 @@ class _SpacedReviewPageState extends State<SpacedReviewPage> {
     final theme = Theme.of(context);
     final now = DateTime.now();
 
-    return Material(
-      color: theme.scaffoldBackgroundColor,
-      child: ZenPageContainer(
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        iconTheme: IconThemeData(color: theme.colorScheme.primary),
+        titleSpacing: 0,
+        title: Text(
+          context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Repetition'),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(12),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: ZenPageContainer(
         includeBottomSafeArea: true,
         child: Column(
           children: [
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            Row(
-              children: [
-                IconButton(
-                  onPressed: () => context.pop(),
-                  icon: Icon(
-                    Icons.arrow_back_ios_new_rounded,
-                    color: theme.colorScheme.primary,
-                  ),
-                  tooltip: context.t(vi: 'Quay lại', en: 'Back'),
-                ),
-                const SizedBox(width: 4),
-                Expanded(
-                  child: Text(
-                    context.t(vi: 'Ôn tập ngắt quãng', en: 'Spaced Repetition'),
-                    style: theme.textTheme.titleLarge?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
             const SizedBox(height: GrowMateLayout.space8),
             Text(
               context.t(
@@ -149,8 +154,8 @@ class _SpacedReviewPageState extends State<SpacedReviewPage> {
             ),
           ],
         ),
-      ), // ZenPageContainer
-    ); // Material
+      ),
+    );
   }
 
   Future<void> _startReviewSession(List<SpacedReviewItem> dueItems) async {

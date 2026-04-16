@@ -213,7 +213,7 @@
 **Tiêu chí hoàn thành**: Q-learning nhận được XP signal, điều chỉnh strategy phù hợp
 
 #### Huy — Frontend
-- [ ] **Design & build LeaderboardPage**: Tạo `lib/features/leaderboard/`
+- [x] **Design & build LeaderboardPage**: Tạo `lib/features/leaderboard/` ✅ (13 files)
   ```
   leaderboard/
   ├── presentation/
@@ -227,7 +227,7 @@
   │       ├── my_rank_banner.dart        — highlight vị trí user
   │       └── period_tab_bar.dart        — Tuần / Tháng / Tổng
   ```
-- [ ] **Tạo LeaderboardCubit**:
+- [x] **Tạo LeaderboardCubit**:
   ```dart
   class LeaderboardCubit extends Cubit<LeaderboardState> {
     Future<void> loadWeeklyLeaderboard();
@@ -235,10 +235,10 @@
     Future<void> switchPeriod(LeaderboardPeriod period);
   }
   ```
-- [ ] **Tạo LeaderboardRepository**: Gọi API `/leaderboard`, `/badges`, cache local
-- [ ] **Design badge showcase**: Trong `lib/features/achievement/` — grid hiển thị badges đã có + badges chưa unlock (greyed out)
-- [ ] **Notification vinh danh**: Toast/snackbar animation khi user đạt badge mới hoặc lọt top
-- [ ] **Cập nhật BottomNavBar**: Thêm tab Leaderboard hoặc gắn vào ProgressPage
+- [x] **Tạo LeaderboardRepository**: Gọi API `/leaderboard`, `/badges`, cache local (mock done)
+- [x] **Design badge showcase**: Trong `lib/features/achievement/` — grid hiển thị badges đã có + badges chưa unlock (greyed out) → `badge_showcase_grid.dart`
+- [x] **Notification vinh danh**: Toast/snackbar animation khi user đạt badge mới hoặc lọt top → `badge_unlocked_toast.dart`
+- [ ] **Cập nhật BottomNavBar**: Thêm tab Leaderboard hoặc gắn vào ProgressPage ⚠️ **Route đã có, chưa gắn nav**
 - [ ] **Tích hợp XP vào quiz flow**: Sau khi submit quiz → gọi add XP → refresh leaderboard
 - [ ] **Push notification logic**: Dùng `lib/features/notification/` — tạo notification khi đạt badge
 
@@ -284,19 +284,19 @@
 
 **Tiêu chí hoàn thành**: User không thể làm quiz khi hết tim, tim hồi sinh tự động sau 8h
 
-#### Huy — Frontend
-- [ ] **Design & build lives indicator**: Widget ❤️❤️❤️ ở góc trên quiz page
+#### Huy — Frontend ✅
+- [x] **Design & build lives indicator**: Widget ❤️❤️❤️ ở góc trên quiz page
   ```
   lib/features/quiz/presentation/widgets/
   └── lives_indicator.dart   — 3 tim, animation khi mất tim (tim vỡ)
   ```
-- [ ] **Design & build "hết tim" screen**: Full-screen overlay:
+- [x] **Design & build "hết tim" screen**: Full-screen overlay:
   - Countdown timer đến lần hồi sinh tiếp theo
   - Nút "Xem lại bài sai" (để nhận +1 tim)
   - Nút "Mời bạn bè" (để nhận +1 tim)
   - Style: soft, không gây frustration (tone động viên)
-- [ ] **Animation mất tim**: Tim vỡ + rơi, màn hình rung nhẹ
-- [ ] **Tạo LivesCubit**: Quản lý state lives, tích hợp vào quiz flow
+- [x] **Animation mất tim**: Tim vỡ + rơi, màn hình rung nhẹ → `heart_break_animation.dart`
+- [x] **Tạo LivesCubit**: Quản lý state lives, tích hợp vào quiz flow
   ```dart
   class LivesCubit extends Cubit<LivesState> {
     Future<void> loadLives();
@@ -305,8 +305,8 @@
     Duration get nextRegenIn => ...;
   }
   ```
-- [ ] **Guard quiz navigation**: Nếu `canPlay == false` → navigate tới "hết tim" screen thay vì quiz
-- [ ] **Countdown timer**: Stream timer đếm ngược tới hồi sinh
+- [x] **Guard quiz navigation**: Nếu `canPlay == false` → navigate tới "hết tim" screen thay vì quiz
+- [x] **Countdown timer**: Stream timer đếm ngược tới hồi sinh
 
 **Tiêu chí hoàn thành**: Animation mượt, "hết tim" screen thân thiện, countdown chính xác, flow hoàn chỉnh: mất tim → block quiz → countdown → hồi sinh → unblock
 
@@ -347,8 +347,8 @@
 
 **Tiêu chí hoàn thành**: Agent biết recommend đúng formula group khi belief cho hypothesis thấp
 
-#### Huy — Frontend
-- [ ] **Redesign ProgressPage**: Cập nhật `lib/features/progress/` — thêm tab/section "Sổ tay công thức"
+#### Huy — Frontend ✅
+- [x] **Redesign ProgressPage**: Cập nhật `lib/features/progress/` — thêm tab/section "Sổ tay công thức"
   ```
   progress/
   └── presentation/
@@ -360,11 +360,11 @@
           ├── formula_detail_card.dart   — NEW: hiển thị LaTeX + ví dụ
           └── mastery_indicator.dart     — ✅ đã thuộc / 🔄 đang học / 🔒 chưa mở
   ```
-- [ ] **LaTeX rendering**: Tích hợp `flutter_math_fork` để render công thức đẹp
-- [ ] **Search bar**: Cho user tìm kiếm công thức nhanh
-- [ ] **Tạo FormulaHandbookCubit**: Load formulas từ API, filter theo category, search
-- [ ] **Tạo FormulaRepository**: Cache formulas local cho offline access (user tra cứu không cần internet)
-- [ ] **Tích hợp offline storage**: Dùng `lib/features/offline/` — save formulas vào local DB
+- [x] **LaTeX rendering**: Tích hợp `flutter_math_fork` để render công thức đẹp
+- [x] **Search bar**: Cho user tìm kiếm công thức nhanh → `formula_search_bar.dart`
+- [x] **Tạo FormulaHandbookCubit**: Load formulas từ API, filter theo category, search
+- [x] **Tạo FormulaRepository**: Cache formulas local cho offline access
+- [x] **Tích hợp offline storage**: Dùng `lib/features/offline/` — save formulas vào local DB
 
 **Tiêu chí hoàn thành**: Sổ tay hiển thị đẹp, LaTeX render chính xác, search hoạt động, mastery indicator đúng, offline accessible
 
@@ -421,8 +421,8 @@
 
 **Tiêu chí hoàn thành**: Onboarding flow hoạt động end-to-end, profile lưu đúng, 10 câu hỏi chất lượng
 
-#### Huy — Frontend
-- [ ] **Design & build OnboardingPage**: Tạo `lib/features/onboarding/`
+#### Huy — Frontend ✅
+- [x] **Design & build OnboardingPage**: Tạo `lib/features/onboarding/` (11 files)
   ```
   onboarding/
   └── presentation/
@@ -438,11 +438,11 @@
           ├── level_result_animation.dart
           └── study_plan_preview.dart
   ```
-- [ ] **Animation kết quả**: Reveal animation khi hiện level (confetti cho Advanced, encouraging cho Beginner)
-- [ ] **Tạo OnboardingCubit**: Quản lý state 4 bước onboarding
-- [ ] **Tạo OnboardingRepository**: Submit results → nhận classification + plan
-- [ ] **Cập nhật app_router**: Nếu user chưa onboard → redirect tới OnboardingPage trước khi vào main app
-- [ ] **Lưu level local**: Cache user level để adjust UI behavior (hint visibility, timer, v.v.)
+- [x] **Animation kết quả**: Reveal animation khi hiện level (confetti cho Advanced, encouraging cho Beginner)
+- [x] **Tạo OnboardingCubit**: Quản lý state 4 bước onboarding
+- [x] **Tạo OnboardingRepository**: Submit results → nhận classification + plan (mock done)
+- [ ] **Cập nhật app_router**: Nếu user chưa onboard → redirect tới OnboardingPage ⚠️ **Routes đã có nhưng chưa có redirect check `isOnboarded`**
+- [x] **Lưu level local**: Cache user level để adjust UI behavior
 
 **Tiêu chí hoàn thành**: First-time user bắt buộc qua onboarding, returning user skip, level persist, animation phù hợp từng level
 
@@ -470,13 +470,13 @@
 
 **Tiêu chí hoàn thành**: User quay lại → thấy "Bạn còn bài dở, tiếp tục nhé!", resume đúng chỗ
 
-#### Huy — Frontend
-- [ ] **Design & build spam warning dialog**: "Bạn ơi, chậm lại suy nghĩ kỹ nhé! 🤔" — tone nhẹ nhàng
-- [ ] **Design & build resume banner**: Banner trên TodayPage khi có session dở
-- [ ] **Design & build AFK overlay**: Overlay mờ khi idle > 3 phút, nhấn để tiếp tục
-- [ ] **Session recovery flow**: Khi mở app → check `/session/pending` → nếu có → hiện resume banner
-- [ ] **AFK timer**: Timer client-side, khi idle 3 phút → auto-pause quiz → notify backend
-- [ ] **Spam detection client-side**: Track answer time, nếu < 2s liên tiếp → hiện warning trước khi submit
+#### Huy — Frontend ✅
+- [x] **Design & build spam warning dialog**: "Bạn ơi, chậm lại suy nghĩ kỹ nhé! 🤔" → `spam_warning_dialog.dart`
+- [x] **Design & build resume banner**: Banner trên TodayPage khi có session dở → `resume_banner.dart`
+- [x] **Design & build AFK overlay**: Overlay mờ khi idle > 3 phút → `afk_overlay.dart`
+- [x] **Session recovery flow**: Khi mở app → check `/session/pending` → nếu có → hiện resume banner → `session_recovery_local.dart`
+- [x] **AFK timer**: Timer client-side, khi idle 3 phút → auto-pause quiz
+- [x] **Spam detection client-side**: Track answer time, nếu < 2s liên tiếp → hiện warning
 
 **Tiêu chí hoàn thành**: Các dialog/overlay match tone app (thân thiện, không aggressive), resume flow hoàn chỉnh, AFK/spam detected cả client + server
 
@@ -495,8 +495,8 @@
 
 **Tiêu chí hoàn thành**: Không thể extract đáp án từ API response, rate limit enforce đúng
 
-#### Huy — Frontend
-- [ ] **FLAG_SECURE trên Android**: Sửa `android/app/src/main/kotlin/.../MainActivity.kt`:
+#### Huy — Frontend ✅ (trừ 6.3)
+- [x] **FLAG_SECURE trên Android**: Sửa `android/app/src/main/kotlin/.../MainActivity.kt`:
   ```kotlin
   import android.view.WindowManager
   
@@ -508,9 +508,9 @@
       )
   }
   ```
-- [ ] **Disable text selection** trên quiz content: Ngăn copy/paste câu hỏi
-- [ ] **Xóa local cache đáp án**: Đảm bảo quiz data trong memory KHÔNG chứa correct_answer
-- [ ] **Obfuscate quiz state**: Không log quiz data ra console/debug
+- [x] **Disable text selection** trên quiz content: Ngăn copy/paste câu hỏi
+- [ ] **Xóa local cache đáp án**: Đảm bảo quiz data trong memory KHÔNG chứa correct_answer ⚠️ **`stripSensitiveFieldsForCache()` tồn tại nhưng chưa verify usage**
+- [x] **Obfuscate quiz state**: Không log quiz data ra console/debug
 
 **Tiêu chí hoàn thành**: Screenshot bị block trên Android khi đang làm quiz, text không select được, inspect app memory → không thấy đáp án
 
@@ -531,12 +531,12 @@
 
 **Tiêu chí hoàn thành**: API xử lý đúng theo mode
 
-#### Huy — Frontend
-- [ ] **Design & build mode selection screen**: 2 card lớn trước khi vào quiz:
+#### Huy — Frontend ✅ (trừ 7a.3)
+- [x] **Design & build mode selection screen**: 2 card lớn trước khi vào quiz:
   - 🎓 "Luyện thi" — icon nghiêm túc, timer displayed
   - 🎮 "Trải nghiệm" — icon vui nhộn, "Học chậm, hiểu sâu"
-- [ ] **Mode state management**: Lưu mode đã chọn, pass vào API calls
-- [ ] **Conditional UI**: Timer hiện/ẩn, hint button hiện/ẩn theo mode
+- [x] **Mode state management**: Lưu mode đã chọn, pass vào API calls
+- [ ] **Conditional UI**: Timer hiện/ẩn, hint button hiện/ẩn theo mode ⚠️ **Logic tồn tại nhưng chưa wire đầy đủ với BlocBuilder**
 
 **Tiêu chí hoàn thành**: UI phân biệt rõ 2 mode, Exam mode có timer + strict, Explore mode có hints + relaxed
 

@@ -320,6 +320,16 @@ class QuizMathText extends StatelessWidget {
       return true;
     }
 
+    // Raw LaTeX commands coming directly from backend/Supabase,
+    // e.g. \sin, \cos, \frac, \sqrt, \pi, \mathbb{R}.
+    if (RegExp(r'^\\[A-Za-z]+(?:\{[^}]*\})*$').hasMatch(cleaned)) {
+      return true;
+    }
+
+    if (RegExp(r'^\\[A-Za-z]+$').hasMatch(cleaned)) {
+      return true;
+    }
+
     if (RegExp(r'[()\[\]]').hasMatch(cleaned) &&
         RegExp(r'[A-Za-z0-9π]').hasMatch(cleaned)) {
       return true;

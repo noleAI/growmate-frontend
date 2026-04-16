@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/i18n/app_strings.dart';
 
-enum GrowMateTab { today, progress, roadmap, profile, settings }
+enum GrowMateTab { today, progress, leaderboard, profile, settings }
 
 class GrowMateBottomNavBar extends StatelessWidget {
   const GrowMateBottomNavBar({
@@ -19,51 +19,58 @@ class GrowMateBottomNavBar extends StatelessWidget {
     final strings = AppStrings.of(context);
     final colors = Theme.of(context).colorScheme;
 
-    return Container(
-      padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
-        border: Border(
-          top: BorderSide(
-            color: colors.outlineVariant.withValues(alpha: 0.5),
-            width: 0.5,
+    // Fixed nav height (icon 18 + gap 4 + text ~19 + item padding 8 + outer padding 18 + margin)
+    const double navHeight = 72;
+
+    return SizedBox(
+      height: navHeight,
+      child: Container(
+        clipBehavior: Clip.none,
+        padding: const EdgeInsets.fromLTRB(14, 8, 14, 10),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: const BorderRadius.vertical(top: Radius.circular(24)),
+          border: Border(
+            top: BorderSide(
+              color: colors.outlineVariant.withValues(alpha: 0.5),
+              width: 0.5,
+            ),
           ),
         ),
-      ),
-      child: Row(
-        children: [
-          _NavItem(
-            label: strings.tabHome,
-            icon: Icons.home_rounded,
-            selected: currentTab == GrowMateTab.today,
-            onTap: () => onTabSelected(GrowMateTab.today),
-          ),
-          _NavItem(
-            label: strings.tabProgress,
-            icon: Icons.bar_chart_rounded,
-            selected: currentTab == GrowMateTab.progress,
-            onTap: () => onTabSelected(GrowMateTab.progress),
-          ),
-          _NavItem(
-            label: strings.tabRoadmap,
-            icon: Icons.route_rounded,
-            selected: currentTab == GrowMateTab.roadmap,
-            onTap: () => onTabSelected(GrowMateTab.roadmap),
-          ),
-          _NavItem(
-            label: strings.tabProfile,
-            icon: Icons.person_rounded,
-            selected: currentTab == GrowMateTab.profile,
-            onTap: () => onTabSelected(GrowMateTab.profile),
-          ),
-          _NavItem(
-            label: strings.tabSettings,
-            icon: Icons.settings_rounded,
-            selected: currentTab == GrowMateTab.settings,
-            onTap: () => onTabSelected(GrowMateTab.settings),
-          ),
-        ],
+        child: Row(
+          children: [
+            _NavItem(
+              label: strings.tabHome,
+              icon: Icons.home_rounded,
+              selected: currentTab == GrowMateTab.today,
+              onTap: () => onTabSelected(GrowMateTab.today),
+            ),
+            _NavItem(
+              label: strings.tabProgress,
+              icon: Icons.insights_rounded,
+              selected: currentTab == GrowMateTab.progress,
+              onTap: () => onTabSelected(GrowMateTab.progress),
+            ),
+            _NavItem(
+              label: strings.tabLeaderboard,
+              icon: Icons.leaderboard_rounded,
+              selected: currentTab == GrowMateTab.leaderboard,
+              onTap: () => onTabSelected(GrowMateTab.leaderboard),
+            ),
+            _NavItem(
+              label: strings.tabProfile,
+              icon: Icons.person_rounded,
+              selected: currentTab == GrowMateTab.profile,
+              onTap: () => onTabSelected(GrowMateTab.profile),
+            ),
+            _NavItem(
+              label: strings.tabSettings,
+              icon: Icons.settings_rounded,
+              selected: currentTab == GrowMateTab.settings,
+              onTap: () => onTabSelected(GrowMateTab.settings),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -96,7 +103,7 @@ class _NavItem extends StatelessWidget {
           borderRadius: BorderRadius.circular(14),
           onTap: onTap,
           child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
+            padding: const EdgeInsets.symmetric(vertical: 4),
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [

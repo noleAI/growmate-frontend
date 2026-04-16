@@ -3,12 +3,13 @@ import 'dart:convert';
 import 'package:equatable/equatable.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/app_exceptions.dart';
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../core/services/mood_state_service.dart';
-import '../../../../data/models/api_models.dart';
 import '../../domain/entities/quiz_question_template.dart';
 import '../../domain/usecases/thpt_math_2026_scoring.dart';
 import '../../data/repositories/quiz_repository.dart';
+import '../../data/repositories/quiz_api_repository.dart';
 
 sealed class QuizCubitState extends Equatable {
   const QuizCubitState({required this.answer});
@@ -31,12 +32,30 @@ final class QuizSubmitSuccessState extends QuizCubitState {
   const QuizSubmitSuccessState({
     required this.submissionId,
     required super.answer,
+    this.isCorrect = false,
+    this.xpEarned = 0,
+    this.livesRemaining,
+    this.canPlay,
+    this.nextRegenInSeconds,
   });
 
   final String submissionId;
+  final bool isCorrect;
+  final int xpEarned;
+  final int? livesRemaining;
+  final bool? canPlay;
+  final int? nextRegenInSeconds;
 
   @override
-  List<Object?> get props => <Object?>[...super.props, submissionId];
+  List<Object?> get props => <Object?>[
+    ...super.props,
+    submissionId,
+    isCorrect,
+    xpEarned,
+    livesRemaining,
+    canPlay,
+    nextRegenInSeconds,
+  ];
 }
 
 final class QuizSubmitFailureState extends QuizCubitState {
@@ -85,14 +104,47 @@ final class QuizBatchSubmitSuccessState extends QuizCubitState {
   List<Object?> get props => <Object?>[...super.props, totalSubmitted];
 }
 
+/// Emitted when the backend returns 429 — daily session limit exceeded.
+final class QuizRateLimitedState extends QuizCubitState {
+  const QuizRateLimitedState({required this.message, required super.answer});
+
+  final String message;
+
+  @override
+  List<Object?> get props => <Object?>[...super.props, message];
+}
+
+/// Emitted when the backend returns 403 — no lives remaining.
+final class QuizNoLivesState extends QuizCubitState {
+  const QuizNoLivesState({
+    required this.message,
+    required super.answer,
+    this.nextRegenInSeconds,
+  });
+
+  final String message;
+  final int? nextRegenInSeconds;
+
+  @override
+  List<Object?> get props => <Object?>[
+    ...super.props,
+    message,
+    nextRegenInSeconds,
+  ];
+}
+
 class QuizCubit extends Cubit<QuizCubitState> {
   QuizCubit({
     required QuizRepository quizRepository,
     required this.questionId,
     required this.questionText,
+    QuizApiRepository? quizApiRepository,
+    String? sessionId,
     BehavioralSignalService? signalService,
     MoodStateService? moodStateService,
   }) : _quizRepository = quizRepository,
+       _quizApiRepository = quizApiRepository,
+       _sessionId = sessionId,
        _signalService = signalService ?? BehavioralSignalService.instance,
        _moodStateService = moodStateService ?? MoodStateService.instance,
        super(const QuizIdleState());
@@ -100,6 +152,8 @@ class QuizCubit extends Cubit<QuizCubitState> {
   static int _wrongAnswersInRow = 0;
 
   final QuizRepository _quizRepository;
+  final QuizApiRepository? _quizApiRepository;
+  final String? _sessionId;
   final BehavioralSignalService _signalService;
   final MoodStateService _moodStateService;
 
@@ -134,16 +188,11 @@ class QuizCubit extends Cubit<QuizCubitState> {
     emit(QuizSubmittingState(answer: answer));
 
     try {
-      final response = await _quizRepository.submitAnswer(
+      final submitResponse = await _quizRepository.submitAnswer(
         questionId: questionId,
         answer: trimmedAnswer,
         context: <String, dynamic>{'questionText': questionText},
       );
-
-      final responseData = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final submitResponse = SubmitAnswerResponse.fromJson(responseData);
 
       final submissionId = submitResponse.submissionId.isNotEmpty
           ? submitResponse.submissionId
@@ -179,7 +228,14 @@ class QuizCubit extends Cubit<QuizCubitState> {
         return;
       }
 
-      emit(QuizSubmitSuccessState(submissionId: submissionId, answer: answer));
+      emit(
+        QuizSubmitSuccessState(
+          submissionId: submissionId,
+          answer: answer,
+          isCorrect: isCorrect,
+          xpEarned: isCorrect ? 10 : 0,
+        ),
+      );
     } catch (_) {
       emit(
         QuizSubmitFailureState(
@@ -220,32 +276,65 @@ class QuizCubit extends Cubit<QuizCubitState> {
         evaluation: evaluation,
       );
 
-      final response = await _quizRepository.submitAnswer(
-        questionId: question.id,
-        answer: jsonEncode(userAnswer.toJson()),
-        context: <String, dynamic>{
-          'questionText': question.content,
-          'questionType': question.questionType.storageValue,
-          'partNo': question.partNo,
-          'difficultyLevel': question.difficultyLevel,
-          'localEvaluation': evaluation.toJson(),
-        },
-      );
+      // Use backend API when available, fall back to legacy ApiService path.
+      final String submissionId;
+      final bool responseIsCorrect;
+      int? livesRemaining;
+      bool? canPlay;
+      int? nextRegenInSeconds;
 
-      final responseData = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final submitResponse = SubmitAnswerResponse.fromJson(responseData);
+      if (_quizApiRepository != null && _sessionId != null) {
+        // Dispatch correct field per question type to match backend contract.
+        String? selectedOption;
+        String? answerField;
+        Map<String, dynamic>? answersField;
 
-      final submissionId = submitResponse.submissionId.isNotEmpty
-          ? submitResponse.submissionId
-          : submitResponse.answerId;
+        if (userAnswer is MultipleChoiceUserAnswer) {
+          selectedOption = userAnswer.selectedOptionId;
+        } else if (userAnswer is ShortAnswerUserAnswer) {
+          answerField = userAnswer.answerText;
+        } else if (userAnswer is TrueFalseClusterUserAnswer) {
+          answersField = userAnswer.subAnswers.map(
+            (key, value) => MapEntry(key, value),
+          );
+        }
+
+        final apiResponse = await _quizApiRepository.submitAnswer(
+          sessionId: _sessionId,
+          questionId: question.id,
+          selectedOption: selectedOption,
+          answer: answerField,
+          answers: answersField,
+        );
+        submissionId = apiResponse.questionId.isNotEmpty
+            ? apiResponse.questionId
+            : question.id;
+        responseIsCorrect = apiResponse.isCorrect;
+        livesRemaining = apiResponse.livesRemaining;
+        canPlay = apiResponse.canPlay;
+        nextRegenInSeconds = apiResponse.nextRegenInSeconds;
+      } else {
+        final response = await _quizRepository.submitAnswer(
+          questionId: question.id,
+          answer: jsonEncode(userAnswer.toJson()),
+          context: <String, dynamic>{
+            'questionText': question.content,
+            'questionType': question.questionType.storageValue,
+            'partNo': question.partNo,
+            'difficultyLevel': question.difficultyLevel,
+            'localEvaluation': evaluation.toJson(),
+          },
+        );
+        submissionId = response.submissionId.isNotEmpty
+            ? response.submissionId
+            : response.answerId;
+        responseIsCorrect = response.isCorrect;
+      }
 
       if (submissionId.isEmpty) {
         throw Exception('Backend response missing submissionId/answerId.');
       }
 
-      final responseIsCorrect = submitResponse.isCorrect;
       final isCorrect = evaluation.isCorrect || responseIsCorrect;
 
       if (isCorrect) {
@@ -275,9 +364,34 @@ class QuizCubit extends Cubit<QuizCubitState> {
         QuizSubmitSuccessState(
           submissionId: submissionId,
           answer: visibleAnswer,
+          isCorrect: isCorrect,
+          xpEarned: isCorrect ? (evaluation.score * 100).round() : 0,
+          livesRemaining: livesRemaining,
+          canPlay: canPlay,
+          nextRegenInSeconds: nextRegenInSeconds,
         ),
       );
-    } catch (_) {
+    } catch (e) {
+      if (e is RateLimitException) {
+        emit(
+          QuizRateLimitedState(
+            message:
+                'Bạn đã vượt giới hạn phiên học hôm nay. Hãy nghỉ ngơi và quay lại ngày mai nhé!',
+            answer: visibleAnswer,
+          ),
+        );
+        return;
+      }
+      if (e is ForbiddenException) {
+        emit(
+          QuizNoLivesState(
+            message:
+                'Bạn đã hết tim! Hãy chờ hồi sinh hoặc xem lại bài cũ nhé.',
+            answer: visibleAnswer,
+          ),
+        );
+        return;
+      }
       emit(
         QuizSubmitFailureState(
           message: 'Không thể gửi bài lúc này. Vui lòng thử lại.',

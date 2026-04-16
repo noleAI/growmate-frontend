@@ -1,5 +1,7 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:supabase_flutter/supabase_flutter.dart';
 
 import '../models/auth_tokens.dart';
 import '../network/api_config.dart';
@@ -27,12 +29,24 @@ class AuthTokenStorage {
 
   final FlutterSecureStorage _storage;
 
+  Future<SharedPreferences> get _prefs async => SharedPreferences.getInstance();
+
   /// Lưu token response từ login/register/refresh.
   /// Trên Web, skip vì secure storage không hỗ trợ.
   Future<void> saveTokens(AuthTokenResponse tokens) async {
     if (kIsWeb) {
-      debugPrint(
-        '⚠️ Web: Skipping token storage (secure storage not supported)',
+      final prefs = await _prefs;
+      await prefs.setString(
+        ApiConfig.accessTokenStorageKey,
+        tokens.accessToken,
+      );
+      await prefs.setString(
+        ApiConfig.refreshTokenStorageKey,
+        tokens.refreshToken,
+      );
+      await prefs.setString(
+        ApiConfig.tokenExpiryStorageKey,
+        tokens.expiresAt.toIso8601String(),
       );
       return;
     }
@@ -58,36 +72,134 @@ class AuthTokenStorage {
     }
   }
 
+  /// Lưu trực tiếp access/refresh token với TTL mặc định 1 giờ.
+  Future<void> saveRawTokens({
+    required String accessToken,
+    required String refreshToken,
+    Duration ttl = const Duration(hours: 1),
+  }) async {
+    final expiresAt = DateTime.now().add(ttl);
+
+    if (kIsWeb) {
+      final prefs = await _prefs;
+      await prefs.setString(ApiConfig.accessTokenStorageKey, accessToken);
+      await prefs.setString(ApiConfig.refreshTokenStorageKey, refreshToken);
+      await prefs.setString(
+        ApiConfig.tokenExpiryStorageKey,
+        expiresAt.toIso8601String(),
+      );
+      return;
+    }
+
+    await _storage.write(
+      key: ApiConfig.accessTokenStorageKey,
+      value: accessToken,
+    );
+    await _storage.write(
+      key: ApiConfig.refreshTokenStorageKey,
+      value: refreshToken,
+    );
+    await _storage.write(
+      key: ApiConfig.tokenExpiryStorageKey,
+      value: expiresAt.toIso8601String(),
+    );
+  }
+
   /// Lấy access token hiện tại.
   /// Trên Web, luôn trả về null.
   Future<String?> getAccessToken() async {
-    if (kIsWeb) return null;
+    if (kIsWeb) {
+      final prefs = await _prefs;
+      final stored = prefs.getString(ApiConfig.accessTokenStorageKey);
+      if (stored != null && stored.isNotEmpty) {
+        return stored;
+      }
+
+      // Fallback: nếu không có token cache local, dùng session token từ Supabase.
+      try {
+        return Supabase.instance.client.auth.currentSession?.accessToken;
+      } catch (_) {
+        return null;
+      }
+    }
 
     try {
-      return _storage.read(key: ApiConfig.accessTokenStorageKey);
+      final stored = await _storage.read(key: ApiConfig.accessTokenStorageKey);
+      if (stored != null && stored.isNotEmpty) {
+        return stored;
+      }
+
+      try {
+        return Supabase.instance.client.auth.currentSession?.accessToken;
+      } catch (_) {
+        return null;
+      }
     } catch (e) {
       debugPrint('❌ Lỗi đọc access token: $e');
-      return null;
+      try {
+        return Supabase.instance.client.auth.currentSession?.accessToken;
+      } catch (_) {
+        return null;
+      }
     }
   }
 
   /// Lấy refresh token hiện tại.
   /// Trên Web, luôn trả về null.
   Future<String?> getRefreshToken() async {
-    if (kIsWeb) return null;
+    if (kIsWeb) {
+      final prefs = await _prefs;
+      final stored = prefs.getString(ApiConfig.refreshTokenStorageKey);
+      if (stored != null && stored.isNotEmpty) {
+        return stored;
+      }
+
+      try {
+        return Supabase.instance.client.auth.currentSession?.refreshToken;
+      } catch (_) {
+        return null;
+      }
+    }
 
     try {
-      return _storage.read(key: ApiConfig.refreshTokenStorageKey);
+      final stored = await _storage.read(key: ApiConfig.refreshTokenStorageKey);
+      if (stored != null && stored.isNotEmpty) {
+        return stored;
+      }
+
+      try {
+        return Supabase.instance.client.auth.currentSession?.refreshToken;
+      } catch (_) {
+        return null;
+      }
     } catch (e) {
       debugPrint('❌ Lỗi đọc refresh token: $e');
-      return null;
+      try {
+        return Supabase.instance.client.auth.currentSession?.refreshToken;
+      } catch (_) {
+        return null;
+      }
     }
   }
 
   /// Kiểm tra xem access token có còn hạn không.
   /// Trên Web, luôn trả về false.
   Future<bool> isAccessTokenValid() async {
-    if (kIsWeb) return false;
+    if (kIsWeb) {
+      final prefs = await _prefs;
+      final expiryStr = prefs.getString(ApiConfig.tokenExpiryStorageKey);
+      if (expiryStr == null || expiryStr.isEmpty) {
+        // Khi chưa có expiry local, fallback theo session hiện tại.
+        try {
+          return Supabase.instance.client.auth.currentSession != null;
+        } catch (_) {
+          return false;
+        }
+      }
+
+      final expiryTime = DateTime.parse(expiryStr);
+      return expiryTime.isAfter(DateTime.now().add(const Duration(minutes: 1)));
+    }
 
     try {
       final expiryStr = await _storage.read(
@@ -109,7 +221,13 @@ class AuthTokenStorage {
   /// Xóa toàn bộ tokens (dùng khi logout).
   /// Trên Web, skip vì secure storage không hỗ trợ.
   Future<void> clearTokens() async {
-    if (kIsWeb) return;
+    if (kIsWeb) {
+      final prefs = await _prefs;
+      await prefs.remove(ApiConfig.accessTokenStorageKey);
+      await prefs.remove(ApiConfig.refreshTokenStorageKey);
+      await prefs.remove(ApiConfig.tokenExpiryStorageKey);
+      return;
+    }
 
     try {
       await _storage.delete(key: ApiConfig.accessTokenStorageKey);
@@ -179,8 +297,6 @@ class AuthTokenStorage {
   /// Kiểm tra xem đã có tokens trong storage chưa.
   /// Trên Web, luôn trả về false.
   Future<bool> hasTokens() async {
-    if (kIsWeb) return false;
-
     final accessToken = await getAccessToken();
     return accessToken != null && accessToken.isNotEmpty;
   }

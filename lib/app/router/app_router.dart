@@ -1,10 +1,13 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
 
 import '../i18n/build_context_i18n.dart';
 import 'app_routes.dart';
+import '../../data/repositories/backend_profile_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../features/achievement/presentation/pages/achievements_page.dart';
@@ -27,8 +30,22 @@ import '../../features/privacy/data/repositories/privacy_repository.dart';
 import '../../features/privacy/presentation/pages/data_export_page.dart';
 import '../../features/privacy/presentation/pages/privacy_policy_page.dart';
 import '../../features/privacy/presentation/pages/terms_of_service_page.dart';
+import '../../features/leaderboard/presentation/pages/leaderboard_page.dart';
+import '../../features/chat/presentation/pages/chat_page.dart';
+import '../../features/multiplayer/presentation/pages/create_room_page.dart';
+import '../../features/mascot/presentation/pages/mascot_selection_page.dart';
+import '../../features/focus/presentation/pages/focus_timer_page.dart';
+import '../../features/agentic_session/presentation/pages/reasoning_dashboard_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_welcome_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_goal_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_quiz_page.dart';
+import '../../features/onboarding/presentation/pages/onboarding_result_page.dart';
+import '../../features/onboarding/presentation/cubit/onboarding_cubit.dart';
+import '../../features/onboarding/data/repositories/onboarding_repository.dart';
 import '../../features/progress/presentation/pages/progress_page.dart';
+import '../../features/progress/data/real_progress_repository.dart';
 import '../../features/quiz/data/repositories/quiz_repository.dart';
+import '../../features/quiz/data/repositories/quiz_api_repository.dart';
 import '../../features/quiz/presentation/pages/mode_selection_page.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
@@ -52,6 +69,10 @@ class AppRouter {
     required SessionHistoryRepository sessionHistoryRepository,
     required PrivacyRepository privacyRepository,
     required DataConsentRepository dataConsentRepository,
+    required OnboardingRepository onboardingRepository,
+    QuizApiRepository? quizApiRepository,
+    BackendProfileRepository? backendProfileRepository,
+    RealProgressRepository? realProgressRepository,
   }) : _authBloc = authBloc,
        _authRepository = authRepository,
        _profileRepository = profileRepository,
@@ -61,7 +82,11 @@ class AppRouter {
        _notificationRepository = notificationRepository,
        _sessionHistoryRepository = sessionHistoryRepository,
        _privacyRepository = privacyRepository,
-       _dataConsentRepository = dataConsentRepository;
+       _dataConsentRepository = dataConsentRepository,
+       _onboardingRepository = onboardingRepository,
+       _quizApiRepository = quizApiRepository,
+       _backendProfileRepository = backendProfileRepository,
+       _realProgressRepository = realProgressRepository;
 
   static const String welcomePath = AppRoutes.welcome;
   static const String loginPath = AppRoutes.login;
@@ -107,12 +132,16 @@ class AppRouter {
   final AuthRepository _authRepository;
   final ProfileRepository _profileRepository;
   final QuizRepository _quizRepository;
+  final QuizApiRepository? _quizApiRepository;
   final DiagnosisRepository _diagnosisRepository;
   final InterventionRepository _interventionRepository;
   final NotificationRepository _notificationRepository;
   final SessionHistoryRepository _sessionHistoryRepository;
   final PrivacyRepository _privacyRepository;
   final DataConsentRepository _dataConsentRepository;
+  final OnboardingRepository _onboardingRepository;
+  final BackendProfileRepository? _backendProfileRepository;
+  final RealProgressRepository? _realProgressRepository;
   bool _isSessionResolved = false;
   bool _hasAuthenticatedSession = false;
 
@@ -148,7 +177,14 @@ class AppRouter {
       }
 
       if (isAuthenticated) {
-        final hasConsent = await _dataConsentRepository.isAccepted();
+        // Derive a stable per-user key from the authenticated session email.
+        final userKey = authState is AuthAuthenticated
+            ? authState.session.email
+            : null;
+
+        final hasConsent = await _dataConsentRepository.isAccepted(
+          userKey: userKey,
+        );
 
         if (!hasConsent && !visitingConsentBypassPath) {
           return consentPath;
@@ -165,11 +201,52 @@ class AppRouter {
         if (!hasConsent && visitingAuthFlow) {
           return consentPath;
         }
+
+        // ── Onboarding redirect ──
+        // If user has consent but hasn't completed onboarding,
+        // redirect to onboarding welcome page.
+        if (hasConsent) {
+          final isOnboardingRoute = currentLocation.startsWith('/onboarding');
+          final onboardingKey = userKey != null
+              ? 'isOnboarded_$userKey'
+              : 'isOnboarded';
+          final prefs = await SharedPreferences.getInstance();
+          var isOnboarded = prefs.getBool(onboardingKey) ?? false;
+
+          // Check backend profile when local flag is false and NOT
+          // already on an onboarding route (avoid redundant fetches that
+          // cause GoRouter to rebuild the quiz page mid-flow).
+          final backendProfileRepo = _backendProfileRepository;
+          if (!isOnboarded &&
+              !isOnboardingRoute &&
+              backendProfileRepo != null) {
+            try {
+              final backendProfile = await backendProfileRepo.fetchProfile();
+              if (backendProfile.onboardedAt != null) {
+                isOnboarded = true;
+                await prefs.setBool(onboardingKey, true);
+              }
+            } catch (_) {
+              // Backend unreachable — rely on local flag.
+            }
+          }
+
+          if (!isOnboarded && !isOnboardingRoute) {
+            return AppRoutes.onboarding;
+          }
+          if (isOnboarded && isOnboardingRoute) {
+            return homePath;
+          }
+        }
       }
 
       return null;
     },
     routes: <RouteBase>[
+      // Catch-all "/" redirect — ensures the Flutter Navigator fallback
+      // (which uses "/" when the initial route can't be matched) still
+      // resolves to the home page.
+      GoRoute(path: '/', redirect: (_, state) => homePath),
       GoRoute(
         path: welcomePath,
         builder: (context, state) {
@@ -206,17 +283,13 @@ class AppRouter {
           return const TodayPage();
         },
       ),
-      GoRoute(
-        path: todayPath,
-        builder: (context, state) {
-          return const TodayPage();
-        },
-      ),
+      GoRoute(path: todayPath, redirect: (_, _) => homePath),
       GoRoute(
         path: progressPath,
         builder: (context, state) {
           return ProgressPage(
             sessionHistoryRepository: _sessionHistoryRepository,
+            realProgressRepository: _realProgressRepository,
           );
         },
       ),
@@ -294,7 +367,10 @@ class AppRouter {
       GoRoute(
         path: quizPath,
         builder: (context, state) {
-          return QuizPage(quizRepository: _quizRepository);
+          return QuizPage(
+            quizRepository: _quizRepository,
+            quizApiRepository: _quizApiRepository,
+          );
         },
       ),
       GoRoute(
@@ -378,6 +454,56 @@ class AppRouter {
             notificationRepository: _notificationRepository,
           );
         },
+      ),
+      GoRoute(
+        path: AppRoutes.leaderboard,
+        builder: (context, state) => const LeaderboardPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.chat,
+        builder: (context, state) => const ChatPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.multiplayer,
+        builder: (context, state) => const CreateRoomPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.mascotSelection,
+        builder: (context, state) => const MascotSelectionPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.focusTimer,
+        builder: (context, state) => const FocusTimerPage(),
+      ),
+      GoRoute(
+        path: AppRoutes.devReasoning,
+        builder: (context, state) => const ReasoningDashboardPage(),
+      ),
+      ShellRoute(
+        builder: (context, state, child) {
+          return BlocProvider(
+            create: (_) => OnboardingCubit(repository: _onboardingRepository),
+            child: child,
+          );
+        },
+        routes: [
+          GoRoute(
+            path: AppRoutes.onboarding,
+            builder: (context, state) => const OnboardingWelcomePage(),
+          ),
+          GoRoute(
+            path: AppRoutes.onboardingGoal,
+            builder: (context, state) => const OnboardingGoalPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.onboardingQuiz,
+            builder: (context, state) => const OnboardingQuizPage(),
+          ),
+          GoRoute(
+            path: AppRoutes.onboardingResult,
+            builder: (context, state) => const OnboardingResultPage(),
+          ),
+        ],
       ),
     ],
     errorBuilder: (context, state) {

@@ -54,8 +54,17 @@ class AgenticSessionRepository {
   Future<AgenticSessionResponse> startSession({
     required String subject,
     required String topic,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
   }) async {
-    final response = await _api.createSession(subject: subject, topic: topic);
+    final response = await _api.createSession(
+      subject: subject,
+      topic: topic,
+      mode: mode,
+      classificationLevel: classificationLevel,
+      onboardingResults: onboardingResults,
+    );
 
     _sessionId = response.sessionId;
 

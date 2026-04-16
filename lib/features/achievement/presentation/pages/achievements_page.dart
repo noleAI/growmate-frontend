@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/layout.dart';
-import '../../../../shared/widgets/top_app_bar.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../achievement_i18n.dart';
 import '../../data/models/achievement_badge.dart';
@@ -15,19 +14,40 @@ class AchievementsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
-    return Material(
-      color: theme.scaffoldBackgroundColor,
-      child: ZenPageContainer(
+    return Scaffold(
+      backgroundColor: theme.scaffoldBackgroundColor,
+      appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back_ios_new_rounded),
+          onPressed: () => Navigator.of(context).pop(),
+        ),
+        iconTheme: IconThemeData(color: theme.colorScheme.primary),
+        titleSpacing: 0,
+        title: Text(
+          context.t(vi: 'Thành tựu', en: 'Achievements'),
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: theme.colorScheme.primary,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        bottom: PreferredSize(
+          preferredSize: const Size.fromHeight(12),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
+            child: Container(
+              height: 6,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primary.withValues(alpha: 0.9),
+                borderRadius: BorderRadius.circular(999),
+              ),
+            ),
+          ),
+        ),
+      ),
+      body: ZenPageContainer(
         includeBottomSafeArea: true,
         child: Column(
           children: [
-            const GrowMateTopAppBar(),
-            const SizedBox(height: GrowMateLayout.sectionGap),
-            Text(
-              context.t(vi: 'Thành tựu', en: 'Achievements'),
-              style: theme.textTheme.headlineLarge,
-            ),
-            const SizedBox(height: GrowMateLayout.space8),
             Text(
               context.t(
                 vi: 'Ghi nhận nỗ lực tích cực, không tạo áp lực điểm số',
@@ -92,8 +112,8 @@ class AchievementsPage extends StatelessWidget {
             ),
           ],
         ),
-      ), // ZenPageContainer
-    ); // Material
+      ),
+    );
   }
 }
 

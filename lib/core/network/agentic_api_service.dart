@@ -18,6 +18,9 @@ abstract interface class AgenticApiService {
   Future<AgenticSessionResponse> createSession({
     required String subject,
     required String topic,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
   });
 
   /// PATCH /api/v1/sessions/{sessionId}
@@ -37,6 +40,13 @@ abstract interface class AgenticApiService {
     required String actionType,
     String? quizId,
     Map<String, dynamic>? responseData,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? xpData,
+    Map<String, dynamic>? onboardingResults,
+    Map<String, dynamic>? analyticsData,
+    bool isOffTopic = false,
+    bool resume = false,
   });
 
   /// POST /api/v1/orchestrator/step
@@ -47,6 +57,13 @@ abstract interface class AgenticApiService {
     String? questionId,
     Map<String, dynamic>? response,
     Map<String, dynamic>? behaviorSignals,
+    Map<String, dynamic>? xpData,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
+    Map<String, dynamic>? analyticsData,
+    bool isOffTopic = false,
+    bool resume = false,
   });
 
   // ─── Inspection ────────────────────────────────────────────────────────

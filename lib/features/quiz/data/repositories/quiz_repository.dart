@@ -1,4 +1,5 @@
 import '../../../../core/network/api_service.dart';
+import '../../../../data/models/api_models.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
 import '../../../offline/data/repositories/offline_mode_repository.dart';
 import '../../domain/entities/quiz_question_template.dart';
@@ -963,6 +964,33 @@ class QuizRepository {
         .toList(growable: false);
   }
 
+  /// Xóa các trường nhạy cảm khỏi payload câu hỏi trước khi cache disk.
+  ///
+  /// Đảm bảo `correct_option_id` và `explanation` không bị lưu xuống bộ nhớ
+  /// thiết bị. Chỉ dùng khi chuẩn bị dữ liệu để cache, KHÔNG dùng cho
+  /// in-memory question pool (vì local scoring cần chúng).
+  static Map<String, dynamic> stripSensitiveFieldsForCache(
+    Map<String, dynamic> questionJson,
+  ) {
+    final payload = Map<String, dynamic>.from(
+      questionJson['payload'] as Map? ?? <String, dynamic>{},
+    );
+    payload.remove('correct_option_id');
+    payload.remove('explanation');
+    // Strip from sub_questions in true/false cluster
+    if (payload['sub_questions'] is List) {
+      payload['sub_questions'] = (payload['sub_questions'] as List)
+          .whereType<Map>()
+          .map((sub) {
+            final subCopy = Map<String, dynamic>.from(sub);
+            subCopy.remove('explanation');
+            return subCopy;
+          })
+          .toList(growable: false);
+    }
+    return <String, dynamic>{...questionJson, 'payload': payload};
+  }
+
   Future<void> recordEvaluatedAttempt({
     required QuizQuestionTemplate question,
     required QuizQuestionUserAnswer userAnswer,
@@ -1001,17 +1029,21 @@ class QuizRepository {
     }
   }
 
-  Future<Map<String, dynamic>> submitAnswer({
+  Future<SubmitAnswerResponse> submitAnswer({
     required String questionId,
     required String answer,
     Map<String, dynamic>? context,
-  }) {
-    return _apiService.submitAnswer(
+  }) async {
+    final response = await _apiService.submitAnswer(
       sessionId: sessionId,
       questionId: questionId,
       answer: answer,
       context: context,
     );
+    final data = response['data'] is Map<String, dynamic>
+        ? response['data'] as Map<String, dynamic>
+        : <String, dynamic>{};
+    return SubmitAnswerResponse.fromJson(data);
   }
 
   Future<Map<String, dynamic>> submitBatchAnswers({

@@ -2,7 +2,6 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
-import '../../../../data/models/api_models.dart';
 import '../../../inspection/domain/inspection_runtime_store.dart';
 import '../../../notification/data/repositories/notification_repository.dart';
 import '../../data/repositories/intervention_repository.dart';
@@ -118,7 +117,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
           ? 'recovery'
           : 'academic';
 
-      final response = await _interventionRepository.submitFeedback(
+      final feedbackResponse = await _interventionRepository.submitFeedback(
         submissionId: submissionId,
         diagnosisId: diagnosisId,
         optionId: event.option.id,
@@ -128,13 +127,8 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
         skipped: event.option.id == 'skip_once',
       );
 
-      final data = response['data'] is Map<String, dynamic>
-          ? response['data'] as Map<String, dynamic>
-          : <String, dynamic>{};
-      final feedbackResponse = InterventionFeedbackResponse.fromJson(data);
-
       final qValues = feedbackResponse.updatedQValues;
-      final backendMessage = response['message']?.toString();
+      const String? backendMessage = null;
 
       _inspectionRuntimeStore.updateQValues(qValues);
       _inspectionRuntimeStore.addDecision(

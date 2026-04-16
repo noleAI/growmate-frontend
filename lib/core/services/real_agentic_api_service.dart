@@ -8,6 +8,7 @@ import '../../data/models/agentic_models.dart';
 import '../error/app_exceptions.dart';
 import '../network/agentic_api_service.dart';
 import '../network/api_config.dart';
+import '../network/hmac_signer.dart';
 
 /// Production implementation of [AgenticApiService].
 ///
@@ -40,8 +41,19 @@ class RealAgenticApiService implements AgenticApiService {
   Future<AgenticSessionResponse> createSession({
     required String subject,
     required String topic,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
   }) async {
-    final json = await _post('/sessions', {'subject': subject, 'topic': topic});
+    final body = <String, dynamic>{'subject': subject, 'topic': topic};
+    if (mode != null) body['mode'] = mode;
+    if (classificationLevel != null) {
+      body['classification_level'] = classificationLevel;
+    }
+    if (onboardingResults != null) {
+      body['onboarding_results'] = onboardingResults;
+    }
+    final json = await _post('/sessions', body);
     return AgenticSessionResponse.fromJson(json);
   }
 
@@ -62,10 +74,28 @@ class RealAgenticApiService implements AgenticApiService {
     required String actionType,
     String? quizId,
     Map<String, dynamic>? responseData,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? xpData,
+    Map<String, dynamic>? onboardingResults,
+    Map<String, dynamic>? analyticsData,
+    bool isOffTopic = false,
+    bool resume = false,
   }) async {
     final body = <String, dynamic>{'action_type': actionType};
     if (quizId != null) body['quiz_id'] = quizId;
     if (responseData != null) body['response_data'] = responseData;
+    if (mode != null) body['mode'] = mode;
+    if (classificationLevel != null) {
+      body['classification_level'] = classificationLevel;
+    }
+    if (xpData != null) body['xp_data'] = xpData;
+    if (onboardingResults != null) {
+      body['onboarding_results'] = onboardingResults;
+    }
+    if (analyticsData != null) body['analytics_data'] = analyticsData;
+    if (isOffTopic) body['is_off_topic'] = true;
+    if (resume) body['resume'] = true;
 
     final json = await _post('/sessions/$sessionId/interact', body);
     return AgenticInteractionResponse.fromJson(json);
@@ -77,11 +107,29 @@ class RealAgenticApiService implements AgenticApiService {
     String? questionId,
     Map<String, dynamic>? response,
     Map<String, dynamic>? behaviorSignals,
+    Map<String, dynamic>? xpData,
+    String? mode,
+    String? classificationLevel,
+    Map<String, dynamic>? onboardingResults,
+    Map<String, dynamic>? analyticsData,
+    bool isOffTopic = false,
+    bool resume = false,
   }) async {
     final body = <String, dynamic>{'session_id': sessionId};
     if (questionId != null) body['question_id'] = questionId;
     if (response != null) body['response'] = response;
     if (behaviorSignals != null) body['behavior_signals'] = behaviorSignals;
+    if (xpData != null) body['xp_data'] = xpData;
+    if (mode != null) body['mode'] = mode;
+    if (classificationLevel != null) {
+      body['classification_level'] = classificationLevel;
+    }
+    if (onboardingResults != null) {
+      body['onboarding_results'] = onboardingResults;
+    }
+    if (analyticsData != null) body['analytics_data'] = analyticsData;
+    if (isOffTopic) body['is_off_topic'] = true;
+    if (resume) body['resume'] = true;
 
     final json = await _post('/orchestrator/step', body);
     return OrchestratorStepResponse.fromJson(json);
@@ -137,18 +185,29 @@ class RealAgenticApiService implements AgenticApiService {
     return _parseResponse(response);
   }
 
+  /// Paths that require HMAC signing (submit-type actions via interact).
+  static final _hmacPathPattern = RegExp(r'/sessions/[^/]+/interact$');
+
   Future<Map<String, dynamic>> _post(
     String path,
     Map<String, dynamic> body,
   ) async {
     final uri = Uri.parse('$_baseUrl$path');
     final headers = await _buildHeaders();
+    final bodyBytes = utf8.encode(jsonEncode(body));
+
+    // Sign with HMAC when path matches interact endpoint.
+    if (_hmacPathPattern.hasMatch(path)) {
+      headers.addAll(
+        HmacSigner.sign(method: 'POST', path: path, bodyBytes: bodyBytes),
+      );
+    }
 
     _log('POST', path, body: body);
 
     final response = await _executeWithRetry(
       () => _httpClient
-          .post(uri, headers: headers, body: jsonEncode(body))
+          .post(uri, headers: headers, body: bodyBytes)
           .timeout(ApiConfig.receiveTimeout),
     );
 
