@@ -332,11 +332,10 @@ class _GrowMateAppState extends State<GrowMateApp> {
       sessionId: _activeSessionId!,
     );
 
-    // Upgrade chat to real backend when agentic API is available.
+    // Upgrade chat to real chatbot endpoint when agentic API is available.
     if (useAgenticBackend && _agenticApiService != null) {
       _chatRepository = RealChatRepository(
-        apiService: _agenticApiService!,
-        sessionId: _activeSessionId!,
+        getAccessToken: GlobalTokenStorage.instance.getAccessToken,
       );
     }
 

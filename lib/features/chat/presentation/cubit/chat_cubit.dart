@@ -11,9 +11,19 @@ class ChatCubit extends Cubit<ChatState> {
 
   final ChatRepository _repository;
 
-  void initialize() {
-    final greeting = _repository.getGreeting();
-    emit(ChatReady(messages: [greeting]));
+  /// Load history from server; show greeting if empty.
+  Future<void> initialize() async {
+    emit(const ChatInitial()); // show loading
+
+    final history = await _repository.loadHistory();
+
+    if (history.isEmpty) {
+      // No history yet — show greeting
+      emit(ChatReady(messages: [_repository.getGreeting()]));
+    } else {
+      // Restore conversation
+      emit(ChatReady(messages: history));
+    }
   }
 
   Future<void> sendMessage(String text) async {
@@ -72,7 +82,6 @@ class ChatCubit extends Cubit<ChatState> {
 
   void clearChat() {
     _repository.clearHistory();
-    final greeting = _repository.getGreeting();
-    emit(ChatReady(messages: [greeting]));
+    emit(ChatReady(messages: [_repository.getGreeting()]));
   }
 }
