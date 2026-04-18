@@ -69,6 +69,25 @@ class _FormulaDetailCardState extends State<FormulaDetailCard>
     );
   }
 
+  Widget _buildExampleValue(BuildContext context, Formula formula) {
+    final exampleLatex = formula.exampleLatex?.trim();
+    if (exampleLatex != null && exampleLatex.isNotEmpty) {
+      return Math.tex(
+        exampleLatex,
+        mathStyle: MathStyle.text,
+        textStyle: const TextStyle(fontSize: 15),
+        onErrorFallback: (e) => Text(exampleLatex),
+      );
+    }
+
+    final exampleText = formula.example?.trim();
+    if (exampleText != null && exampleText.isNotEmpty) {
+      return Text(exampleText);
+    }
+
+    return const SizedBox.shrink();
+  }
+
   @override
   void initState() {
     super.initState();
@@ -100,12 +119,17 @@ class _FormulaDetailCardState extends State<FormulaDetailCard>
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final f = widget.formula;
+    final title = f.title?.trim();
+    final effectiveAccuracy = widget.accuracy ?? f.masteryAccuracy;
+    final hasExample =
+        (f.exampleLatex?.trim().isNotEmpty ?? false) ||
+        (f.example?.trim().isNotEmpty ?? false);
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
       child: InkWell(
-        onTap: f.exampleLatex != null ? _toggle : null,
+        onTap: hasExample ? _toggle : null,
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: const EdgeInsets.all(12),
@@ -113,13 +137,23 @@ class _FormulaDetailCardState extends State<FormulaDetailCard>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               // Header row
+              if (title != null && title.isNotEmpty) ...[
+                Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.primary,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 6),
+              ],
               Row(
                 crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
                   Expanded(child: _buildFormulaTitle(context, f.latex)),
                   const SizedBox(width: 8),
-                  MasteryIndicator(accuracy: widget.accuracy, compact: true),
-                  if (f.exampleLatex != null) ...[
+                  MasteryIndicator(accuracy: effectiveAccuracy, compact: true),
+                  if (hasExample) ...[
                     const SizedBox(width: 4),
                     RotationTransition(
                       turns: Tween(begin: 0.0, end: 0.5).animate(_rotateCtrl),
@@ -136,7 +170,7 @@ class _FormulaDetailCardState extends State<FormulaDetailCard>
                 ),
               ),
               // Expanded example
-              if (_expanded && f.exampleLatex != null) ...[
+              if (_expanded && hasExample) ...[
                 const SizedBox(height: 10),
                 const Divider(height: 1),
                 const SizedBox(height: 10),
@@ -148,12 +182,7 @@ class _FormulaDetailCardState extends State<FormulaDetailCard>
                   ),
                 ),
                 const SizedBox(height: 4),
-                Math.tex(
-                  f.exampleLatex!,
-                  mathStyle: MathStyle.text,
-                  textStyle: const TextStyle(fontSize: 15),
-                  onErrorFallback: (e) => Text(f.exampleLatex!),
-                ),
+                _buildExampleValue(context, f),
                 if (f.exampleExplanation != null) ...[
                   const SizedBox(height: 4),
                   Text(

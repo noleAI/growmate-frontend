@@ -1,39 +1,57 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../core/error/app_exceptions.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
+import '../../../quota/presentation/cubit/quota_cubit.dart';
 import 'chat_state.dart';
 
+enum ChatSendOutcome { sent, quotaExceeded, failed, ignored }
+
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit({required ChatRepository repository})
+  ChatCubit({required ChatRepository repository, QuotaCubit? quotaCubit})
     : _repository = repository,
+      _quotaCubit = quotaCubit,
       super(const ChatInitial());
 
   final ChatRepository _repository;
+  final QuotaCubit? _quotaCubit;
 
-  /// Load history from server; show greeting if empty.
   Future<void> initialize() async {
-    emit(const ChatInitial()); // show loading
+    final quotaCubit = _quotaCubit;
 
-    final history = await _repository.loadHistory();
-
-    if (history.isEmpty) {
-      // No history yet — show greeting
+    try {
+      final history = await _repository.loadHistory();
+      if (history.isNotEmpty) {
+        emit(ChatReady(messages: history));
+      } else {
+        emit(ChatReady(messages: [_repository.getGreeting()]));
+      }
+    } catch (_) {
       emit(ChatReady(messages: [_repository.getGreeting()]));
-    } else {
-      // Restore conversation
-      emit(ChatReady(messages: history));
+    }
+
+    if (quotaCubit != null) {
+      unawaited(_syncChatQuota(quotaCubit));
     }
   }
 
-  Future<void> sendMessage(String text) async {
+  Future<ChatSendOutcome> sendMessage(String text) async {
     final current = state;
-    if (current is! ChatReady) return;
+    if (current is! ChatReady) return ChatSendOutcome.ignored;
 
     final trimmed = text.trim();
-    if (trimmed.isEmpty) return;
+    if (trimmed.isEmpty) return ChatSendOutcome.ignored;
+
+    final quotaCubit = _quotaCubit;
+    if (quotaCubit != null && !quotaCubit.canChat) {
+      return ChatSendOutcome.quotaExceeded;
+    }
+
+    final historySnapshot = _historyForRequest(current.messages);
 
     final userMessage = ChatMessage(
       id: 'user_${DateTime.now().millisecondsSinceEpoch}',
@@ -51,20 +69,55 @@ class ChatCubit extends Cubit<ChatState> {
     );
 
     try {
-      final aiResponse = await _repository.sendMessage(trimmed);
+      final sendResult = await _repository.sendMessage(
+        trimmed,
+        history: historySnapshot,
+      );
 
       final updated = state;
-      if (updated is! ChatReady) return;
+      if (updated is! ChatReady) return ChatSendOutcome.ignored;
 
       emit(
         updated.copyWith(
-          messages: [...updated.messages, aiResponse],
+          messages: [...updated.messages, sendResult.reply],
           isAiTyping: false,
         ),
       );
-    } catch (e) {
+
+      if (quotaCubit != null) {
+        if (sendResult.remainingQuota != null) {
+          quotaCubit.syncFromRemaining(sendResult.remainingQuota!);
+        } else {
+          quotaCubit.useOne();
+        }
+      }
+
+      return ChatSendOutcome.sent;
+    } on RateLimitException catch (e) {
+      _quotaCubit?.markExceeded(details: e.details);
+
       final updated = state;
-      if (updated is! ChatReady) return;
+      if (updated is! ChatReady) return ChatSendOutcome.quotaExceeded;
+
+      final quotaMessage = ChatMessage(
+        id: 'quota_${DateTime.now().millisecondsSinceEpoch}',
+        role: ChatRole.assistant,
+        content:
+            'Bạn đã dùng hết lượt chat hôm nay rồi. Mình sẽ luôn sẵn sàng hỗ trợ bạn vào ngày mai nhé! 🌙',
+        timestamp: DateTime.now(),
+      );
+
+      emit(
+        updated.copyWith(
+          messages: [...updated.messages, quotaMessage],
+          isAiTyping: false,
+        ),
+      );
+
+      return ChatSendOutcome.quotaExceeded;
+    } catch (_) {
+      final updated = state;
+      if (updated is! ChatReady) return ChatSendOutcome.failed;
 
       final errorMessage = ChatMessage(
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',
@@ -79,6 +132,8 @@ class ChatCubit extends Cubit<ChatState> {
           isAiTyping: false,
         ),
       );
+
+      return ChatSendOutcome.failed;
     }
   }
 
@@ -112,7 +167,7 @@ class ChatCubit extends Cubit<ChatState> {
     );
 
     try {
-      final aiResponse = await _repository.sendImageMessage(
+      final sendResult = await _repository.sendImageMessage(
         userMessage: trimmed,
         imageBytes: imageBytes,
         imageName: imageName,
@@ -124,10 +179,19 @@ class ChatCubit extends Cubit<ChatState> {
 
       emit(
         updated.copyWith(
-          messages: [...updated.messages, aiResponse],
+          messages: [...updated.messages, sendResult.reply],
           isAiTyping: false,
         ),
       );
+
+      final quotaCubit = _quotaCubit;
+      if (quotaCubit != null) {
+        if (sendResult.remainingQuota != null) {
+          quotaCubit.syncFromRemaining(sendResult.remainingQuota!);
+        } else {
+          quotaCubit.useOne();
+        }
+      }
     } catch (e) {
       final updated = state;
       if (updated is! ChatReady) return;
@@ -151,5 +215,21 @@ class ChatCubit extends Cubit<ChatState> {
   void clearChat() {
     _repository.clearHistory();
     emit(ChatReady(messages: [_repository.getGreeting()]));
+  }
+
+  Future<void> _syncChatQuota(QuotaCubit quotaCubit) async {
+    try {
+      final quota = await _repository.fetchQuota();
+      quotaCubit.setQuota(quota);
+    } catch (_) {
+      // Preserve chat UX if quota fetch fails; send-time 429 still updates state.
+    }
+  }
+
+  List<ChatMessage> _historyForRequest(List<ChatMessage> messages) {
+    return messages
+        .where((m) => !m.id.startsWith('greeting_'))
+        .where((m) => m.role == ChatRole.user || m.role == ChatRole.assistant)
+        .toList(growable: false);
   }
 }

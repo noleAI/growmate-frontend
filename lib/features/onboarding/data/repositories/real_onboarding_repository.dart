@@ -21,12 +21,14 @@ class RealOnboardingRepository implements OnboardingRepository {
           final rawOptions = q['options'];
           final options = <OnboardingOption>[];
           if (rawOptions is List) {
-            for (final o in rawOptions) {
+            for (var index = 0; index < rawOptions.length; index += 1) {
+              final o = rawOptions[index];
               if (o is Map) {
                 options.add(
                   OnboardingOption(
-                    id: (o['id'] ?? '').toString(),
-                    text: (o['text'] ?? '').toString(),
+                    id: (o['id'] ?? _optionIdForIndex(index)).toString(),
+                    text: (o['text'] ?? o['content'] ?? o['label'] ?? '')
+                        .toString(),
                   ),
                 );
               } else {
@@ -38,7 +40,7 @@ class RealOnboardingRepository implements OnboardingRepository {
           }
           return OnboardingQuestion(
             id: (q['id'] ?? q['question_id'] ?? '').toString(),
-            questionText: (q['content'] ?? '').toString(),
+            questionText: (q['question'] ?? q['content'] ?? '').toString(),
             options: options,
             // Backend grades server-side; correctOptionIndex unknown client-side
             correctOptionIndex: -1,
@@ -120,5 +122,13 @@ class RealOnboardingRepository implements OnboardingRepository {
 
     final json = await _client.post('/onboarding/submit', body);
     return OnboardingSubmitResponse.fromJson(json);
+  }
+
+  String _optionIdForIndex(int index) {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    if (index >= 0 && index < alphabet.length) {
+      return alphabet[index];
+    }
+    return 'OPT_${index + 1}';
   }
 }

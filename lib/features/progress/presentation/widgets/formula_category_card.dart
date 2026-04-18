@@ -33,12 +33,12 @@ class _FormulaCategoryCardState extends State<FormulaCategoryCard> {
     _expanded = widget.initiallyExpanded;
   }
 
-  double get _overallAccuracy {
+  double? get _overallAccuracy {
     final values = widget.category.formulas
         .map((f) => widget.accuracyByFormulaId[f.id])
         .whereType<double>()
         .toList();
-    if (values.isEmpty) return 0;
+    if (values.isEmpty) return widget.category.masteryAccuracy;
     return values.reduce((a, b) => a + b) / values.length;
   }
 
@@ -87,6 +87,17 @@ class _FormulaCategoryCardState extends State<FormulaCategoryCard> {
                             fontWeight: FontWeight.bold,
                           ),
                         ),
+                        if (cat.description?.trim().isNotEmpty == true) ...[
+                          const SizedBox(height: 2),
+                          Text(
+                            cat.description!.trim(),
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
                         const SizedBox(height: 2),
                         Text(
                           '${cat.formulaCount} công thức',
@@ -98,11 +109,7 @@ class _FormulaCategoryCardState extends State<FormulaCategoryCard> {
                     ),
                   ),
                   // Mastery indicator + chevron
-                  MasteryIndicator(
-                    accuracy: widget.accuracyByFormulaId.isEmpty
-                        ? null
-                        : overall,
-                  ),
+                  MasteryIndicator(accuracy: overall),
                   const SizedBox(width: 8),
                   AnimatedRotation(
                     duration: const Duration(milliseconds: 200),
@@ -114,7 +121,7 @@ class _FormulaCategoryCardState extends State<FormulaCategoryCard> {
             ),
           ),
           // Progress bar
-          if (widget.accuracyByFormulaId.isNotEmpty)
+          if (overall != null)
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 16),
               child: LinearProgressIndicator(

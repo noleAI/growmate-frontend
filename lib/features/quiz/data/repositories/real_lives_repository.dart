@@ -48,6 +48,10 @@ class RealLivesRepository implements LivesRepository {
         (json['current'] ?? json['remaining'] ?? json['current_lives']) as int?;
     final max = (json['max'] ?? json['max_lives']) as int?;
     final nextRegenInSeconds = json['next_regen_in_seconds'] as int?;
+    final nextRegenAt = json['next_regen_at'] != null
+        ? DateTime.tryParse(json['next_regen_at'].toString())
+        : null;
+    final canPlay = _toNullableBool(json['can_play']);
 
     return LivesInfo(
       currentLives: current ?? 3,
@@ -55,6 +59,30 @@ class RealLivesRepository implements LivesRepository {
       nextRegenIn: nextRegenInSeconds != null
           ? Duration(seconds: nextRegenInSeconds)
           : null,
+      nextRegenAt: nextRegenAt,
+      serverCanPlay: canPlay,
     );
+  }
+
+  static bool? _toNullableBool(Object? raw) {
+    if (raw == null) {
+      return null;
+    }
+    if (raw is bool) {
+      return raw;
+    }
+    if (raw is num) {
+      return raw != 0;
+    }
+    if (raw is String) {
+      final normalized = raw.trim().toLowerCase();
+      if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+        return true;
+      }
+      if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+        return false;
+      }
+    }
+    return null;
   }
 }

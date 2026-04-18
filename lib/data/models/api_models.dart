@@ -169,30 +169,89 @@ class InterventionFeedbackResponse {
   const InterventionFeedbackResponse({
     required this.updatedQValues,
     required this.selectedOption,
+    this.topic,
+    this.nextAction,
+    this.durationMinutes,
+    this.focusScore,
+    this.confidenceScore,
     required this.raw,
   });
 
   final Map<String, dynamic> updatedQValues;
   final Map<String, dynamic> selectedOption;
+  final String? topic;
+  final String? nextAction;
+  final int? durationMinutes;
+  final double? focusScore;
+  final double? confidenceScore;
   final Map<String, dynamic> raw;
 
   factory InterventionFeedbackResponse.fromJson(Map<String, dynamic> json) {
+    final completion = _readMap(json, const <String>[
+      'completion',
+      'session_completion',
+      'sessionCompletion',
+    ]);
+    final selectedOption = _readMap(json, const <String>[
+      'selectedOption',
+      'selected_option',
+    ]);
+
     return InterventionFeedbackResponse(
       updatedQValues: _readMap(json, const <String>[
         'updatedQValues',
         'updated_q_values',
       ]),
-      selectedOption: _readMap(json, const <String>[
-        'selectedOption',
-        'selected_option',
+      selectedOption: selectedOption,
+      topic: _firstNonEmptyString(<String>[
+        _readString(completion, const <String>['topic']),
+        _readString(json, const <String>['topic']),
+        _readString(json, const <String>[
+          'nextSuggestedTopic',
+          'next_suggested_topic',
+        ]),
+        _readString(selectedOption, const <String>['label']),
       ]),
+      nextAction: _firstNonEmptyString(<String>[
+        _readString(completion, const <String>['nextAction', 'next_action']),
+        _readString(json, const <String>['nextAction', 'next_action']),
+        _readString(selectedOption, const <String>['label']),
+      ]),
+      durationMinutes:
+          _readNullableInt(completion, const <String>[
+            'durationMinutes',
+            'duration_minutes',
+          ]) ??
+          _readNullableInt(selectedOption, const <String>[
+            'durationMinutes',
+            'duration_minutes',
+          ]) ??
+          _readNullableInt(json, const <String>[
+            'durationMinutes',
+            'duration_minutes',
+          ]),
+      focusScore:
+          _readNullableDouble(completion, const <String>[
+            'focusScore',
+            'focus',
+          ]) ??
+          _readNullableDouble(json, const <String>['focusScore', 'focus']),
+      confidenceScore:
+          _readNullableDouble(completion, const <String>[
+            'confidenceScore',
+            'confidence',
+          ]) ??
+          _readNullableDouble(json, const <String>[
+            'confidenceScore',
+            'confidence',
+          ]),
       raw: Map<String, dynamic>.from(json),
     );
   }
 
   @override
   String toString() {
-    return 'InterventionFeedbackResponse(updatedQValues: ${updatedQValues.keys.toList()}, selectedOption: $selectedOption)';
+    return 'InterventionFeedbackResponse(updatedQValues: ${updatedQValues.keys.toList()}, selectedOption: $selectedOption, topic: $topic, nextAction: $nextAction)';
   }
 }
 
@@ -303,4 +362,39 @@ List<Map<String, dynamic>> _readMapList(
       .whereType<Map>()
       .map((item) => Map<String, dynamic>.from(item))
       .toList(growable: false);
+}
+
+String? _firstNonEmptyString(Iterable<String> values) {
+  for (final value in values) {
+    final normalized = value.trim();
+    if (normalized.isNotEmpty) {
+      return normalized;
+    }
+  }
+  return null;
+}
+
+int? _readNullableInt(Map<String, dynamic> json, List<String> keys) {
+  final value = _readAny(json, keys);
+  if (value is int) {
+    return value;
+  }
+  if (value is num) {
+    return value.toInt();
+  }
+  if (value is String) {
+    return int.tryParse(value);
+  }
+  return null;
+}
+
+double? _readNullableDouble(Map<String, dynamic> json, List<String> keys) {
+  final value = _readAny(json, keys);
+  if (value is num) {
+    return value.toDouble();
+  }
+  if (value is String) {
+    return double.tryParse(value);
+  }
+  return null;
 }

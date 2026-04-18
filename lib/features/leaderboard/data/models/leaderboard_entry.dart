@@ -5,6 +5,7 @@ class LeaderboardEntry {
     required this.displayName,
     this.avatarUrl,
     required this.rank,
+    this.xp,
     required this.weeklyXp,
     required this.totalXp,
     required this.currentStreak,
@@ -16,6 +17,7 @@ class LeaderboardEntry {
   final String displayName;
   final String? avatarUrl;
   final int rank;
+  final int? xp;
   final int weeklyXp;
   final int totalXp;
   final int currentStreak;
@@ -27,13 +29,14 @@ class LeaderboardEntry {
       userId: (json['user_id'] ?? '').toString(),
       displayName: (json['display_name'] ?? '').toString(),
       avatarUrl: json['avatar_url']?.toString(),
-      rank: (json['rank'] as num?)?.toInt() ?? 0,
-      weeklyXp: (json['weekly_xp'] ?? json['xp'] ?? 0 as num).toInt(),
-      totalXp: (json['total_xp'] as num?)?.toInt() ?? 0,
-      currentStreak: (json['current_streak'] ?? json['streak'] ?? 0 as num)
-          .toInt(),
-      badgeCount: (json['badge_count'] as num?)?.toInt() ?? 0,
-      longestStreak: (json['longest_streak'] as num?)?.toInt() ?? 0,
+      rank: _toInt(json['rank']) ?? 0,
+      xp: _toInt(json['xp']),
+      weeklyXp: _toInt(json['weekly_xp']) ?? _toInt(json['xp']) ?? 0,
+      totalXp: _toInt(json['total_xp']) ?? 0,
+      currentStreak:
+          _toInt(json['current_streak']) ?? _toInt(json['streak']) ?? 0,
+      badgeCount: _toInt(json['badge_count']) ?? 0,
+      longestStreak: _toInt(json['longest_streak']) ?? 0,
     );
   }
 
@@ -42,6 +45,7 @@ class LeaderboardEntry {
     'display_name': displayName,
     'avatar_url': avatarUrl,
     'rank': rank,
+    'xp': xp,
     'weekly_xp': weeklyXp,
     'total_xp': totalXp,
     'current_streak': currentStreak,
@@ -54,6 +58,7 @@ class LeaderboardEntry {
     String? displayName,
     String? avatarUrl,
     int? rank,
+    int? xp,
     int? weeklyXp,
     int? totalXp,
     int? currentStreak,
@@ -65,6 +70,7 @@ class LeaderboardEntry {
       displayName: displayName ?? this.displayName,
       avatarUrl: avatarUrl ?? this.avatarUrl,
       rank: rank ?? this.rank,
+      xp: xp ?? this.xp,
       weeklyXp: weeklyXp ?? this.weeklyXp,
       totalXp: totalXp ?? this.totalXp,
       currentStreak: currentStreak ?? this.currentStreak,
@@ -72,4 +78,11 @@ class LeaderboardEntry {
       longestStreak: longestStreak ?? this.longestStreak,
     );
   }
+}
+
+int? _toInt(Object? raw) {
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  if (raw is String) return int.tryParse(raw);
+  return null;
 }

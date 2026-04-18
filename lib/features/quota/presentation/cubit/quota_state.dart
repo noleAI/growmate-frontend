@@ -23,7 +23,12 @@ final class QuotaLoaded extends QuotaState {
   final QuotaStatus quota;
 
   @override
-  List<Object?> get props => [quota.used, quota.limit, quota.remaining];
+  List<Object?> get props => [
+    quota.used,
+    quota.limit,
+    quota.remaining,
+    quota.resetAt,
+  ];
 }
 
 final class QuotaError extends QuotaState {

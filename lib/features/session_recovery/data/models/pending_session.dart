@@ -5,8 +5,13 @@ class PendingSession {
     this.sessionId,
     this.status,
     this.lastQuestionIndex,
+    this.nextQuestionIndex,
     this.totalQuestions,
     this.progressPercent,
+    this.mode,
+    this.pauseState,
+    this.pauseReason,
+    this.resumeContextVersion,
     this.lastActiveAt,
     this.abandonedAt,
   });
@@ -15,8 +20,13 @@ class PendingSession {
   final String? sessionId;
   final String? status;
   final int? lastQuestionIndex;
+  final int? nextQuestionIndex;
   final int? totalQuestions;
   final int? progressPercent;
+  final String? mode;
+  final bool? pauseState;
+  final String? pauseReason;
+  final int? resumeContextVersion;
   final DateTime? lastActiveAt;
   final DateTime? abandonedAt;
 
@@ -28,9 +38,16 @@ class PendingSession {
       hasPending: json['has_pending'] == true,
       sessionId: session?['session_id']?.toString(),
       status: session?['status']?.toString(),
-      lastQuestionIndex: session?['last_question_index'] as int?,
-      totalQuestions: session?['total_questions'] as int?,
-      progressPercent: session?['progress_percent'] as int?,
+      lastQuestionIndex: _parseNullableInt(session?['last_question_index']),
+      nextQuestionIndex: _parseNullableInt(session?['next_question_index']),
+      totalQuestions: _parseNullableInt(session?['total_questions']),
+      progressPercent: _parseNullableInt(session?['progress_percent']),
+      mode: session?['mode']?.toString(),
+      pauseState: _parseNullableBool(session?['pause_state']),
+      pauseReason: session?['pause_reason']?.toString(),
+      resumeContextVersion: _parseNullableInt(
+        session?['resume_context_version'],
+      ),
       lastActiveAt: session?['last_active_at'] != null
           ? DateTime.tryParse(session!['last_active_at'].toString())
           : null,
@@ -41,4 +58,42 @@ class PendingSession {
   }
 
   static const PendingSession empty = PendingSession(hasPending: false);
+}
+
+int? _parseNullableInt(Object? raw) {
+  if (raw == null) {
+    return null;
+  }
+  if (raw is int) {
+    return raw;
+  }
+  if (raw is num) {
+    return raw.toInt();
+  }
+  if (raw is String) {
+    return int.tryParse(raw);
+  }
+  return null;
+}
+
+bool? _parseNullableBool(Object? raw) {
+  if (raw == null) {
+    return null;
+  }
+  if (raw is bool) {
+    return raw;
+  }
+  if (raw is num) {
+    return raw != 0;
+  }
+  if (raw is String) {
+    final normalized = raw.trim().toLowerCase();
+    if (normalized == 'true' || normalized == '1' || normalized == 'yes') {
+      return true;
+    }
+    if (normalized == 'false' || normalized == '0' || normalized == 'no') {
+      return false;
+    }
+  }
+  return null;
 }

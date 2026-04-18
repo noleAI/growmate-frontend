@@ -36,6 +36,17 @@ class QuizMathText extends StatelessWidget {
       );
     }
 
+    // Raw backend expressions like "\lim", "\frac", "\sqrt" should
+    // be treated as a full LaTeX block first; parse failures will gracefully
+    // fall back to plain text via onErrorFallback.
+    if (_shouldRenderWholeExpressionAsLatex(normalizedText)) {
+      return _buildMathWidget(
+        originalText: normalizedText,
+        latex: _normalizeLatexExpression(normalizedText),
+        style: effectiveStyle,
+      );
+    }
+
     final inlineSpans = _buildInlineLatexSpans(
       source: normalizedText,
       style: effectiveStyle,
@@ -353,6 +364,34 @@ class QuizMathText extends StatelessWidget {
     return RegExp(r'^\(?[A-Za-z]\)?$').hasMatch(cleaned);
   }
 
+  static bool _shouldRenderWholeExpressionAsLatex(String source) {
+    final normalized = source.trim();
+    if (normalized.isEmpty) {
+      return false;
+    }
+
+    // Extended LaTeX command check: include trigonometric, logarithmic, and other
+    // commonly used math commands in addition to structural commands
+    final hasRawCoreLatex = RegExp(
+      r'\\(lim|frac|sqrt|sin|cos|tan|cot|sec|csc|ln|log|exp|pi|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|xi|rho|sigma|tau|phi|chi|psi|omega|partial|nabla|int|sum|prod|infty|approx|equiv|neq|leq|geq|leftarrow|rightarrow|leftrightarrow|to)\b',
+    ).hasMatch(normalized);
+    if (!hasRawCoreLatex) {
+      return false;
+    }
+
+    // Whole-expression mode is reserved for strings that are mostly a math
+    // expression, not a long prose sentence containing a small math fragment.
+    // Allow formulas that contain braces like e^{\sin x}
+    final startsAsExpression = RegExp(
+      r'^\s*[\\\(\[\{eE0-9a-zA-Z]',
+    ).hasMatch(normalized);
+    final hasSentenceLikeTail = RegExp(
+      r'[.!?]\s+[A-Za-z]',
+    ).hasMatch(normalized);
+
+    return startsAsExpression && !hasSentenceLikeTail;
+  }
+
   static MapEntry<String, String> _splitMathTrailingPunctuation(String input) {
     final match = RegExp(r'^(.*?)([,.!?;:]+)$').firstMatch(input.trimRight());
     if (match == null) {
@@ -412,6 +451,14 @@ class QuizMathText extends StatelessWidget {
         .replaceAll('*', r' \cdot ')
         .replaceAll('π', r'\pi ');
 
+    // Normalize escaped command prefixes from serialized sources: "\\sin" -> "\sin".
+    output = output.replaceAllMapped(
+      RegExp(r'\\\\([A-Za-z]+)'),
+      (match) => '\\${match.group(1)}',
+    );
+
+    output = _normalizeCompactFunctionCommands(output);
+
     output = _normalizeUnicodeSubscriptNotation(output);
 
     output = _normalizeSubscriptSequences(output);
@@ -438,6 +485,35 @@ class QuizMathText extends StatelessWidget {
     output = _convertNumericFractionsToLatex(output);
 
     return _convertSqrtToLatex(output);
+  }
+
+  static String _normalizeCompactFunctionCommands(String input) {
+    var output = input;
+
+    // Common malformed input from content sources: \sinx, \cos2x, \lnx, \expx.
+    // Convert to canonical function-call style for flutter_math parser.
+    const unaryCommands = <String>[
+      'sin',
+      'cos',
+      'tan',
+      'cot',
+      'sec',
+      'csc',
+      'ln',
+      'log',
+      'exp',
+    ];
+
+    for (final command in unaryCommands) {
+      output = output.replaceAllMapped(
+        RegExp(
+          '\\\\$command([A-Za-z0-9π](?:_[{]?[A-Za-z0-9]+[}]?)?(?:\\^{[^}]+}|\\^[A-Za-z0-9+-]+)?)',
+        ),
+        (match) => '\\$command ${match.group(1)}',
+      );
+    }
+
+    return output;
   }
 
   static String _normalizeSubscriptSequences(String input) {

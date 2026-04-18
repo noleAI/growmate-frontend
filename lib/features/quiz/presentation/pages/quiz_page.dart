@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
@@ -17,6 +19,7 @@ import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/ai_knowledge_card_widget.dart';
+import '../../../../data/models/agentic_models.dart' as agentic_models;
 import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../data/repositories/quiz_repository.dart';
@@ -51,6 +54,9 @@ class QuizPage extends StatefulWidget {
 }
 
 class _QuizPageState extends State<QuizPage> {
+  static const String _draftStoragePrefix = 'quiz_draft_bundle_v1';
+  static const String _advancedTimelineFlagKey =
+      'ff_quiz_advanced_agentic_timeline';
   static const int _secondsPerMultipleChoice = 35;
   static const int _secondsPerTrueFalseCluster = 60;
   static const int _secondsPerShortAnswer = 70;
@@ -93,6 +99,13 @@ class _QuizPageState extends State<QuizPage> {
   bool _isTimerExpired = false;
   String? _fetchError;
   String? _submitErrorMessage;
+  bool _didKickoffInitialLoad = false;
+  bool _didResolveResumeRoute = false;
+  String? _resumeSessionId;
+  int? _resumeStartIndex;
+  String? _resumeMode;
+  bool? _canPlayOverride;
+  int? _nextRegenInSecondsOverride;
 
   /// True when questions come from backend API (GET /quiz/next) instead of
   /// local Supabase pool. Activated when [quizApiRepository] is non-null.
@@ -101,16 +114,34 @@ class _QuizPageState extends State<QuizPage> {
   int _apiTotalQuestions = 10;
 
   Timer? _countdownTimer;
+  Timer? _draftPersistDebounce;
   int _previousLength = 0;
   AgenticSessionCubit? _agenticCubit;
   StreamSubscription<AgenticSessionState>? _agenticSub;
   late final QuizSessionGuard _sessionGuard;
   bool _showAfkOverlay = false;
   StudyMode _studyMode = StudyMode.examPrep;
+  final SubmitTapLock _submitTapLock = SubmitTapLock();
+  bool _draftRestoredFromLocal = false;
+  bool _isDraftSyncing = false;
+  DateTime? _lastDraftSavedAt;
+  bool _isAdvancedAgenticTimelineEnabled = true;
+  DateTime? _quizStartedAt;
+  DateTime? _firstAnswerAt;
+  DateTime? _lastSubmitClickedAt;
+  DateTime? _questionShownAt;
+  int _questionTypedChars = 0;
+  int _questionCorrectionCount = 0;
+  int _questionInteractionCount = 0;
+  QuizQuestionTemplate? _pendingAgenticQuestion;
+  QuizQuestionUserAnswer? _pendingAgenticAnswer;
+  int? _lastRecoveryPromptStep;
+  bool _isRecoveryPromptVisible = false;
 
   @override
   void initState() {
     super.initState();
+    unawaited(_loadClientFlags());
 
     _answerFocusNode.addListener(_onAnswerFocusChanged);
 
@@ -145,9 +176,8 @@ class _QuizPageState extends State<QuizPage> {
       await widget.quizRepository.submitSignals(
         batch
             .map(
-              (signal) => signal.toSupabaseInsert(
-                sessionId: widget.quizRepository.sessionId,
-              ),
+              (signal) =>
+                  signal.toSupabaseInsert(sessionId: _effectiveSessionId),
             )
             .toList(growable: false),
       );
@@ -157,14 +187,15 @@ class _QuizPageState extends State<QuizPage> {
     if (_studyMode == StudyMode.examPrep) {
       _startCountdownTimer();
     }
-
-    // Load questions from Supabase first, then initialize quiz
-    unawaited(_loadQuestionsAndInit());
   }
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+
+    if (!_didResolveResumeRoute) {
+      _resolveResumeRouteIfNeeded();
+    }
 
     // Initialize LivesCubit from RepositoryProvider.
     if (_livesCubit == null) {
@@ -195,6 +226,82 @@ class _QuizPageState extends State<QuizPage> {
         }
       }
     } catch (_) {}
+
+    if (!_didKickoffInitialLoad) {
+      _didKickoffInitialLoad = true;
+      unawaited(_loadQuestionsAndInit());
+    }
+  }
+
+  String get _effectiveSessionId {
+    final resumeSessionId = _resumeSessionId?.trim();
+    if (resumeSessionId != null && resumeSessionId.isNotEmpty) {
+      return resumeSessionId;
+    }
+    return widget.quizRepository.sessionId;
+  }
+
+  String? get _effectiveQuizMode {
+    final mode = _resumeMode?.trim();
+    if (mode == null || mode.isEmpty) {
+      return null;
+    }
+    return mode;
+  }
+
+  bool get _isSubmitBlockedByLives {
+    if (_canPlayOverride == false) {
+      return true;
+    }
+
+    final livesState = _livesCubit?.state;
+    if (livesState is LivesLoaded && !livesState.canPlay) {
+      return true;
+    }
+
+    return false;
+  }
+
+  void _resolveResumeRouteIfNeeded() {
+    _didResolveResumeRoute = true;
+
+    final uri = GoRouterState.of(context).uri;
+    final query = uri.queryParameters;
+    if (!_isTruthyFlag(query['resume'])) {
+      return;
+    }
+
+    final sessionId = query['session_id']?.trim();
+    if (sessionId != null && sessionId.isNotEmpty) {
+      _resumeSessionId = sessionId;
+    }
+
+    final startIndex = int.tryParse(query['next_index'] ?? '');
+    if (startIndex != null && startIndex >= 0) {
+      _resumeStartIndex = startIndex;
+    }
+
+    final mode = query['mode']?.trim();
+    if (mode != null && mode.isNotEmpty) {
+      _resumeMode = mode;
+    }
+
+    _trackQuizEvent(
+      'session_resumed',
+      data: <String, Object?>{
+        'session_id': _resumeSessionId,
+        'next_index': _resumeStartIndex,
+        'mode': _resumeMode,
+      },
+    );
+  }
+
+  bool _isTruthyFlag(String? raw) {
+    if (raw == null) {
+      return false;
+    }
+    final normalized = raw.trim().toLowerCase();
+    return normalized == '1' || normalized == 'true' || normalized == 'yes';
   }
 
   Future<void> _loadQuestionsAndInit() async {
@@ -241,20 +348,27 @@ class _QuizPageState extends State<QuizPage> {
         questionId: _activeQuestion!.id,
         questionText: _activeQuestion!.content,
         quizApiRepository: widget.quizApiRepository,
-        sessionId: widget.quizRepository.sessionId,
+        sessionId: _effectiveSessionId,
       );
 
       _signalService.startQuestion(questionId: _activeQuestion!.id);
       _sessionGuard.onQuestionShown();
+      await _restoreLocalDraftBundle(_effectiveSessionId);
+      _resetQuestionInteractionMetrics();
+      _quizStartedAt = DateTime.now();
+      _firstAnswerAt = null;
+      _lastSubmitClickedAt = null;
+      _trackQuizEvent(
+        'quiz_started',
+        data: <String, Object?>{
+          'source': 'local_pool',
+          'question_count': _questionPool.length,
+          'mode': _studyMode.name,
+        },
+      );
 
       // Persist pending session for recovery
-      unawaited(
-        SessionRecoveryLocal.save(<String, dynamic>{
-          'sessionId': widget.quizRepository.sessionId,
-          'questionCount': _questionPool.length,
-          'startedAt': DateTime.now().toIso8601String(),
-        }),
-      );
+      unawaited(_persistPendingSession(status: 'in_progress'));
 
       setState(() {
         _quizDuration = quizDuration;
@@ -264,9 +378,7 @@ class _QuizPageState extends State<QuizPage> {
       });
 
       // Bridge to agentic backend when enabled (no-op when cubit is absent)
-      unawaited(
-        _agenticCubit?.startSession(subject: 'math', topic: 'derivative'),
-      );
+      unawaited(_startAgenticSessionBridge());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -282,10 +394,12 @@ class _QuizPageState extends State<QuizPage> {
   /// Returns true if successful (API-driven mode activated).
   Future<bool> _tryLoadFirstApiQuestion() async {
     try {
-      final sessionId = widget.quizRepository.sessionId;
+      final sessionId = _effectiveSessionId;
+      final startIndex = _resumeStartIndex ?? 0;
       final response = await widget.quizApiRepository!.getNextQuestion(
         sessionId: sessionId,
-        index: 0,
+        index: startIndex,
+        mode: _effectiveQuizMode,
       );
 
       if (!mounted) return false;
@@ -298,7 +412,7 @@ class _QuizPageState extends State<QuizPage> {
       final question = QuizQuestionTemplate.fromApiResponse(apiQ);
 
       _isApiDrivenMode = true;
-      _apiQuestionIndex = apiQ.index ?? 0;
+      _apiQuestionIndex = apiQ.index ?? startIndex;
       _apiTotalQuestions = apiQ.totalQuestions ?? 10;
       _questionPool = [question];
       _activeQuestion = question;
@@ -313,14 +427,22 @@ class _QuizPageState extends State<QuizPage> {
 
       _signalService.startQuestion(questionId: question.id);
       _sessionGuard.onQuestionShown();
-
-      unawaited(
-        SessionRecoveryLocal.save(<String, dynamic>{
-          'sessionId': sessionId,
-          'questionCount': _apiTotalQuestions,
-          'startedAt': DateTime.now().toIso8601String(),
-        }),
+      await _restoreLocalDraftBundle(sessionId);
+      _resetQuestionInteractionMetrics();
+      _quizStartedAt = DateTime.now();
+      _firstAnswerAt = null;
+      _lastSubmitClickedAt = null;
+      _trackQuizEvent(
+        'quiz_started',
+        data: <String, Object?>{
+          'source': 'api',
+          'question_index': _apiQuestionIndex,
+          'total_questions': _apiTotalQuestions,
+          'mode': _studyMode.name,
+        },
       );
+
+      unawaited(_persistPendingSession(status: 'in_progress'));
 
       final timerSec = response.timerSec;
       final quizDuration = timerSec != null && timerSec > 0
@@ -334,9 +456,7 @@ class _QuizPageState extends State<QuizPage> {
         _isQuestionBankEmpty = false;
       });
 
-      unawaited(
-        _agenticCubit?.startSession(subject: 'math', topic: 'derivative'),
-      );
+      unawaited(_startAgenticSessionBridge());
 
       return true;
     } catch (e) {
@@ -352,19 +472,28 @@ class _QuizPageState extends State<QuizPage> {
     setState(() => _isLoadingQuestions = true);
 
     try {
-      final sessionId = widget.quizRepository.sessionId;
+      final sessionId = _effectiveSessionId;
       final nextIndex = _apiQuestionIndex + 1;
       final response = await widget.quizApiRepository!.getNextQuestion(
         sessionId: sessionId,
         index: nextIndex,
         totalQuestions: _apiTotalQuestions,
+        mode: _effectiveQuizMode,
       );
 
       if (!mounted) return;
 
       if (response.isCompleted || response.nextQuestion == null) {
         // Quiz session completed by backend.
+        _trackQuizEvent(
+          'quiz_completed',
+          data: <String, Object?>{
+            'total_quiz_duration': _elapsedMsSince(_quizStartedAt),
+            'source': 'api_complete',
+          },
+        );
         unawaited(SessionRecoveryLocal.clear());
+        unawaited(_clearLocalDraftBundle());
         unawaited(_agenticCubit?.endSession(status: 'completed'));
         if (mounted) {
           context.go(
@@ -393,8 +522,10 @@ class _QuizPageState extends State<QuizPage> {
       _selectedOptionId = null;
       _trueFalseAnswers = {};
       _answerController.clear();
+      _resetQuestionInteractionMetrics();
       _signalService.startQuestion(questionId: question.id);
       _sessionGuard.onQuestionShown();
+      unawaited(_persistPendingSession(status: 'in_progress'));
 
       setState(() => _isLoadingQuestions = false);
     } catch (e) {
@@ -537,6 +668,7 @@ class _QuizPageState extends State<QuizPage> {
   @override
   void dispose() {
     _countdownTimer?.cancel();
+    _draftPersistDebounce?.cancel();
     _sessionGuard.dispose();
     _agenticSub?.cancel();
     _signalService.stop();
@@ -588,7 +720,10 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   Future<bool> _confirmLeaveQuiz() async {
-    if (!_hasAnyAnswers) return true;
+    if (!_hasAnyAnswers) {
+      await SessionRecoveryLocal.clear();
+      return true;
+    }
 
     final result = await showDialog<bool>(
       context: context,
@@ -643,6 +778,8 @@ class _QuizPageState extends State<QuizPage> {
 
     // PATCH session as "abandoned" when user confirms leaving.
     if (shouldLeave) {
+      await SessionRecoveryLocal.clear();
+      await _clearLocalDraftBundle();
       unawaited(_agenticCubit?.endSession(status: 'abandoned'));
     }
 
@@ -652,25 +789,50 @@ class _QuizPageState extends State<QuizPage> {
   void _onAnswerChanged(String value) {
     _quizCubit?.onAnswerChanged(value);
 
+    if (_firstAnswerAt == null && value.trim().isNotEmpty) {
+      _firstAnswerAt = DateTime.now();
+      _trackQuizEvent(
+        'time_to_first_answer',
+        data: <String, Object?>{
+          'duration_ms': _elapsedMsSince(_quizStartedAt),
+          'question_id': _activeQuestion?.id,
+        },
+      );
+    }
+
     if (_activeQuestion!.questionType == QuizQuestionType.shortAnswer) {
       _shortAnswerDraftByQuestion[_activeQuestion!.id] = value;
+      _scheduleDraftPersist();
     }
 
     final currentLength = value.length;
 
     if (currentLength > _previousLength) {
-      _signalService.recordTypingDelta(currentLength - _previousLength);
+      final typedDelta = currentLength - _previousLength;
+      _questionTypedChars += typedDelta;
+      _questionInteractionCount += 1;
+      _signalService.recordTypingDelta(typedDelta);
     } else if (currentLength < _previousLength) {
       final correctionCount = _previousLength - currentLength;
+      _questionCorrectionCount += correctionCount;
+      _questionInteractionCount += 1;
       _signalService.recordCorrectionCount(correctionCount);
     }
 
     _previousLength = currentLength;
+    _trackQuizEvent(
+      'answer_changed',
+      data: <String, Object?>{
+        'question_id': _activeQuestion?.id,
+        'question_type': _activeQuestion?.questionType.name,
+        'answer_length': value.length,
+      },
+    );
     _signalService.registerInteraction();
   }
 
   void _selectQuestion(QuizQuestionTemplate question) {
-    if (_activeQuestion?.id == question.id) {
+    if (identical(_activeQuestion, question)) {
       return;
     }
 
@@ -680,15 +842,24 @@ class _QuizPageState extends State<QuizPage> {
     setState(() {
       _persistDraftForActiveQuestion();
       _activeQuestion = question;
+      if (_isApiDrivenMode) {
+        final selectedIndex = _questionPool.indexOf(question);
+        if (selectedIndex >= 0) {
+          _apiQuestionIndex = selectedIndex;
+        }
+      }
       _restoreDraftForActiveQuestion();
       _showHint = false;
     });
 
+    _resetQuestionInteractionMetrics();
     _signalService.startQuestion(questionId: question.id);
+    unawaited(_persistPendingSession(status: 'in_progress'));
   }
 
   void _onTrueFalseChanged(String statementId, bool value) {
     HapticFeedback.lightImpact();
+    _questionInteractionCount += 1;
     _signalService.registerInteraction();
     setState(() {
       _trueFalseAnswers = <String, bool>{
@@ -700,6 +871,442 @@ class _QuizPageState extends State<QuizPage> {
         _trueFalseAnswers,
       );
     });
+    if (_firstAnswerAt == null) {
+      _firstAnswerAt = DateTime.now();
+      _trackQuizEvent(
+        'time_to_first_answer',
+        data: <String, Object?>{
+          'duration_ms': _elapsedMsSince(_quizStartedAt),
+          'question_id': _activeQuestion?.id,
+        },
+      );
+    }
+    _trackQuizEvent(
+      'answer_changed',
+      data: <String, Object?>{
+        'question_id': _activeQuestion?.id,
+        'question_type': _activeQuestion?.questionType.name,
+        'statement_id': statementId,
+        'value': value,
+      },
+    );
+    _scheduleDraftPersist();
+  }
+
+  String _draftStorageKey(String sessionId) {
+    return '${_draftStoragePrefix}_${sessionId.trim()}';
+  }
+
+  bool _tryAcquireSubmitTapLock() {
+    if (!_submitTapLock.tryAcquire()) {
+      return false;
+    }
+    unawaited(
+      Future<void>.delayed(const Duration(milliseconds: 700), () {
+        _submitTapLock.release();
+      }),
+    );
+    return true;
+  }
+
+  void _scheduleDraftPersist() {
+    _draftPersistDebounce?.cancel();
+    if (mounted && !_isDraftSyncing) {
+      setState(() {
+        _isDraftSyncing = true;
+      });
+    }
+    _draftPersistDebounce = Timer(const Duration(milliseconds: 350), () {
+      unawaited(_persistPendingSession(status: 'in_progress'));
+    });
+  }
+
+  Future<void> _startAgenticSessionBridge() async {
+    final cubit = _agenticCubit;
+    final question = _activeQuestion;
+    if (cubit == null || question == null) {
+      return;
+    }
+
+    final resolvedTopic =
+        question.topicName?.trim().isNotEmpty == true
+            ? question.topicName!.trim()
+            : question.topicCode?.trim().isNotEmpty == true
+            ? question.topicCode!.trim()
+            : 'quiz_session';
+
+    await cubit.startSession(
+      subject: question.subject.trim().isEmpty ? 'math' : question.subject,
+      topic: resolvedTopic,
+    );
+  }
+
+  void _queuePendingAgenticSubmission({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) {
+    _pendingAgenticQuestion = question;
+    _pendingAgenticAnswer = answer;
+  }
+
+  void _clearPendingAgenticSubmission() {
+    _pendingAgenticQuestion = null;
+    _pendingAgenticAnswer = null;
+  }
+
+  void _flushPendingAgenticSubmission() {
+    final question = _pendingAgenticQuestion;
+    final answer = _pendingAgenticAnswer;
+    _clearPendingAgenticSubmission();
+
+    if (question == null || answer == null) {
+      return;
+    }
+
+    unawaited(_runAgenticPipelineForAnswer(question: question, answer: answer));
+  }
+
+  Future<void> _runAgenticPipelineForAnswer({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) async {
+    final cubit = _agenticCubit;
+    if (cubit == null) {
+      return;
+    }
+
+    final behaviorSignals = _buildAgenticBehaviorSignals();
+    final responsePayload = _buildAgenticResponsePayload(
+      question: question,
+      answer: answer,
+    );
+
+    cubit.sendBehaviorSignal(
+      typingSpeed: (behaviorSignals['typing_speed'] as num?)?.toDouble() ?? 0.0,
+      idleTime: (behaviorSignals['idle_time'] as num?)?.toDouble() ?? 0.0,
+      correctionRate:
+          (behaviorSignals['correction_rate'] as num?)?.toDouble() ?? 0.0,
+      responseTime: (behaviorSignals['response_time'] as num?)?.toDouble(),
+    );
+
+    await cubit.runFullStep(
+      questionId: question.id,
+      response: responsePayload,
+      behaviorSignals: behaviorSignals,
+    );
+  }
+
+  Map<String, dynamic> _buildAgenticResponsePayload({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) {
+    final evaluation = ThptMath2026Scoring.evaluate(
+      question: question,
+      answer: answer,
+    );
+
+    return <String, dynamic>{
+      'question_id': question.id,
+      'question_type': question.questionType.storageValue,
+      'question_text': question.content,
+      'user_answer': answer.toJson(),
+      'answer_text': _serializeAnswerForSubmission(answer),
+      'question_index': _currentQuestionIndex,
+      'total_questions': _displayTotalQuestions,
+      'part_no': question.partNo,
+      'difficulty_level': question.difficultyLevel,
+      'study_mode': _studyMode.name,
+      'local_evaluation': evaluation.toJson(),
+      if (question.topicCode?.trim().isNotEmpty == true)
+        'topic_code': question.topicCode,
+      if (question.topicName?.trim().isNotEmpty == true)
+        'topic_name': question.topicName,
+      if (question.metadata.isNotEmpty) 'metadata': question.metadata,
+    };
+  }
+
+  Map<String, dynamic> _buildAgenticBehaviorSignals() {
+    final elapsedMs = _elapsedMsSince(_questionShownAt);
+    final responseTimeSec = elapsedMs == null ? null : elapsedMs / 1000;
+    final typingSpeed =
+        responseTimeSec == null || responseTimeSec <= 0
+            ? 0.0
+            : _questionTypedChars / responseTimeSec;
+    final correctionRate = _questionTypedChars <= 0
+        ? 0.0
+        : (_questionCorrectionCount / _questionTypedChars).clamp(0.0, 1.0);
+    final idleTime = _signalService.hasHighIdleTime()
+        ? math.max(9.0, (responseTimeSec ?? 0) * 0.35)
+        : 0.0;
+
+    return <String, dynamic>{
+      'typing_speed': typingSpeed,
+      'idle_time': idleTime,
+      'correction_rate': correctionRate,
+      'response_time': responseTimeSec,
+      'interaction_count': _questionInteractionCount,
+      'study_mode': _studyMode.name,
+    };
+  }
+
+  Future<void> _showRecoverySuggestionSheet({
+    required String message,
+    int? stepCount,
+  }) async {
+    if (!mounted || _isRecoveryPromptVisible) {
+      return;
+    }
+    if (stepCount != null && _lastRecoveryPromptStep == stepCount) {
+      return;
+    }
+
+    _lastRecoveryPromptStep = stepCount;
+    _isRecoveryPromptVisible = true;
+
+    final shouldOpenRecovery = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.t(
+                    vi: 'AI đề xuất giảm tải tạm thời',
+                    en: 'AI suggests a lighter recovery step',
+                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(context.t(vi: 'Tiếp tục làm bài', en: 'Stay here')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: Text(
+                          context.t(vi: 'Mở recovery mode', en: 'Open recovery'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    _isRecoveryPromptVisible = false;
+    if (shouldOpenRecovery == true && mounted) {
+      final reason = Uri.encodeQueryComponent(message);
+      context.go('${AppRoutes.recovery}?reason=$reason');
+    }
+  }
+
+  Future<void> _loadClientFlags() async {
+    final prefs = await SharedPreferences.getInstance();
+    final enabled = prefs.getBool(_advancedTimelineFlagKey) ?? true;
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAdvancedAgenticTimelineEnabled = enabled;
+    });
+  }
+
+  Future<void> _setAdvancedTimelineEnabled(bool enabled) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_advancedTimelineFlagKey, enabled);
+    if (!mounted) {
+      return;
+    }
+    setState(() {
+      _isAdvancedAgenticTimelineEnabled = enabled;
+    });
+    _trackQuizEvent(
+      'feature_flag_changed',
+      data: <String, Object?>{
+        'flag': _advancedTimelineFlagKey,
+        'enabled': enabled,
+      },
+    );
+  }
+
+  void _trackQuizEvent(
+    String eventName, {
+    Map<String, Object?> data = const {},
+  }) {
+    final payload = <String, Object?>{
+      'event': eventName,
+      'session_id': _effectiveSessionId,
+      'timestamp': DateTime.now().toUtc().toIso8601String(),
+      ...data,
+    };
+    debugPrint('QUIZ_EVENT ${jsonEncode(payload)}');
+  }
+
+  int? _elapsedMsSince(DateTime? start) {
+    if (start == null) {
+      return null;
+    }
+    return DateTime.now().difference(start).inMilliseconds;
+  }
+
+  Future<void> _clearLocalDraftBundle() async {
+    final sessionId = _effectiveSessionId.trim();
+    if (sessionId.isEmpty) {
+      return;
+    }
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_draftStorageKey(sessionId));
+  }
+
+  Future<void> _saveLocalDraftBundle({
+    required String sessionId,
+    required String status,
+  }) async {
+    final trimmedSessionId = sessionId.trim();
+    if (trimmedSessionId.isEmpty) {
+      return;
+    }
+
+    final payload = <String, dynamic>{
+      'sessionId': trimmedSessionId,
+      'updatedAt': DateTime.now().toUtc().toIso8601String(),
+      'status': status,
+      'selectedOptionByQuestion': Map<String, String>.from(
+        _selectedOptionByQuestion,
+      ),
+      'shortAnswerDraftByQuestion': Map<String, String>.from(
+        _shortAnswerDraftByQuestion,
+      ),
+      'trueFalseDraftByQuestion': _trueFalseDraftByQuestion.map(
+        (k, v) => MapEntry(k, v.map((sk, sv) => MapEntry(sk, sv))),
+      ),
+    };
+
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setString(
+        _draftStorageKey(trimmedSessionId),
+        jsonEncode(payload),
+      );
+      if (!mounted) return;
+      setState(() {
+        _draftRestoredFromLocal = false;
+        _isDraftSyncing = false;
+        _lastDraftSavedAt = DateTime.now();
+      });
+    } catch (_) {
+      if (!mounted) return;
+      setState(() {
+        _isDraftSyncing = false;
+      });
+    }
+  }
+
+  Future<void> _restoreLocalDraftBundle(String sessionId) async {
+    final trimmedSessionId = sessionId.trim();
+    if (trimmedSessionId.isEmpty) {
+      return;
+    }
+
+    final prefs = await SharedPreferences.getInstance();
+    final raw = prefs.getString(_draftStorageKey(trimmedSessionId));
+    if (raw == null || raw.trim().isEmpty) {
+      return;
+    }
+
+    try {
+      final decoded = jsonDecode(raw);
+      if (decoded is! Map<String, dynamic>) {
+        return;
+      }
+
+      final selectedRaw = decoded['selectedOptionByQuestion'];
+      if (selectedRaw is Map) {
+        _selectedOptionByQuestion
+          ..clear()
+          ..addAll(
+            selectedRaw.map<String, String>(
+              (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+            ),
+          );
+      }
+
+      final shortRaw = decoded['shortAnswerDraftByQuestion'];
+      if (shortRaw is Map) {
+        _shortAnswerDraftByQuestion
+          ..clear()
+          ..addAll(
+            shortRaw.map<String, String>(
+              (key, value) => MapEntry(key.toString(), value?.toString() ?? ''),
+            ),
+          );
+      }
+
+      final trueFalseRaw = decoded['trueFalseDraftByQuestion'];
+      if (trueFalseRaw is Map) {
+        _trueFalseDraftByQuestion
+          ..clear()
+          ..addAll(
+            trueFalseRaw.map<String, Map<String, bool>>((key, value) {
+              if (value is! Map) {
+                return MapEntry(key.toString(), <String, bool>{});
+              }
+              return MapEntry(
+                key.toString(),
+                value.map<String, bool>(
+                  (subKey, subValue) =>
+                      MapEntry(subKey.toString(), subValue == true),
+                ),
+              );
+            }),
+          );
+      }
+
+      _restoreDraftForActiveQuestion();
+      if (mounted) {
+        setState(() {
+          _draftRestoredFromLocal = true;
+          _isDraftSyncing = false;
+        });
+      }
+      _trackQuizEvent(
+        'answer_restored',
+        data: <String, Object?>{
+          'multiple_choice_count': _selectedOptionByQuestion.length,
+          'short_answer_count': _shortAnswerDraftByQuestion.length,
+          'true_false_count': _trueFalseDraftByQuestion.length,
+        },
+      );
+    } catch (_) {
+      await prefs.remove(_draftStorageKey(trimmedSessionId));
+    }
   }
 
   void _persistDraftForActiveQuestion() {
@@ -743,6 +1350,14 @@ class _QuizPageState extends State<QuizPage> {
       ..selection = TextSelection.collapsed(offset: shortAnswer.length);
 
     _previousLength = shortAnswer.length;
+  }
+
+  void _resetQuestionInteractionMetrics() {
+    _questionShownAt = DateTime.now();
+    _questionTypedChars = 0;
+    _questionCorrectionCount = 0;
+    _questionInteractionCount = 0;
+    _previousLength = _answerController.text.length;
   }
 
   void _toggleHint() {
@@ -894,6 +1509,25 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _submitCurrentAnswer() {
+    if (!_tryAcquireSubmitTapLock()) {
+      return;
+    }
+
+    final activeQuestion = _activeQuestion;
+    if (activeQuestion == null) {
+      return;
+    }
+
+    _lastSubmitClickedAt = DateTime.now();
+    _trackQuizEvent(
+      'submit_clicked',
+      data: <String, Object?>{
+        'scope': 'single',
+        'question_id': _activeQuestion?.id,
+        'answered_count': _answeredCount,
+      },
+    );
+
     _sessionGuard.onAnswerSubmitted();
     final userAnswer = _buildUserAnswer(context);
     if (userAnswer == null) {
@@ -906,44 +1540,110 @@ class _QuizPageState extends State<QuizPage> {
 
     HapticFeedback.mediumImpact();
     _signalService.markSubmitted();
-    _quizCubit?.submitTypedAnswer(
-      question: _activeQuestion!,
-      userAnswer: userAnswer,
+    _syncDraftForQuestion(activeQuestion.id, userAnswer);
+    unawaited(_persistPendingSession(status: 'in_progress'));
+
+    if (_isApiDrivenMode) {
+      _queuePendingAgenticSubmission(
+        question: activeQuestion,
+        answer: userAnswer,
+      );
+      final submitFuture = _quizCubit?.submitTypedAnswer(
+        question: activeQuestion,
+        userAnswer: userAnswer,
+      );
+      if (submitFuture != null) {
+        unawaited(submitFuture);
+      }
+      return;
+    }
+
+    unawaited(
+      _runAgenticPipelineForAnswer(question: activeQuestion, answer: userAnswer),
     );
 
-    // Mirror to agentic backend when enabled
-    if (_agenticCubit != null) {
-      unawaited(
-        _agenticCubit!.submitAnswer(
-          questionId: _activeQuestion!.id,
-          responseData: _buildAgenticResponseData(userAnswer),
+    final currentIndex = _currentQuestionIndex;
+
+    if (currentIndex >= 0 && currentIndex < _submissionTargetCount - 1) {
+      _moveToAdjacentQuestion(1);
+    } else {
+      _showInputWarning(
+        context,
+        context.t(
+          vi: 'Đã lưu đủ câu. Nhấn "Nộp toàn bộ bài" để AI chấm.',
+          en: 'Required answers saved. Tap "Submit all" for AI grading.',
         ),
       );
     }
   }
 
-  /// Builds the response data map for the agentic backend from a typed answer.
-  Map<String, dynamic> _buildAgenticResponseData(
-    QuizQuestionUserAnswer answer,
-  ) {
-    if (answer is MultipleChoiceUserAnswer) {
-      return <String, dynamic>{'selected_option': answer.selectedOptionId};
-    } else if (answer is TrueFalseClusterUserAnswer) {
-      return <String, dynamic>{'sub_answers': answer.subAnswers};
-    } else if (answer is ShortAnswerUserAnswer) {
-      return <String, dynamic>{'answer_text': answer.answerText};
+  void _syncDraftForQuestion(String questionId, QuizQuestionUserAnswer answer) {
+    switch (answer) {
+      case MultipleChoiceUserAnswer(:final selectedOptionId):
+        _selectedOptionByQuestion[questionId] = selectedOptionId;
+      case TrueFalseClusterUserAnswer(:final subAnswers):
+        _trueFalseDraftByQuestion[questionId] = Map<String, bool>.from(
+          subAnswers,
+        );
+      case ShortAnswerUserAnswer(:final answerText):
+        _shortAnswerDraftByQuestion[questionId] = answerText;
     }
-    return <String, dynamic>{};
+  }
+
+  String _serializeAnswerForSubmission(QuizQuestionUserAnswer answer) {
+    return switch (answer) {
+      MultipleChoiceUserAnswer(:final selectedOptionId) => selectedOptionId,
+      TrueFalseClusterUserAnswer(:final subAnswers) => jsonEncode(subAnswers),
+      ShortAnswerUserAnswer(:final answerText) => answerText,
+    };
+  }
+
+  QuizQuestionUserAnswer? _buildAnswerFromDraft(QuizQuestionTemplate question) {
+    switch (question.questionType) {
+      case QuizQuestionType.multipleChoice:
+        final selected = _selectedOptionByQuestion[question.id]?.trim();
+        if (selected == null || selected.isEmpty) {
+          return null;
+        }
+        return MultipleChoiceUserAnswer(selectedOptionId: selected);
+      case QuizQuestionType.trueFalseCluster:
+        final payload = question.payload;
+        if (payload is! TrueFalseClusterPayload) {
+          return null;
+        }
+        final answers = Map<String, bool>.from(
+          _trueFalseDraftByQuestion[question.id] ?? const <String, bool>{},
+        );
+        if (answers.length < payload.subQuestions.length) {
+          return null;
+        }
+        return TrueFalseClusterUserAnswer(subAnswers: answers);
+      case QuizQuestionType.shortAnswer:
+        final value = _shortAnswerDraftByQuestion[question.id]?.trim() ?? '';
+        if (value.isEmpty) {
+          return null;
+        }
+        return ShortAnswerUserAnswer(answerText: value);
+    }
   }
 
   /// Handles agentic session state changes from the real-time stream.
   void _onAgenticStateChanged(AgenticSessionState state) {
     if (!mounted) return;
     if (state.isRecovery) {
-      final reason = Uri.encodeQueryComponent(
-        'Hệ thống AI phát hiện bạn cần nghỉ ngơi.',
+      final message =
+          state.currentContent?.trim().isNotEmpty == true
+              ? state.currentContent!.trim()
+              : context.t(
+                  vi: 'Hệ thống AI phát hiện bạn đang cần một nhịp nghỉ ngắn để giảm tải nhận thức.',
+                  en: 'The AI detected that a short recovery step may help lower your cognitive load.',
+                );
+      unawaited(
+        _showRecoverySuggestionSheet(
+          message: message,
+          stepCount: state.stepCount,
+        ),
       );
-      context.go('${AppRoutes.recovery}?reason=$reason');
     }
   }
 
@@ -953,6 +1653,80 @@ class _QuizPageState extends State<QuizPage> {
   /// from backend instead of the growing pool length.
   int get _displayTotalQuestions =>
       _isApiDrivenMode ? _apiTotalQuestions : _questionPool.length;
+
+  /// Number of answers required before triggering AI grading.
+  int get _submissionTargetCount {
+    if (_isApiDrivenMode) {
+      return _apiTotalQuestions;
+    }
+    return math.min(10, _questionPool.length);
+  }
+
+  bool get _hasSavedAnswersForSubmissionTarget {
+    final target = _submissionTargetCount;
+    if (target <= 0 || _questionPool.length < target) {
+      return false;
+    }
+
+    final submissionQuestions = _questionPool
+        .take(target)
+        .toList(growable: false);
+    return submissionQuestions.every((question) {
+      return _buildAnswerFromDraft(question) != null;
+    });
+  }
+
+  int get _activeQuestionIndexForPending {
+    return _currentQuestionIndex;
+  }
+
+  int get _currentQuestionIndex {
+    if (_questionPool.isEmpty) {
+      return 0;
+    }
+
+    if (_isApiDrivenMode) {
+      return _apiQuestionIndex.clamp(0, _questionPool.length - 1).toInt();
+    }
+
+    if (_activeQuestion == null) {
+      return 0;
+    }
+
+    final indexByIdentity = _questionPool.indexOf(_activeQuestion!);
+    if (indexByIdentity >= 0) {
+      return indexByIdentity;
+    }
+
+    final indexById = _questionPool.indexWhere(
+      (q) => q.id == _activeQuestion!.id,
+    );
+    return indexById < 0 ? 0 : indexById;
+  }
+
+  Future<void> _persistPendingSession({required String status}) async {
+    final sessionId = _effectiveSessionId;
+    if (sessionId.trim().isEmpty) {
+      return;
+    }
+
+    final totalQuestions = math.max(
+      _isApiDrivenMode ? _apiTotalQuestions : _questionPool.length,
+      1,
+    );
+    final boundedIndex = _activeQuestionIndexForPending
+        .clamp(0, totalQuestions - 1)
+        .toInt();
+
+    await SessionRecoveryLocal.saveSnapshot(
+      sessionId: sessionId,
+      lastQuestionIndex: boundedIndex,
+      totalQuestions: totalQuestions,
+      status: status,
+    );
+
+    await _saveLocalDraftBundle(sessionId: sessionId, status: status);
+  }
 
   Future<void> _showTimerExpiredAndAutoSubmit() async {
     if (!mounted) return;
@@ -976,29 +1750,86 @@ class _QuizPageState extends State<QuizPage> {
 
     if (!mounted) return;
 
-    // Flag so the listener navigates to diagnosis instead of loading next question
-    _isSubmittingEntireQuiz = true;
-
-    // Auto-submit entire quiz
-    _submitCurrentAnswer();
+    // Auto-submit full batch when timer expires.
+    await _submitEntireQuiz();
   }
 
   Future<void> _submitEntireQuiz() async {
+    if (!_tryAcquireSubmitTapLock()) {
+      return;
+    }
+
+    _lastSubmitClickedAt = DateTime.now();
+    _trackQuizEvent(
+      'submit_clicked',
+      data: <String, Object?>{
+        'scope': 'batch',
+        'answered_count': _answeredCount,
+        'target_count': _submissionTargetCount,
+      },
+    );
+
     // Persist current active question draft first
     _persistDraftForActiveQuestion();
 
-    final answered = _answeredCount;
-    final total = _displayTotalQuestions;
+    final activeAnswer = _buildUserAnswer(context);
+    if (activeAnswer == null) {
+      return;
+    }
+    _syncDraftForQuestion(_activeQuestion!.id, activeAnswer);
 
-    if (answered == 0) {
+    final submissionQuestions = _questionPool
+        .take(_submissionTargetCount)
+        .toList(growable: false);
+
+    final total = submissionQuestions.length;
+    final answered = submissionQuestions.where(_questionHasAnswer).length;
+
+    if (total == 0) {
       _showInputWarning(
         context,
         context.t(
-          vi: 'Trả lời ít nhất 1 câu trước khi nộp.',
-          en: 'Answer at least 1 question first.',
+          vi: 'Không có câu hỏi để nộp.',
+          en: 'No questions available for submission.',
         ),
       );
       return;
+    }
+
+    if (answered < total) {
+      final firstMissing = submissionQuestions.firstWhere(
+        (q) => !_questionHasAnswer(q),
+      );
+      _selectQuestion(firstMissing);
+      _showInputWarning(
+        context,
+        context.t(
+          vi: 'Bạn cần trả lời đủ $total/$total câu trước khi nộp.',
+          en: 'Please answer all $total/$total questions before submitting.',
+        ),
+      );
+      return;
+    }
+
+    final answerEntries = <Map<String, dynamic>>[];
+    for (final question in submissionQuestions) {
+      final answer = _buildAnswerFromDraft(question);
+      if (answer == null) {
+        _selectQuestion(question);
+        _showInputWarning(
+          context,
+          context.t(
+            vi: 'Thiếu dữ liệu câu trả lời ở một số câu. Vui lòng kiểm tra lại.',
+            en: 'Some answers are incomplete. Please review and try again.',
+          ),
+        );
+        return;
+      }
+
+      answerEntries.add(<String, dynamic>{
+        'question_id': question.id,
+        'answer': _serializeAnswerForSubmission(answer),
+      });
     }
 
     final shouldSubmit = await showDialog<bool>(
@@ -1046,8 +1877,8 @@ class _QuizPageState extends State<QuizPage> {
               onPressed: () => Navigator.of(dialogContext).pop(true),
               child: Text(
                 context.t(
-                  vi: 'Nộp bài ($answered câu)',
-                  en: 'Submit ($answered answers)',
+                  vi: 'Nộp bài ($total câu)',
+                  en: 'Submit ($total answers)',
                 ),
               ),
             ),
@@ -1060,9 +1891,12 @@ class _QuizPageState extends State<QuizPage> {
 
     // Flag so the listener navigates to diagnosis instead of loading next question
     _isSubmittingEntireQuiz = true;
+    setState(() {
+      _isNavigatingToDiagnosis = true;
+      _submitErrorMessage = null;
+    });
 
-    // Submit the current active question's answer if it has one
-    _submitCurrentAnswer();
+    _quizCubit?.submitAllAnswers(answerEntries);
   }
 
   TextStyle _questionContentStyle(ThemeData theme, String content) {
@@ -1110,9 +1944,7 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
-    final currentIndex = _questionPool.indexWhere(
-      (item) => item.id == _activeQuestion!.id,
-    );
+    final currentIndex = _currentQuestionIndex;
     if (currentIndex < 0) {
       return;
     }
@@ -1184,7 +2016,7 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                     itemBuilder: (itemContext, index) {
                       final question = _questionPool[index];
-                      final isSelected = question.id == _activeQuestion!.id;
+                      final isSelected = index == _currentQuestionIndex;
                       final isAnswered = _questionHasAnswer(question);
 
                       final backgroundColor = isSelected
@@ -1414,6 +2246,19 @@ class _QuizPageState extends State<QuizPage> {
                     child: BlocConsumer<QuizCubit, QuizCubitState>(
                       listener: (context, state) {
                         if (state is QuizSubmitFailureState) {
+                          _clearPendingAgenticSubmission();
+                          _trackQuizEvent(
+                            'submit_failed',
+                            data: <String, Object?>{
+                              'scope': _isSubmittingEntireQuiz
+                                  ? 'batch'
+                                  : 'single',
+                              'error': state.message,
+                              'submit_latency_client': _elapsedMsSince(
+                                _lastSubmitClickedAt,
+                              ),
+                            },
+                          );
                           final localizedMessage = _localizedQuizMessage(
                             context,
                             state.message,
@@ -1438,9 +2283,55 @@ class _QuizPageState extends State<QuizPage> {
                           }
                         }
 
+                        if (state is QuizBatchSubmittingState) {
+                          _trackQuizEvent(
+                            'submit_in_flight',
+                            data: <String, Object?>{'scope': 'batch'},
+                          );
+                          setState(() {
+                            _isNavigatingToDiagnosis = true;
+                            _submitErrorMessage = null;
+                          });
+                        }
+
                         if (state is QuizSubmitSuccessState) {
+                          _flushPendingAgenticSubmission();
+                          _trackQuizEvent(
+                            'submit_succeeded',
+                            data: <String, Object?>{
+                              'scope': _isSubmittingEntireQuiz
+                                  ? 'batch'
+                                  : 'single',
+                              'submit_latency_client': _elapsedMsSince(
+                                _lastSubmitClickedAt,
+                              ),
+                              'is_correct': state.isCorrect,
+                              'xp_earned': state.xpEarned,
+                            },
+                          );
+                          if (_isSubmittingEntireQuiz) {
+                            _trackQuizEvent(
+                              'quiz_completed',
+                              data: <String, Object?>{
+                                'total_quiz_duration': _elapsedMsSince(
+                                  _quizStartedAt,
+                                ),
+                              },
+                            );
+                          }
                           if (_isNavigatingToDiagnosis) {
                             return;
+                          }
+
+                          if (state.canPlay != null ||
+                              state.nextRegenInSeconds != null) {
+                            setState(() {
+                              _canPlayOverride =
+                                  state.canPlay ?? _canPlayOverride;
+                              _nextRegenInSecondsOverride =
+                                  state.nextRegenInSeconds ??
+                                  _nextRegenInSecondsOverride;
+                            });
                           }
 
                           // Award XP for correct answers
@@ -1478,6 +2369,7 @@ class _QuizPageState extends State<QuizPage> {
 
                           // Clear pending session on successful submission
                           unawaited(SessionRecoveryLocal.clear());
+                          unawaited(_clearLocalDraftBundle());
                           unawaited(
                             _agenticCubit?.endSession(status: 'completed'),
                           );
@@ -1497,17 +2389,83 @@ class _QuizPageState extends State<QuizPage> {
                           return;
                         }
 
+                        if (state is QuizBatchSubmitSuccessState) {
+                          _clearPendingAgenticSubmission();
+                          _trackQuizEvent(
+                            'submit_succeeded',
+                            data: <String, Object?>{
+                              'scope': 'batch',
+                              'submit_latency_client': _elapsedMsSince(
+                                _lastSubmitClickedAt,
+                              ),
+                            },
+                          );
+                          _trackQuizEvent(
+                            'quiz_completed',
+                            data: <String, Object?>{
+                              'total_quiz_duration': _elapsedMsSince(
+                                _quizStartedAt,
+                              ),
+                            },
+                          );
+                          _isSubmittingEntireQuiz = false;
+
+                          setState(() {
+                            _isNavigatingToDiagnosis = true;
+                            _submitErrorMessage = null;
+                          });
+
+                          unawaited(SessionRecoveryLocal.clear());
+                          unawaited(_clearLocalDraftBundle());
+                          unawaited(
+                            _agenticCubit?.endSession(status: 'completed'),
+                          );
+
+                          final router = GoRouter.of(context);
+                          Future<
+                            void
+                          >.delayed(const Duration(milliseconds: 900), () {
+                            if (!mounted) {
+                              return;
+                            }
+
+                            router.go(
+                              '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(_effectiveSessionId)}',
+                            );
+                          });
+                          return;
+                        }
+
                         if (state is QuizRecoveryTriggeredState) {
+                          _flushPendingAgenticSubmission();
                           setState(() {
                             _isNavigatingToDiagnosis = false;
                           });
 
-                          context.go(
-                            '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
+                          final recoveryMessage = switch (state.reason) {
+                            'idle_time_high' => context.t(
+                              vi: 'AI thấy bạn đang chững nhịp khá lâu, nên gợi ý chuyển sang một bước recovery ngắn trước khi tiếp tục.',
+                              en: 'The AI noticed a long idle period and suggests a short recovery step before continuing.',
+                            ),
+                            'three_wrong_answers' => context.t(
+                              vi: 'AI thấy bạn vừa mắc lỗi liên tiếp, nên gợi ý giảm độ khó hoặc nghỉ ngắn để lấy lại nhịp.',
+                              en: 'The AI detected a wrong-answer streak and suggests a lighter step or a short break.',
+                            ),
+                            _ => context.t(
+                              vi: 'AI đề xuất chuyển sang recovery mode để ổn định lại nhịp học.',
+                              en: 'The AI suggests switching to recovery mode to stabilize the learning rhythm.',
+                            ),
+                          };
+
+                          unawaited(
+                            _showRecoverySuggestionSheet(
+                              message: recoveryMessage,
+                            ),
                           );
                         }
 
                         if (state is QuizRateLimitedState) {
+                          _clearPendingAgenticSubmission();
                           setState(() {
                             _isNavigatingToDiagnosis = false;
                             _submitErrorMessage = null;
@@ -1527,29 +2485,90 @@ class _QuizPageState extends State<QuizPage> {
                             if (mounted) nav.go(AppRoutes.today);
                           });
                         }
+
+                        if (state is QuizNoLivesState) {
+                          _clearPendingAgenticSubmission();
+                          final nextRegenInSeconds =
+                              state.nextRegenInSeconds ??
+                              _nextRegenInSecondsOverride;
+                          final noLivesMessage = _buildNoLivesMessage(
+                            context,
+                            nextRegenInSeconds,
+                          );
+
+                          setState(() {
+                            _isNavigatingToDiagnosis = false;
+                            _canPlayOverride = false;
+                            _nextRegenInSecondsOverride = nextRegenInSeconds;
+                            _submitErrorMessage = noLivesMessage;
+                          });
+
+                          _countdownTimer?.cancel();
+                          unawaited(_livesCubit?.loadLives());
+
+                          ScaffoldMessenger.of(context)
+                            ..hideCurrentSnackBar()
+                            ..showSnackBar(
+                              SnackBar(
+                                content: Text(noLivesMessage),
+                                duration: const Duration(seconds: 4),
+                              ),
+                            );
+                        }
                       },
                       builder: (context, state) {
-                        final isLoading = state is QuizSubmittingState;
+                        final isLoading =
+                            state is QuizSubmittingState ||
+                            state is QuizBatchSubmittingState;
                         final showSubmitTransition =
                             state is QuizSubmitSuccessState ||
+                            state is QuizBatchSubmitSuccessState ||
                             _isNavigatingToDiagnosis;
+                        final isBlockedByLives = _isSubmitBlockedByLives;
+                        final livesState = _livesCubit?.state;
+                        final fallbackRegenSeconds = livesState is LivesLoaded
+                            ? livesState.info.nextRegenIn?.inSeconds
+                            : null;
+                        final nextRegenInSeconds =
+                            _nextRegenInSecondsOverride ?? fallbackRegenSeconds;
+                        final noLivesMessage = _buildNoLivesMessage(
+                          context,
+                          nextRegenInSeconds,
+                        );
+                        final noLivesCountdown = _buildNoLivesCountdownLabel(
+                          context,
+                          nextRegenInSeconds,
+                        );
+                        final noLivesLivesLabel = livesState is LivesLoaded
+                            ? context.t(
+                                vi: 'Tim hiện tại: ${livesState.info.currentLives}/${livesState.info.maxLives}',
+                                en: 'Current lives: ${livesState.info.currentLives}/${livesState.info.maxLives}',
+                              )
+                            : null;
                         final disableSubmit =
-                            isLoading || _isNavigatingToDiagnosis;
+                            isLoading ||
+                            _isNavigatingToDiagnosis ||
+                            isBlockedByLives;
                         final theme = Theme.of(context);
                         final formulaText = _activeQuestion!.metadata['formula']
                             ?.toString();
-                        final currentIndex = _questionPool.indexWhere(
-                          (item) => item.id == _activeQuestion!.id,
-                        );
-                        final currentNumber = currentIndex >= 0
-                            ? currentIndex + 1
-                            : 1;
-                        final questionNumber = currentNumber.toString();
+                        final currentIndex = _currentQuestionIndex;
+                        final currentNumber = _displayTotalQuestions <= 0
+                            ? 1
+                            : (currentIndex + 1)
+                                  .clamp(1, _displayTotalQuestions)
+                                  .toInt();
                         final questionText = _activeQuestion!.content.trim();
                         final isLongQuestion = questionText.runes.length >= 140;
+                        final submissionTargetCount = _submissionTargetCount;
                         final answeredCount = _questionPool
+                            .take(submissionTargetCount)
                             .where(_questionHasAnswer)
                             .length;
+                        final showSubmitAllButton =
+                            !_isApiDrivenMode &&
+                            answeredCount >= submissionTargetCount &&
+                            _hasSavedAnswersForSubmissionTarget;
                         final totalQuizSeconds = _quizDuration.inSeconds > 0
                             ? _quizDuration.inSeconds
                             : _initialQuizDurationSeconds;
@@ -1660,7 +2679,7 @@ class _QuizPageState extends State<QuizPage> {
                                   ),
                                 ),
                                 const SizedBox(height: 24),
-                                if (_questionPool.length > 1)
+                                if (_displayTotalQuestions > 0)
                                   Container(
                                     margin: const EdgeInsets.only(bottom: 12),
                                     padding: const EdgeInsets.fromLTRB(
@@ -1701,89 +2720,93 @@ class _QuizPageState extends State<QuizPage> {
                                                     ),
                                               ),
                                             ),
-                                            TextButton.icon(
-                                              onPressed: () =>
-                                                  _openQuestionNavigatorSheet(
-                                                    context,
-                                                  ),
-                                              icon: const Icon(
-                                                Icons.grid_view_rounded,
-                                                size: 18,
-                                              ),
-                                              label: Text(
-                                                context.t(
-                                                  vi: 'Danh sách',
-                                                  en: 'All',
-                                                ),
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                        const SizedBox(height: 8),
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: FilledButton.tonalIcon(
-                                                onPressed: currentIndex > 0
-                                                    ? () =>
-                                                          _moveToAdjacentQuestion(
-                                                            -1,
-                                                          )
-                                                    : null,
+                                            if (_questionPool.length > 1)
+                                              TextButton.icon(
+                                                onPressed: () =>
+                                                    _openQuestionNavigatorSheet(
+                                                      context,
+                                                    ),
                                                 icon: const Icon(
-                                                  Icons.chevron_left_rounded,
+                                                  Icons.grid_view_rounded,
+                                                  size: 18,
                                                 ),
                                                 label: Text(
                                                   context.t(
-                                                    vi: 'Trước',
-                                                    en: 'Prev',
+                                                    vi: 'Danh sách',
+                                                    en: 'All',
                                                   ),
                                                 ),
-                                                style: FilledButton.styleFrom(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 10,
-                                                      ),
-                                                ),
                                               ),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            Expanded(
-                                              child: FilledButton.tonalIcon(
-                                                onPressed:
-                                                    currentIndex <
-                                                        _questionPool.length - 1
-                                                    ? () =>
-                                                          _moveToAdjacentQuestion(
-                                                            1,
-                                                          )
-                                                    : null,
-                                                icon: const Icon(
-                                                  Icons.chevron_right_rounded,
-                                                ),
-                                                label: Text(
-                                                  context.t(
-                                                    vi: 'Sau',
-                                                    en: 'Next',
-                                                  ),
-                                                ),
-                                                style: FilledButton.styleFrom(
-                                                  padding:
-                                                      const EdgeInsets.symmetric(
-                                                        vertical: 10,
-                                                      ),
-                                                ),
-                                              ),
-                                            ),
                                           ],
                                         ),
+                                        if (_questionPool.length > 1) ...[
+                                          const SizedBox(height: 8),
+                                          Row(
+                                            children: [
+                                              Expanded(
+                                                child: FilledButton.tonalIcon(
+                                                  onPressed: currentIndex > 0
+                                                      ? () =>
+                                                            _moveToAdjacentQuestion(
+                                                              -1,
+                                                            )
+                                                      : null,
+                                                  icon: const Icon(
+                                                    Icons.chevron_left_rounded,
+                                                  ),
+                                                  label: Text(
+                                                    context.t(
+                                                      vi: 'Trước',
+                                                      en: 'Prev',
+                                                    ),
+                                                  ),
+                                                  style: FilledButton.styleFrom(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 10,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                              const SizedBox(width: 8),
+                                              Expanded(
+                                                child: FilledButton.tonalIcon(
+                                                  onPressed:
+                                                      currentIndex <
+                                                          _questionPool.length -
+                                                              1
+                                                      ? () =>
+                                                            _moveToAdjacentQuestion(
+                                                              1,
+                                                            )
+                                                      : null,
+                                                  icon: const Icon(
+                                                    Icons.chevron_right_rounded,
+                                                  ),
+                                                  label: Text(
+                                                    context.t(
+                                                      vi: 'Sau',
+                                                      en: 'Next',
+                                                    ),
+                                                  ),
+                                                  style: FilledButton.styleFrom(
+                                                    padding:
+                                                        const EdgeInsets.symmetric(
+                                                          vertical: 10,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                            ],
+                                          ),
+                                        ],
                                         const SizedBox(height: 8),
                                         Align(
                                           alignment: Alignment.centerLeft,
                                           child: Text(
                                             context.t(
-                                              vi: 'Đã trả lời: $answeredCount/$_displayTotalQuestions',
-                                              en: 'Answered: $answeredCount/$_displayTotalQuestions',
+                                              vi: 'Đã trả lời: $answeredCount/$submissionTargetCount',
+                                              en: 'Answered: $answeredCount/$submissionTargetCount',
                                             ),
                                             style: theme.textTheme.bodySmall
                                                 ?.copyWith(
@@ -1794,6 +2817,43 @@ class _QuizPageState extends State<QuizPage> {
                                                 ),
                                           ),
                                         ),
+                                        if (_draftRestoredFromLocal ||
+                                            _isDraftSyncing ||
+                                            _lastDraftSavedAt != null)
+                                          Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: 4,
+                                            ),
+                                            child: Align(
+                                              alignment: Alignment.centerLeft,
+                                              child: Text(
+                                                _isDraftSyncing
+                                                    ? context.t(
+                                                        vi: 'Đang đồng bộ bản nháp cục bộ',
+                                                        en: 'Syncing local draft',
+                                                      )
+                                                    : _draftRestoredFromLocal
+                                                    ? context.t(
+                                                        vi: 'Đã khôi phục bản nháp cục bộ',
+                                                        en: 'Local draft restored',
+                                                      )
+                                                    : context.t(
+                                                        vi: 'Đã lưu bản nháp cục bộ',
+                                                        en: 'Local draft saved',
+                                                      ),
+                                                style: theme
+                                                    .textTheme
+                                                    .labelSmall
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .tertiary,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                    ),
+                                              ),
+                                            ),
+                                          ),
                                       ],
                                     ),
                                   ),
@@ -1822,21 +2882,6 @@ class _QuizPageState extends State<QuizPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text(
-                                          context.t(
-                                            vi: 'CÂU HỎI SỐ $questionNumber',
-                                            en: 'QUESTION $questionNumber',
-                                          ),
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                                fontWeight: FontWeight.w700,
-                                                letterSpacing: 0.85,
-                                              ),
-                                        ),
-                                        const SizedBox(height: 10),
                                         QuizMathText(
                                           text: _activeQuestion!.content,
                                           textAlign: isLongQuestion
@@ -1897,28 +2942,55 @@ class _QuizPageState extends State<QuizPage> {
                                   ),
                                   color:
                                       theme.colorScheme.surfaceContainerLowest,
-                                  child: QuizAnswerWidgetFactory(
-                                    question: _activeQuestion!,
-                                    enabled: !disableSubmit,
-                                    showHints: _showHint,
-                                    textController: _answerController,
-                                    textFocusNode: _answerFocusNode,
-                                    onTextChanged: _onAnswerChanged,
-                                    onTextTap:
-                                        _signalService.registerInteraction,
-                                    selectedOptionId: _selectedOptionId,
-                                    onOptionSelected: (optionId) {
-                                      HapticFeedback.selectionClick();
-                                      _signalService.registerInteraction();
-                                      setState(() {
-                                        _selectedOptionId = optionId;
-                                        _selectedOptionByQuestion[_activeQuestion!
-                                                .id] =
-                                            optionId;
-                                      });
-                                    },
-                                    trueFalseAnswers: _trueFalseAnswers,
-                                    onTrueFalseChanged: _onTrueFalseChanged,
+                                  child: RepaintBoundary(
+                                    child: QuizAnswerWidgetFactory(
+                                      question: _activeQuestion!,
+                                      enabled: !disableSubmit,
+                                      showHints: _showHint,
+                                      textController: _answerController,
+                                      textFocusNode: _answerFocusNode,
+                                      onTextChanged: _onAnswerChanged,
+                                      onTextTap:
+                                          _signalService.registerInteraction,
+                                      selectedOptionId: _selectedOptionId,
+                                      onOptionSelected: (optionId) {
+                                        HapticFeedback.selectionClick();
+                                        _questionInteractionCount += 1;
+                                        _signalService.registerInteraction();
+                                        setState(() {
+                                          _selectedOptionId = optionId;
+                                          _selectedOptionByQuestion[_activeQuestion!
+                                                  .id] =
+                                              optionId;
+                                        });
+                                        if (_firstAnswerAt == null) {
+                                          _firstAnswerAt = DateTime.now();
+                                          _trackQuizEvent(
+                                            'time_to_first_answer',
+                                            data: <String, Object?>{
+                                              'duration_ms': _elapsedMsSince(
+                                                _quizStartedAt,
+                                              ),
+                                              'question_id':
+                                                  _activeQuestion?.id,
+                                            },
+                                          );
+                                        }
+                                        _trackQuizEvent(
+                                          'answer_changed',
+                                          data: <String, Object?>{
+                                            'question_id': _activeQuestion?.id,
+                                            'question_type': _activeQuestion
+                                                ?.questionType
+                                                .name,
+                                            'selected_option_id': optionId,
+                                          },
+                                        );
+                                        _scheduleDraftPersist();
+                                      },
+                                      trueFalseAnswers: _trueFalseAnswers,
+                                      onTrueFalseChanged: _onTrueFalseChanged,
+                                    ),
                                   ),
                                 ),
                                 const SizedBox(height: GrowMateLayout.space12),
@@ -1980,8 +3052,8 @@ class _QuizPageState extends State<QuizPage> {
                                                   .withValues(alpha: 0.08),
                                             ),
                                           ),
-                                          child: Text(
-                                            _hintText(context),
+                                          child: QuizMathText(
+                                            text: _hintText(context),
                                             textAlign: TextAlign.center,
                                             style: theme.textTheme.bodyMedium
                                                 ?.copyWith(
@@ -2062,14 +3134,33 @@ class _QuizPageState extends State<QuizPage> {
                                   ),
                                   ZenErrorCard(
                                     message: _submitErrorMessage!,
-                                    onRetry: disableSubmit
+                                    onRetry:
+                                        isLoading || _isNavigatingToDiagnosis
                                         ? null
+                                        : isBlockedByLives
+                                        ? () => _livesCubit?.loadLives()
                                         : _submitCurrentAnswer,
                                     onDismiss: () {
                                       setState(() {
                                         _submitErrorMessage = null;
                                       });
                                     },
+                                  ),
+                                ],
+                                if (isBlockedByLives) ...[
+                                  const SizedBox(
+                                    height: GrowMateLayout.space12,
+                                  ),
+                                  _NoLivesActionCard(
+                                    message: noLivesMessage,
+                                    countdownLabel: noLivesCountdown,
+                                    livesLabel: noLivesLivesLabel,
+                                    onRefreshLives: () =>
+                                        _livesCubit?.loadLives(),
+                                    onGoProgress: () =>
+                                        context.go(AppRoutes.progress),
+                                    onGoReview: () =>
+                                        context.go(AppRoutes.spacedReview),
                                   ),
                                 ],
                                 if (showSubmitTransition) ...[
@@ -2085,14 +3176,35 @@ class _QuizPageState extends State<QuizPage> {
                                           vi: 'AI đang phân tích...',
                                           en: 'AI is analyzing...',
                                         )
-                                      : disableSubmit
+                                      : isLoading || _isNavigatingToDiagnosis
                                       ? context.t(
                                           vi: 'Đang gửi...',
                                           en: 'Submitting...',
                                         )
+                                      : isBlockedByLives
+                                      ? context.t(
+                                          vi: 'Hết tim - chờ hồi sinh',
+                                          en: 'No lives - waiting to regen',
+                                        )
                                       : context.t(
-                                          vi: 'Gửi câu $currentNumber',
-                                          en: 'Submit Q$currentNumber',
+                                          vi: _isApiDrivenMode
+                                              ? (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Nộp câu & sang câu ${currentNumber + 1}'
+                                                    : 'Nộp câu cuối & xem chẩn đoán')
+                                              : (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Lưu & sang câu ${currentNumber + 1}'
+                                                    : 'Lưu câu $currentNumber'),
+                                          en: _isApiDrivenMode
+                                              ? (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Submit & go to Q${currentNumber + 1}'
+                                                    : 'Submit final answer')
+                                              : (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Save & go to Q${currentNumber + 1}'
+                                                    : 'Save Q$currentNumber'),
                                         ),
                                   onPressed: disableSubmit
                                       ? null
@@ -2103,17 +3215,81 @@ class _QuizPageState extends State<QuizPage> {
                                     size: 26,
                                   ),
                                 ),
-                                const SizedBox(height: GrowMateLayout.space12),
-                                ZenButton(
-                                  label: context.t(
-                                    vi: 'Nộp toàn bộ bài ($answeredCount/$_displayTotalQuestions)',
-                                    en: 'Submit all ($answeredCount/$_displayTotalQuestions)',
+                                if (showSubmitAllButton) ...[
+                                  const SizedBox(
+                                    height: GrowMateLayout.space12,
                                   ),
-                                  variant: ZenButtonVariant.secondary,
-                                  onPressed: disableSubmit
-                                      ? null
-                                      : _submitEntireQuiz,
-                                ),
+                                  ZenButton(
+                                    label: context.t(
+                                      vi: 'Nộp toàn bộ bài ($answeredCount/$submissionTargetCount)',
+                                      en: 'Submit all ($answeredCount/$submissionTargetCount)',
+                                    ),
+                                    variant: ZenButtonVariant.secondary,
+                                    onPressed: disableSubmit
+                                        ? null
+                                        : _submitEntireQuiz,
+                                  ),
+                                ],
+                                if (_agenticCubit != null) ...[
+                                  const SizedBox(
+                                    height: GrowMateLayout.space12,
+                                  ),
+                                  RepaintBoundary(
+                                    child:
+                                        BlocBuilder<
+                                          AgenticSessionCubit,
+                                          AgenticSessionState
+                                        >(
+                                          bloc: _agenticCubit,
+                                          buildWhen: (previous, current) {
+                                            return previous.phase !=
+                                                    current.phase ||
+                                                previous.stepCount !=
+                                                    current.stepCount ||
+                                                previous.currentContent !=
+                                                    current.currentContent ||
+                                                previous.currentAction !=
+                                                    current.currentAction ||
+                                                previous.reasoningTrace !=
+                                                    current.reasoningTrace ||
+                                                previous.reasoningConfidence !=
+                                                    current
+                                                        .reasoningConfidence ||
+                                                previous.beliefEntropy !=
+                                                    current.beliefEntropy ||
+                                                previous.academicState !=
+                                                    current.academicState ||
+                                                previous.empathyState !=
+                                                    current.empathyState ||
+                                                previous.strategyState !=
+                                                    current.strategyState;
+                                          },
+                                          builder: (context, agenticState) {
+                                            return _isAdvancedAgenticTimelineEnabled
+                                                ? _AgenticProcessCard(
+                                                    state: agenticState,
+                                                    onDisableAdvanced: () {
+                                                      unawaited(
+                                                        _setAdvancedTimelineEnabled(
+                                                          false,
+                                                        ),
+                                                      );
+                                                    },
+                                                  )
+                                                : _AgenticProcessCompactCard(
+                                                    state: agenticState,
+                                                    onEnableAdvanced: () {
+                                                      unawaited(
+                                                        _setAdvancedTimelineEnabled(
+                                                          true,
+                                                        ),
+                                                      );
+                                                    },
+                                                  );
+                                          },
+                                        ),
+                                  ),
+                                ],
                                 const SizedBox(
                                   height: GrowMateLayout.sectionGap,
                                 ),
@@ -2161,6 +3337,49 @@ class _QuizPageState extends State<QuizPage> {
     return '$minutes:$seconds';
   }
 
+  String _buildNoLivesMessage(BuildContext context, int? nextRegenInSeconds) {
+    if (nextRegenInSeconds == null || nextRegenInSeconds <= 0) {
+      return context.t(
+        vi: 'Bạn đã hết tim! Hãy chờ hồi sinh hoặc xem lại bài cũ nhé.',
+        en: 'You are out of lives. Please wait for regen or review previous lessons.',
+      );
+    }
+
+    final duration = Duration(seconds: nextRegenInSeconds);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final countdown = hours > 0
+        ? '$hours:$minutes:$seconds'
+        : '$minutes:$seconds';
+
+    return context.t(
+      vi: 'Bạn đã hết tim. Tim tiếp theo hồi sau $countdown.',
+      en: 'You are out of lives. Next life regenerates in $countdown.',
+    );
+  }
+
+  String? _buildNoLivesCountdownLabel(
+    BuildContext context,
+    int? nextRegenInSeconds,
+  ) {
+    if (nextRegenInSeconds == null || nextRegenInSeconds <= 0) {
+      return null;
+    }
+
+    final duration = Duration(seconds: nextRegenInSeconds);
+    final hours = duration.inHours;
+    final minutes = duration.inMinutes.remainder(60).toString().padLeft(2, '0');
+    final seconds = duration.inSeconds.remainder(60).toString().padLeft(2, '0');
+    final countdown = hours > 0
+        ? '$hours:$minutes:$seconds'
+        : '$minutes:$seconds';
+    return context.t(
+      vi: 'Hồi tim sau: $countdown',
+      en: 'Next regen: $countdown',
+    );
+  }
+
   String _hintText(BuildContext context) {
     final payload = _activeQuestion!.payload;
 
@@ -2182,6 +3401,951 @@ class _QuizPageState extends State<QuizPage> {
         en: 'Hint: Derivative of x^n is n.x^(n-1)',
       ),
     };
+  }
+}
+
+enum ReasoningStepStatus { running, completed, failed, fallback }
+
+class SubmitTapLock {
+  bool _locked = false;
+
+  bool get isLocked => _locked;
+
+  bool tryAcquire() {
+    if (_locked) {
+      return false;
+    }
+    _locked = true;
+    return true;
+  }
+
+  void release() {
+    _locked = false;
+  }
+}
+
+String inferAgentBucketFromReasoningStep(agentic_models.ReasoningStep step) {
+  final tool = step.tool.toLowerCase();
+  if (tool.contains('academic')) {
+    return 'academic';
+  }
+  if (tool.contains('empathy')) {
+    return 'empathy';
+  }
+  return 'strategy';
+}
+
+ReasoningStepStatus inferReasoningStepStatus(
+  agentic_models.ReasoningStep step, {
+  required bool isLast,
+  required bool isLoading,
+}) {
+  final summary = step.resultSummary.toLowerCase();
+  if (summary.contains('error') || summary.contains('fail')) {
+    return ReasoningStepStatus.failed;
+  }
+  if (summary.contains('fallback') || summary.contains('degrade')) {
+    return ReasoningStepStatus.fallback;
+  }
+  if (isLoading && isLast) {
+    return ReasoningStepStatus.running;
+  }
+  return ReasoningStepStatus.completed;
+}
+
+class _AgenticProcessCard extends StatefulWidget {
+  const _AgenticProcessCard({
+    required this.state,
+    required this.onDisableAdvanced,
+  });
+
+  final AgenticSessionState state;
+  final VoidCallback onDisableAdvanced;
+
+  @override
+  State<_AgenticProcessCard> createState() => _AgenticProcessCardState();
+}
+
+class _AgenticProcessCardState extends State<_AgenticProcessCard>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController;
+  final Set<String> _enabledAgentFilters = <String>{
+    'academic',
+    'empathy',
+    'strategy',
+  };
+  final Set<int> _expandedSteps = <int>{};
+
+  @override
+  void initState() {
+    super.initState();
+    _pulseController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 1100),
+    )..repeat(reverse: true);
+  }
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final reduceMotion = MediaQuery.of(context).disableAnimations;
+    final state = widget.state;
+    final reasoningSteps = state.reasoningTrace
+        .take(30)
+        .toList(growable: false);
+    final filteredReasoningSteps = reasoningSteps
+        .where(
+          (step) => _enabledAgentFilters.contains(
+            inferAgentBucketFromReasoningStep(step),
+          ),
+        )
+        .take(12)
+        .toList(growable: false);
+    final confidencePercent = state.reasoningConfidence == null
+        ? null
+        : (state.reasoningConfidence!.clamp(0.0, 1.0) * 100).round();
+    final latencyMs = state.lastOrchestratorStep?.latencyMs;
+
+    final academic = state.academicState;
+    final empathy = state.empathyState;
+    final strategy = state.strategyState;
+
+    return ZenCard(
+      radius: 18,
+      color: theme.colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hub_rounded,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Timeline Agentic AI (Realtime)',
+                    en: 'Agentic AI realtime timeline',
+                  ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: context.t(
+                  vi: 'Mở dashboard reasoning',
+                  en: 'Open reasoning dashboard',
+                ),
+                onPressed: () => context.push(AppRoutes.devReasoning),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
+              ),
+              IconButton(
+                tooltip: context.t(
+                  vi: 'Tắt timeline nâng cao',
+                  en: 'Disable advanced timeline',
+                ),
+                onPressed: widget.onDisableAdvanced,
+                icon: const Icon(Icons.tune_rounded, size: 18),
+              ),
+              if (reduceMotion)
+                Container(
+                  width: 10,
+                  height: 10,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: state.isLoading
+                        ? theme.colorScheme.primary
+                        : theme.colorScheme.tertiary,
+                  ),
+                )
+              else
+                FadeTransition(
+                  opacity: Tween<double>(begin: 0.3, end: 1.0).animate(
+                    CurvedAnimation(
+                      parent: _pulseController,
+                      curve: Curves.easeInOut,
+                    ),
+                  ),
+                  child: Container(
+                    width: 10,
+                    height: 10,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: state.isLoading
+                          ? theme.colorScheme.primary
+                          : theme.colorScheme.tertiary,
+                    ),
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AgenticChip(
+                label: context.t(
+                  vi: 'Pha: ${_phaseLabel(context, state.phase)}',
+                  en: 'Phase: ${state.phase.name}',
+                ),
+              ),
+              _AgenticChip(
+                label: context.t(
+                  vi: 'Mode: ${state.reasoningMode}',
+                  en: 'Mode: ${state.reasoningMode}',
+                ),
+              ),
+              _AgenticChip(
+                label: context.t(
+                  vi: 'Step: ${state.stepCount}',
+                  en: 'Step: ${state.stepCount}',
+                ),
+              ),
+              if (state.currentAction != null &&
+                  state.currentAction!.trim().isNotEmpty)
+                _AgenticChip(
+                  label: context.t(
+                    vi: 'Action: ${state.currentAction}',
+                    en: 'Action: ${state.currentAction}',
+                  ),
+                ),
+              if (confidencePercent != null)
+                _AgenticChip(
+                  label: context.t(
+                    vi: 'Độ tin cậy: $confidencePercent%',
+                    en: 'Confidence: $confidencePercent%',
+                  ),
+                ),
+              if (state.beliefEntropy != null)
+                _AgenticChip(
+                  label: context.t(
+                    vi: 'Entropy: ${state.beliefEntropy!.toStringAsFixed(2)}',
+                    en: 'Entropy: ${state.beliefEntropy!.toStringAsFixed(2)}',
+                  ),
+                ),
+              if (latencyMs != null)
+                _AgenticChip(
+                  label: context.t(
+                    vi: 'Latency: ${latencyMs}ms',
+                    en: 'Latency: ${latencyMs}ms',
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AgenticFilterChip(
+                label: 'Academic',
+                isSelected: _enabledAgentFilters.contains('academic'),
+                onTap: () => _toggleAgentFilter('academic'),
+              ),
+              _AgenticFilterChip(
+                label: 'Empathy',
+                isSelected: _enabledAgentFilters.contains('empathy'),
+                onTap: () => _toggleAgentFilter('empathy'),
+              ),
+              _AgenticFilterChip(
+                label: 'Strategy',
+                isSelected: _enabledAgentFilters.contains('strategy'),
+                onTap: () => _toggleAgentFilter('strategy'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Text(
+            context.t(vi: 'Trạng thái từng agent', en: 'Per-agent status'),
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _AgentStatusTile(
+                title: 'Academic',
+                icon: Icons.school_rounded,
+                value: academic == null
+                    ? context.t(vi: 'Chưa có dữ liệu', en: 'No data')
+                    : '${(academic.confidence * 100).round()}%',
+                subtitle:
+                    academic?.topHypothesis ??
+                    context.t(vi: 'Đang suy luận', en: 'Reasoning'),
+              ),
+              _AgentStatusTile(
+                title: 'Empathy',
+                icon: Icons.favorite_rounded,
+                value: empathy == null
+                    ? context.t(vi: 'Chưa có dữ liệu', en: 'No data')
+                    : empathy.dominantState,
+                subtitle: empathy == null
+                    ? context.t(vi: 'Đang suy luận', en: 'Reasoning')
+                    : 'u=${empathy.uncertainty.toStringAsFixed(2)}',
+              ),
+              _AgentStatusTile(
+                title: 'Strategy',
+                icon: Icons.psychology_alt_rounded,
+                value:
+                    strategy?.bestStrategy ??
+                    context.t(vi: 'Đang chọn', en: 'Selecting'),
+                subtitle: strategy == null
+                    ? context.t(vi: 'Đang suy luận', en: 'Reasoning')
+                    : 'R=${strategy.avgReward.toStringAsFixed(2)}',
+              ),
+            ],
+          ),
+          if (filteredReasoningSteps.isNotEmpty) ...[
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    context.t(
+                      vi: 'Timeline xử lý từng bước',
+                      en: 'Step-by-step timeline',
+                    ),
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                IconButton(
+                  tooltip: context.t(
+                    vi: 'Sao chép tóm tắt timeline',
+                    en: 'Copy timeline summary',
+                  ),
+                  onPressed: () async {
+                    final copiedMessage = context.t(
+                      vi: 'Đã sao chép timeline',
+                      en: 'Timeline copied',
+                    );
+                    final messenger = ScaffoldMessenger.of(context);
+                    final summary = filteredReasoningSteps
+                        .map(
+                          (s) =>
+                              '#${s.step} ${s.toolLabel}: ${s.resultSummary}',
+                        )
+                        .join('\n');
+                    if (summary.trim().isEmpty) {
+                      return;
+                    }
+                    await Clipboard.setData(ClipboardData(text: summary));
+                    if (!mounted) return;
+                    messenger
+                      ..hideCurrentSnackBar()
+                      ..showSnackBar(SnackBar(content: Text(copiedMessage)));
+                  },
+                  icon: const Icon(Icons.copy_all_rounded, size: 18),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            AnimatedSwitcher(
+              duration: reduceMotion
+                  ? Duration.zero
+                  : const Duration(milliseconds: 260),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: Column(
+                key: ValueKey<String>(
+                  '${state.stepCount}-${filteredReasoningSteps.length}-${_enabledAgentFilters.join(',')}',
+                ),
+                children: [
+                  for (var i = 0; i < filteredReasoningSteps.length; i += 1)
+                    _TimelineStepTile(
+                      step: filteredReasoningSteps[i],
+                      isLast: i == filteredReasoningSteps.length - 1,
+                      delayMs: i * 70,
+                      isExpanded: _expandedSteps.contains(
+                        filteredReasoningSteps[i].step,
+                      ),
+                      status: _statusForStep(
+                        filteredReasoningSteps[i],
+                        isLast: i == filteredReasoningSteps.length - 1,
+                        isLoading: state.isLoading,
+                      ),
+                      reduceMotion: reduceMotion,
+                      onTap: () {
+                        final stepId = filteredReasoningSteps[i].step;
+                        setState(() {
+                          if (_expandedSteps.contains(stepId)) {
+                            _expandedSteps.remove(stepId);
+                          } else {
+                            _expandedSteps.add(stepId);
+                          }
+                        });
+                      },
+                    ),
+                ],
+              ),
+            ),
+          ],
+          if (state.currentContent != null &&
+              state.currentContent!.trim().isNotEmpty) ...[
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: theme.colorScheme.surface,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.5,
+                  ),
+                ),
+              ),
+              child: Text(
+                state.currentContent!,
+                maxLines: 3,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                  height: 1.35,
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _phaseLabel(BuildContext context, AgenticPhase phase) {
+    return switch (phase) {
+      AgenticPhase.idle => context.t(vi: 'Nhàn rỗi', en: 'Idle'),
+      AgenticPhase.ready => context.t(vi: 'Sẵn sàng', en: 'Ready'),
+      AgenticPhase.interacting => context.t(vi: 'Tương tác', en: 'Interacting'),
+      AgenticPhase.processing => context.t(vi: 'Đang xử lý', en: 'Processing'),
+      AgenticPhase.hitlPending => context.t(vi: 'Chờ HITL', en: 'HITL pending'),
+      AgenticPhase.recovery => context.t(vi: 'Phục hồi', en: 'Recovery'),
+      AgenticPhase.completed => context.t(vi: 'Hoàn tất', en: 'Completed'),
+      AgenticPhase.error => context.t(vi: 'Lỗi', en: 'Error'),
+    };
+  }
+
+  void _toggleAgentFilter(String key) {
+    setState(() {
+      if (_enabledAgentFilters.contains(key)) {
+        if (_enabledAgentFilters.length > 1) {
+          _enabledAgentFilters.remove(key);
+        }
+      } else {
+        _enabledAgentFilters.add(key);
+      }
+    });
+  }
+
+  ReasoningStepStatus _statusForStep(
+    agentic_models.ReasoningStep step, {
+    required bool isLast,
+    required bool isLoading,
+  }) {
+    return inferReasoningStepStatus(step, isLast: isLast, isLoading: isLoading);
+  }
+}
+
+class _AgenticProcessCompactCard extends StatelessWidget {
+  const _AgenticProcessCompactCard({
+    required this.state,
+    required this.onEnableAdvanced,
+  });
+
+  final AgenticSessionState state;
+  final VoidCallback onEnableAdvanced;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ZenCard(
+      radius: 18,
+      color: theme.colorScheme.surfaceContainerLow,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                Icons.hub_rounded,
+                size: 18,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Agentic timeline đang ở chế độ gọn',
+                    en: 'Agentic timeline in compact mode',
+                  ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.push(AppRoutes.devReasoning),
+                icon: const Icon(Icons.analytics_outlined, size: 16),
+                label: Text(context.t(vi: 'Chi tiết', en: 'Inspect')),
+              ),
+              TextButton.icon(
+                onPressed: onEnableAdvanced,
+                icon: const Icon(Icons.bolt_rounded, size: 16),
+                label: Text(context.t(vi: 'Bật', en: 'Enable')),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Text(
+            context.t(
+              vi: 'Pha hiện tại: ${state.phase.name}',
+              en: 'Current phase: ${state.phase.name}',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AgentStatusTile extends StatelessWidget {
+  const _AgentStatusTile({
+    required this.title,
+    required this.icon,
+    required this.value,
+    required this.subtitle,
+  });
+
+  final String title;
+  final IconData icon;
+  final String value;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 110),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(icon, size: 14, color: theme.colorScheme.primary),
+                const SizedBox(width: 5),
+                Text(
+                  title,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+            const SizedBox(height: 2),
+            Text(
+              subtitle,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _TimelineStepTile extends StatelessWidget {
+  const _TimelineStepTile({
+    required this.step,
+    required this.isLast,
+    required this.delayMs,
+    required this.isExpanded,
+    required this.status,
+    required this.reduceMotion,
+    required this.onTap,
+  });
+
+  final agentic_models.ReasoningStep step;
+  final bool isLast;
+  final int delayMs;
+  final bool isExpanded;
+  final ReasoningStepStatus status;
+  final bool reduceMotion;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: reduceMotion
+          ? Duration.zero
+          : Duration(milliseconds: 280 + delayMs),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) {
+        if (reduceMotion) {
+          return child!;
+        }
+        return Opacity(
+          opacity: value,
+          child: Transform.translate(
+            offset: Offset(0, (1 - value) * 10),
+            child: child,
+          ),
+        );
+      },
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(12),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 2),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 22,
+                child: Column(
+                  children: [
+                    Container(
+                      width: 14,
+                      height: 14,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: theme.colorScheme.primary.withValues(
+                          alpha: 0.18,
+                        ),
+                        border: Border.all(color: theme.colorScheme.primary),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        '${step.step}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: theme.colorScheme.primary,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 8,
+                        ),
+                      ),
+                    ),
+                    if (!isLast)
+                      Container(
+                        width: 2,
+                        height: isExpanded ? 54 : 20,
+                        color: theme.colorScheme.outlineVariant.withValues(
+                          alpha: 0.6,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Padding(
+                  padding: const EdgeInsets.only(top: 1, bottom: 8),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Expanded(
+                            child: Text(
+                              '${step.toolIcon} ${step.toolLabel}',
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: theme.colorScheme.onSurface,
+                                fontWeight: FontWeight.w600,
+                              ),
+                            ),
+                          ),
+                          _StepStatusBadge(status: status),
+                          const SizedBox(width: 4),
+                          Icon(
+                            isExpanded
+                                ? Icons.expand_less_rounded
+                                : Icons.expand_more_rounded,
+                            size: 16,
+                            color: theme.colorScheme.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                      AnimatedCrossFade(
+                        firstChild: const SizedBox.shrink(),
+                        secondChild: Padding(
+                          padding: const EdgeInsets.only(top: 6),
+                          child: Text(
+                            step.resultSummary.trim().isEmpty
+                                ? 'No result summary'
+                                : step.resultSummary,
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              height: 1.35,
+                            ),
+                          ),
+                        ),
+                        crossFadeState: isExpanded
+                            ? CrossFadeState.showSecond
+                            : CrossFadeState.showFirst,
+                        duration: const Duration(milliseconds: 180),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _AgenticFilterChip extends StatelessWidget {
+  const _AgenticFilterChip({
+    required this.label,
+    required this.isSelected,
+    required this.onTap,
+  });
+
+  final String label;
+  final bool isSelected;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return InkWell(
+      onTap: onTap,
+      borderRadius: BorderRadius.circular(999),
+      child: Container(
+        constraints: const BoxConstraints(minHeight: 40, minWidth: 86),
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        decoration: BoxDecoration(
+          color: isSelected
+              ? theme.colorScheme.primaryContainer
+              : theme.colorScheme.surface,
+          borderRadius: BorderRadius.circular(999),
+          border: Border.all(
+            color: isSelected
+                ? theme.colorScheme.primary
+                : theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+          ),
+        ),
+        child: Text(
+          label,
+          style: theme.textTheme.labelSmall?.copyWith(
+            color: isSelected
+                ? theme.colorScheme.onPrimaryContainer
+                : theme.colorScheme.onSurfaceVariant,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _StepStatusBadge extends StatelessWidget {
+  const _StepStatusBadge({required this.status});
+
+  final ReasoningStepStatus status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final (text, color) = switch (status) {
+      ReasoningStepStatus.running => ('RUNNING', theme.colorScheme.primary),
+      ReasoningStepStatus.failed => ('FAILED', theme.colorScheme.error),
+      ReasoningStepStatus.fallback => ('FALLBACK', theme.colorScheme.tertiary),
+      ReasoningStepStatus.completed => ('DONE', theme.colorScheme.secondary),
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 3),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.22),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.5)),
+      ),
+      child: Text(
+        text,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+          letterSpacing: 0.2,
+          fontSize: 9,
+        ),
+      ),
+    );
+  }
+}
+
+class _AgenticChip extends StatelessWidget {
+  const _AgenticChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surface,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.5),
+        ),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      ),
+    );
+  }
+}
+
+class _NoLivesActionCard extends StatelessWidget {
+  const _NoLivesActionCard({
+    required this.message,
+    this.countdownLabel,
+    this.livesLabel,
+    required this.onRefreshLives,
+    required this.onGoProgress,
+    required this.onGoReview,
+  });
+
+  final String message;
+  final String? countdownLabel;
+  final String? livesLabel;
+  final VoidCallback onRefreshLives;
+  final VoidCallback onGoProgress;
+  final VoidCallback onGoReview;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      radius: 16,
+      color: colors.errorContainer.withValues(alpha: 0.26),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.favorite_rounded, color: colors.error, size: 22),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Bạn đang tạm hết tim',
+                    en: 'You are temporarily out of lives',
+                  ),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    color: colors.onErrorContainer,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          Text(
+            message,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onErrorContainer,
+              height: 1.35,
+            ),
+          ),
+          if (countdownLabel != null) ...[
+            const SizedBox(height: 8),
+            Text(
+              countdownLabel!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onErrorContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ],
+          if (livesLabel != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              livesLabel!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onErrorContainer.withValues(alpha: 0.9),
+              ),
+            ),
+          ],
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              OutlinedButton.icon(
+                onPressed: onRefreshLives,
+                icon: const Icon(Icons.refresh_rounded, size: 18),
+                label: Text(context.t(vi: 'Kiểm tra tim', en: 'Refresh lives')),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onGoProgress,
+                icon: const Icon(Icons.insights_rounded, size: 18),
+                label: Text(context.t(vi: 'Xem Progress', en: 'Open Progress')),
+              ),
+              FilledButton.tonalIcon(
+                onPressed: onGoReview,
+                icon: const Icon(Icons.menu_book_rounded, size: 18),
+                label: Text(context.t(vi: 'Ôn tập', en: 'Review now')),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 

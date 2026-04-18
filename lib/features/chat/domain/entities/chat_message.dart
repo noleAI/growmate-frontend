@@ -13,6 +13,7 @@ class ChatMessage {
     this.beliefEntropy,
     this.nextNodeType,
     this.imageBytes,
+    this.imageUrl,
     this.imageMimeType,
     this.imageName,
   });
@@ -35,6 +36,7 @@ class ChatMessage {
 
   /// Optional image payload attached to this chat message.
   final Uint8List? imageBytes;
+  final String? imageUrl;
   final String? imageMimeType;
   final String? imageName;
 
@@ -48,6 +50,7 @@ class ChatMessage {
     double? beliefEntropy,
     String? nextNodeType,
     Uint8List? imageBytes,
+    String? imageUrl,
     String? imageMimeType,
     String? imageName,
   }) {
@@ -61,6 +64,7 @@ class ChatMessage {
       beliefEntropy: beliefEntropy ?? this.beliefEntropy,
       nextNodeType: nextNodeType ?? this.nextNodeType,
       imageBytes: imageBytes ?? this.imageBytes,
+      imageUrl: imageUrl ?? this.imageUrl,
       imageMimeType: imageMimeType ?? this.imageMimeType,
       imageName: imageName ?? this.imageName,
     );

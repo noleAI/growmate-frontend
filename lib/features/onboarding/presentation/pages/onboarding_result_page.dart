@@ -128,6 +128,18 @@ class _OnboardingResultPageState extends State<OnboardingResultPage>
                         ),
                         const SizedBox(height: 20),
                         Text(
+                          context.t(
+                            vi: 'Mục tiêu: ${_goalLabel(context, result.selectedGoal)} | ${result.dailyMinutes} phút/ngày',
+                            en: 'Goal: ${_goalLabel(context, result.selectedGoal)} | ${result.dailyMinutes} min/day',
+                          ),
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            fontWeight: FontWeight.w600,
+                          ),
+                          textAlign: TextAlign.center,
+                        ),
+                        const SizedBox(height: 12),
+                        Text(
                           level.description,
                           style: theme.textTheme.bodyLarge?.copyWith(
                             color: colors.onSurfaceVariant,
@@ -175,5 +187,16 @@ class _OnboardingResultPageState extends State<OnboardingResultPage>
         },
       ),
     );
+  }
+
+  String _goalLabel(BuildContext context, String goal) {
+    switch (goal) {
+      case 'exam_prep':
+        return context.t(vi: 'Ôn thi THPT', en: 'Exam prep');
+      case 'explore':
+        return context.t(vi: 'Khám phá kiến thức', en: 'Explore learning');
+      default:
+        return goal;
+    }
   }
 }

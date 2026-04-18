@@ -35,6 +35,10 @@ class AgenticSessionState extends Equatable {
     this.sessionId,
     this.subject,
     this.topic,
+    this.sessionWasResumed = false,
+    this.resumedProgressPercent,
+    this.resumedLastQuestionIndex,
+    this.sessionMode,
     this.lastInteraction,
     this.lastOrchestratorStep,
     this.latestDashboard,
@@ -56,6 +60,10 @@ class AgenticSessionState extends Equatable {
   final String? sessionId;
   final String? subject;
   final String? topic;
+  final bool sessionWasResumed;
+  final int? resumedProgressPercent;
+  final int? resumedLastQuestionIndex;
+  final String? sessionMode;
 
   /// Last simplified interaction response.
   final AgenticInteractionResponse? lastInteraction;
@@ -146,6 +154,10 @@ class AgenticSessionState extends Equatable {
     String? sessionId,
     String? subject,
     String? topic,
+    bool? sessionWasResumed,
+    int? resumedProgressPercent,
+    int? resumedLastQuestionIndex,
+    String? sessionMode,
     AgenticInteractionResponse? lastInteraction,
     OrchestratorStepResponse? lastOrchestratorStep,
     DashboardUpdate? latestDashboard,
@@ -167,6 +179,12 @@ class AgenticSessionState extends Equatable {
       sessionId: sessionId ?? this.sessionId,
       subject: subject ?? this.subject,
       topic: topic ?? this.topic,
+      sessionWasResumed: sessionWasResumed ?? this.sessionWasResumed,
+      resumedProgressPercent:
+          resumedProgressPercent ?? this.resumedProgressPercent,
+      resumedLastQuestionIndex:
+          resumedLastQuestionIndex ?? this.resumedLastQuestionIndex,
+      sessionMode: sessionMode ?? this.sessionMode,
       lastInteraction: lastInteraction ?? this.lastInteraction,
       lastOrchestratorStep: lastOrchestratorStep ?? this.lastOrchestratorStep,
       latestDashboard: latestDashboard ?? this.latestDashboard,
@@ -191,6 +209,10 @@ class AgenticSessionState extends Equatable {
     sessionId,
     subject,
     topic,
+    sessionWasResumed,
+    resumedProgressPercent,
+    resumedLastQuestionIndex,
+    sessionMode,
     lastInteraction,
     lastOrchestratorStep,
     latestDashboard,

@@ -10,6 +10,8 @@ import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../quiz/data/repositories/quiz_api_repository.dart';
+import '../../../session/data/repositories/session_history_repository.dart';
 import '../../data/repositories/diagnosis_repository.dart';
 import '../cubit/result_cubit.dart';
 import '../cubit/result_state.dart';
@@ -19,10 +21,14 @@ class ResultScreen extends StatefulWidget {
     super.key,
     required this.submissionId,
     required this.diagnosisRepository,
+    this.quizApiRepository,
+    this.sessionHistoryRepository,
   });
 
   final String submissionId;
   final DiagnosisRepository diagnosisRepository;
+  final QuizApiRepository? quizApiRepository;
+  final SessionHistoryRepository? sessionHistoryRepository;
 
   @override
   State<ResultScreen> createState() => _ResultScreenState();
@@ -39,8 +45,11 @@ class _ResultScreenState extends State<ResultScreen> {
   @override
   void initState() {
     super.initState();
-    _resultCubit = ResultCubit(diagnosisRepository: widget.diagnosisRepository)
-      ..loadResult(widget.submissionId);
+    _resultCubit = ResultCubit(
+      diagnosisRepository: widget.diagnosisRepository,
+      quizApiRepository: widget.quizApiRepository,
+      sessionHistoryRepository: widget.sessionHistoryRepository,
+    )..loadResult(widget.submissionId);
   }
 
   @override
@@ -107,6 +116,8 @@ class _ResultScreenState extends State<ResultScreen> {
                       'finalMode': state.result.finalMode,
                       'interventionPlan': state.result.interventionPlan,
                       'uncertaintyHigh': _isUncertaintyHigh(state.result),
+                      'nextSuggestedTopic': state.result.nextSuggestedTopic,
+                      'confidenceScore': state.result.confidenceScore,
                     },
                   );
                 });
@@ -248,7 +259,6 @@ class _ResultScreenState extends State<ResultScreen> {
       final action = await AiResultModal.show(
         context,
         didWell: result.strengths
-            .take(2)
             .map(
               (item) => _localizedDynamicText(
                 context,
@@ -256,9 +266,9 @@ class _ResultScreenState extends State<ResultScreen> {
                 fallbackEn: 'You maintained a stable study rhythm.',
               ),
             )
+            .where((item) => item.trim().isNotEmpty)
             .toList(growable: false),
         needsImprovement: result.needsReview
-            .take(2)
             .map(
               (item) => _localizedDynamicText(
                 context,
@@ -266,6 +276,7 @@ class _ResultScreenState extends State<ResultScreen> {
                 fallbackEn: 'Review one core concept before moving forward.',
               ),
             )
+            .where((item) => item.trim().isNotEmpty)
             .toList(growable: false),
         nextStep: _localizedDynamicText(
           context,
@@ -356,14 +367,16 @@ String _localizedDynamicText(
   BuildContext context,
   String value, {
   required String fallbackEn,
+  String? fallbackVi,
 }) {
   final trimmed = value.trim();
-  if (!context.isEnglish) {
-    return trimmed;
-  }
 
   if (trimmed.isEmpty) {
-    return fallbackEn;
+    return context.t(vi: fallbackVi ?? fallbackEn, en: fallbackEn);
+  }
+
+  if (!context.isEnglish) {
+    return trimmed;
   }
 
   final hasVietnameseChars = RegExp(
@@ -392,6 +405,12 @@ class _ResultContent extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final result = state.result;
+    final primaryStrength = result.strengths.isNotEmpty
+        ? result.strengths.first
+        : '';
+    final primaryNeedReview = result.needsReview.isNotEmpty
+        ? result.needsReview.first
+        : '';
 
     return ZenPageContainer(
       includeBottomSafeArea: false,
@@ -514,8 +533,9 @@ class _ResultContent extends StatelessWidget {
                   label: context.t(vi: 'Đã vững', en: 'Strong area'),
                   value: _localizedDynamicText(
                     context,
-                    result.strengths.first,
+                    primaryStrength,
                     fallbackEn: 'Fundamental rules and stability',
+                    fallbackVi: 'Nắm chắc quy tắc nền tảng và giữ nhịp ổn định',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -528,8 +548,10 @@ class _ResultContent extends StatelessWidget {
                   ),
                   value: _localizedDynamicText(
                     context,
-                    result.needsReview.first,
+                    primaryNeedReview,
                     fallbackEn: 'Apply concepts in timed questions',
+                    fallbackVi:
+                        'Cần củng cố khả năng vận dụng khái niệm trong bài tính giờ',
                   ),
                 ),
                 const SizedBox(height: 10),
@@ -572,8 +594,8 @@ class _ResultContent extends StatelessWidget {
                 _HintLine(
                   icon: Icons.flag_rounded,
                   text: context.t(
-                    vi: 'Lỗ hổng ưu tiên: ${_localizedDynamicText(context, result.needsReview.first, fallbackEn: 'Vận dụng khái niệm vào câu hỏi tính giờ')}',
-                    en: 'Priority gap: ${_localizedDynamicText(context, result.needsReview.first, fallbackEn: 'Applying concepts in timed questions')}',
+                    vi: 'Lỗ hổng ưu tiên: ${_localizedDynamicText(context, primaryNeedReview, fallbackEn: 'Applying concepts in timed questions', fallbackVi: 'Vận dụng khái niệm vào câu hỏi tính giờ')}',
+                    en: 'Priority gap: ${_localizedDynamicText(context, primaryNeedReview, fallbackEn: 'Applying concepts in timed questions')}',
                   ),
                 ),
                 const SizedBox(height: 10),

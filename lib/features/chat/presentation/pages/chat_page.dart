@@ -8,22 +8,29 @@ import 'package:speech_to_text/speech_to_text.dart' as stt;
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
-
+import '../../../mascot/presentation/pages/mascot_selection_page.dart';
+import '../../../quota/presentation/cubit/quota_cubit.dart';
+import '../../../quota/presentation/cubit/quota_state.dart';
+import '../../../quota/presentation/widgets/quota_exceeded_dialog.dart';
+import '../../../quota/presentation/widgets/quota_indicator.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/chat_state.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_quick_chips.dart';
 import '../widgets/chat_typing_indicator.dart';
-import '../../../mascot/presentation/pages/mascot_selection_page.dart';
 
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final quotaCubit = context.read<QuotaCubit?>();
+
     return BlocProvider(
-      create: (_) =>
-          ChatCubit(repository: context.read<ChatRepository>())..initialize(),
+      create: (_) => ChatCubit(
+        repository: context.read<ChatRepository>(),
+        quotaCubit: quotaCubit,
+      )..initialize(),
       child: const _ChatView(),
     );
   }
@@ -144,15 +151,100 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     });
   }
 
-  void _sendMessage(String text) {
-    if (text.trim().isEmpty) return;
+  Future<void> _sendMessage(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    final quotaCubit = context.read<QuotaCubit?>();
+    if (quotaCubit != null && !quotaCubit.canChat) {
+      await QuotaExceededDialog.show(
+        context,
+        limit: _quotaLimitFromState(quotaCubit.state),
+      );
+      return;
+    }
+
     if (_isListening) {
       _stopListening();
     }
-    context.read<ChatCubit>().sendMessage(text);
-    _textController.clear();
-    _focusNode.unfocus();
-    _scrollToBottom();
+
+    final outcome = await context.read<ChatCubit>().sendMessage(trimmed);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (outcome != ChatSendOutcome.ignored) {
+      _textController.clear();
+      _focusNode.unfocus();
+      _scrollToBottom();
+    }
+
+    if (outcome == ChatSendOutcome.quotaExceeded) {
+      await QuotaExceededDialog.show(
+        context,
+        limit: _quotaLimitFromState(quotaCubit?.state),
+      );
+    }
+  }
+
+  int _quotaLimitFromState(QuotaState? state) {
+    if (state is QuotaLoaded) {
+      return state.quota.limit;
+    }
+    return 30;
+  }
+
+  bool _canChatFromQuotaState(QuotaState state) {
+    if (state is QuotaLoaded) {
+      return !state.quota.isExceeded;
+    }
+    return true;
+  }
+
+  void _handleSendPressed() {
+    final text = _textController.text.trim();
+    final imageBytes = _selectedImageBytes;
+    final hasImage = imageBytes != null && imageBytes.isNotEmpty;
+
+    if (hasImage) {
+      final prompt = text.isEmpty
+          ? context.t(
+              vi: 'Giúp mình phân tích nội dung trong ảnh này.',
+              en: 'Please analyze the content in this image.',
+            )
+          : text;
+
+      final quotaCubit = context.read<QuotaCubit?>();
+      if (quotaCubit != null && !quotaCubit.canChat) {
+        QuotaExceededDialog.show(
+          context,
+          limit: _quotaLimitFromState(quotaCubit.state),
+        );
+        return;
+      }
+
+      if (_isListening) {
+        _stopListening();
+      }
+
+      context.read<ChatCubit>().sendImageMessage(
+        text: prompt,
+        imageBytes: imageBytes,
+        imageName: _selectedImageName ?? 'upload.jpg',
+        imageMimeType: _selectedImageMimeType ?? 'image/jpeg',
+      );
+
+      _textController.clear();
+      _clearSelectedImage();
+      _focusNode.unfocus();
+      _scrollToBottom();
+      return;
+    }
+
+    if (text.isNotEmpty) {
+      _sendMessage(text);
+    }
   }
 
   Future<void> _toggleListening() async {
@@ -334,42 +426,6 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     });
   }
 
-  void _handleSendPressed() {
-    final text = _textController.text.trim();
-    final imageBytes = _selectedImageBytes;
-    final hasImage = imageBytes != null && imageBytes.isNotEmpty;
-
-    if (hasImage) {
-      final prompt = text.isEmpty
-          ? context.t(
-              vi: 'Giúp mình phân tích nội dung trong ảnh này.',
-              en: 'Please analyze the content in this image.',
-            )
-          : text;
-
-      if (_isListening) {
-        _stopListening();
-      }
-
-      context.read<ChatCubit>().sendImageMessage(
-        text: prompt,
-        imageBytes: imageBytes,
-        imageName: _selectedImageName ?? 'upload.jpg',
-        imageMimeType: _selectedImageMimeType ?? 'image/jpeg',
-      );
-
-      _textController.clear();
-      _clearSelectedImage();
-      _focusNode.unfocus();
-      _scrollToBottom();
-      return;
-    }
-
-    if (text.isNotEmpty) {
-      _sendMessage(text);
-    }
-  }
-
   void _showClearChatDialog() {
     final theme = Theme.of(context);
     showDialog<void>(
@@ -408,6 +464,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final hasQuotaCubit = context.read<QuotaCubit?>() != null;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -453,6 +510,11 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
           ),
         ),
         actions: [
+          if (hasQuotaCubit)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Center(child: QuotaIndicator()),
+            ),
           IconButton(
             onPressed: _showClearChatDialog,
             icon: Icon(Icons.delete_outline_rounded, color: colors.primary),
@@ -560,11 +622,31 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
           BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
               if (state is ChatReady && !state.isAiTyping) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: ChatQuickChips(onChipTapped: _sendMessage),
+                if (!hasQuotaCubit) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ChatQuickChips(
+                      onChipTapped: (text) => _sendMessage(text),
+                    ),
+                  );
+                }
+
+                return BlocBuilder<QuotaCubit, QuotaState>(
+                  builder: (context, quotaState) {
+                    if (!_canChatFromQuotaState(quotaState)) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ChatQuickChips(
+                        onChipTapped: (text) => _sendMessage(text),
+                      ),
+                    );
+                  },
                 );
               }
+
               return const SizedBox.shrink();
             },
           ),
@@ -678,7 +760,6 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                     tooltip: context.t(vi: 'Thêm ảnh', en: 'Attach image'),
                   ),
                 ),
-
                 Padding(
                   padding: const EdgeInsets.only(right: 4, bottom: 2),
                   child: _isListening
@@ -718,7 +799,6 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                           ),
                         ),
                 ),
-
                 Expanded(
                   child: Container(
                     constraints: const BoxConstraints(maxHeight: 120),

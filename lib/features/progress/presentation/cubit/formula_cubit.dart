@@ -1,5 +1,6 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../data/models/formula.dart';
 import '../../data/repositories/formula_repository.dart';
 import 'formula_state.dart';
 
@@ -29,12 +30,20 @@ class FormulaCubit extends Cubit<FormulaState> {
       return;
     }
 
-    emit(current.copyWith(searchQuery: query));
-    final results = await _repository.searchFormulas(query);
-    // Re-read state in case it changed
-    final after = state;
-    if (after is FormulaLoaded && after.searchQuery == query) {
-      emit(after.copyWith(searchResults: results));
+    emit(current.copyWith(searchQuery: query, searchResults: null));
+
+    try {
+      final results = await _repository.searchFormulas(query);
+      // Re-read state in case it changed
+      final after = state;
+      if (after is FormulaLoaded && after.searchQuery == query) {
+        emit(after.copyWith(searchResults: results));
+      }
+    } catch (_) {
+      final after = state;
+      if (after is FormulaLoaded && after.searchQuery == query) {
+        emit(after.copyWith(searchResults: const <Formula>[]));
+      }
     }
   }
 

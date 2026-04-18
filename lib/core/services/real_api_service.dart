@@ -11,6 +11,11 @@ import '../network/api_service.dart';
 
 /// Production-ready REST API service.
 ///
+/// **DEPRECATED**: The endpoints used here (`/quiz/submit-answer`,
+/// `/quiz/submit-batch`, `/diagnosis/get`, etc.) do not exist in the current
+/// backend. Use [QuizApiRepository] for quiz and [AgenticApiService] /
+/// [RealAgenticApiService] for agentic interaction.
+///
 /// Features:
 /// - Auth header injection (Bearer token)
 /// - Automatic token refresh on 401
@@ -18,6 +23,9 @@ import '../network/api_service.dart';
 /// - Timeout handling
 /// - Request/response logging (debug only)
 /// - Unified error handling via [AppException] hierarchy
+@Deprecated(
+  'Use QuizApiRepository for quiz flow, RealAgenticApiService for agentic flow.',
+)
 class RealApiService implements ApiService {
   RealApiService({
     http.Client? httpClient,
@@ -37,6 +45,10 @@ class RealApiService implements ApiService {
   _onTokenRefresh;
 
   bool _isRefreshing = false;
+  bool _signalsEndpointUnavailable = false;
+  bool _didLogSignalsEndpointUnavailable = false;
+  bool _batchSubmitEndpointUnavailable = false;
+  bool _didLogBatchSubmitEndpointUnavailable = false;
 
   String get baseUrl => ApiConfig.restApiBaseUrl;
 
@@ -72,11 +84,37 @@ class RealApiService implements ApiService {
   Future<Map<String, dynamic>> submitSignals({
     required String sessionId,
     required List<Map<String, dynamic>> signals,
-  }) {
-    return _post('/signals/batch', <String, dynamic>{
-      'sessionId': sessionId,
-      'signals': signals,
-    });
+  }) async {
+    if (_signalsEndpointUnavailable) {
+      return _buildSignalsSkippedResponse(
+        sessionId: sessionId,
+        skippedCount: signals.length,
+      );
+    }
+
+    try {
+      return await _post('/signals/batch', <String, dynamic>{
+        'sessionId': sessionId,
+        'signals': signals,
+      });
+    } on AppException catch (error) {
+      if (_isSignalsEndpointNotFound(error)) {
+        _signalsEndpointUnavailable = true;
+
+        if (ApiConfig.enableHttpLogging && !_didLogSignalsEndpointUnavailable) {
+          _didLogSignalsEndpointUnavailable = true;
+          debugPrint(
+            '⚠️ /signals/batch not found (404). Disable remote signals sync for current app session.',
+          );
+        }
+
+        return _buildSignalsSkippedResponse(
+          sessionId: sessionId,
+          skippedCount: signals.length,
+        );
+      }
+      rethrow;
+    }
   }
 
   @override
@@ -142,11 +180,38 @@ class RealApiService implements ApiService {
   Future<Map<String, dynamic>> submitBatchAnswers({
     required String sessionId,
     required List<Map<String, dynamic>> answers,
-  }) {
-    return _post('/quiz/submit-batch', <String, dynamic>{
-      'sessionId': sessionId,
-      'answers': answers,
-    });
+  }) async {
+    if (_batchSubmitEndpointUnavailable) {
+      return _submitBatchAnswersSequentially(
+        sessionId: sessionId,
+        answers: answers,
+      );
+    }
+
+    try {
+      return await _post('/quiz/submit-batch', <String, dynamic>{
+        'sessionId': sessionId,
+        'answers': answers,
+      });
+    } on AppException catch (error) {
+      if (_isBatchSubmitEndpointNotFound(error)) {
+        _batchSubmitEndpointUnavailable = true;
+
+        if (ApiConfig.enableHttpLogging &&
+            !_didLogBatchSubmitEndpointUnavailable) {
+          _didLogBatchSubmitEndpointUnavailable = true;
+          debugPrint(
+            '⚠️ /quiz/submit-batch not found (404). Falling back to sequential /quiz/submit-answer calls.',
+          );
+        }
+
+        return _submitBatchAnswersSequentially(
+          sessionId: sessionId,
+          answers: answers,
+        );
+      }
+      rethrow;
+    }
   }
 
   // ===== Core HTTP Methods =====
@@ -373,6 +438,106 @@ class RealApiService implements ApiService {
     // Thêm jitter ngẫu nhiên để tránh thundering herd
     final jitter = Duration(milliseconds: (delayMs * 0.25).toInt());
     return Duration(milliseconds: delayMs) + jitter;
+  }
+
+  bool _isSignalsEndpointNotFound(AppException error) {
+    return error.statusCode == 404 || error.code == 'NOT_FOUND';
+  }
+
+  bool _isBatchSubmitEndpointNotFound(AppException error) {
+    final statusCode = error.statusCode;
+    final code = error.code.toUpperCase();
+    final message = error.message.toLowerCase();
+
+    if (statusCode == 404 || statusCode == 405 || statusCode == 501) {
+      return true;
+    }
+
+    if (code == 'NOT_FOUND' || code == 'METHOD_NOT_ALLOWED') {
+      return true;
+    }
+
+    if ((statusCode == 400 || statusCode == 422) &&
+        (message.contains('submit-batch') ||
+            message.contains('batch endpoint') ||
+            message.contains('not implemented'))) {
+      return true;
+    }
+
+    return false;
+  }
+
+  Future<Map<String, dynamic>> _submitBatchAnswersSequentially({
+    required String sessionId,
+    required List<Map<String, dynamic>> answers,
+  }) async {
+    final submissionIds = <String>[];
+
+    for (final entry in answers) {
+      final rawQuestionId = entry['questionId'] ?? entry['question_id'];
+      final rawAnswer =
+          entry['answerText'] ?? entry['answer_text'] ?? entry['answer'];
+
+      final questionId = rawQuestionId?.toString().trim() ?? '';
+      final answerText = rawAnswer?.toString() ?? '';
+
+      if (questionId.isEmpty || answerText.trim().isEmpty) {
+        throw const ValidationException(
+          message: 'Thiếu question_id hoặc answer khi nộp toàn bộ bài.',
+        );
+      }
+
+      final response = await submitAnswer(
+        sessionId: sessionId,
+        questionId: questionId,
+        answer: answerText,
+      );
+
+      final data = response['data'];
+      if (data is Map<String, dynamic>) {
+        final submissionId =
+            data['submissionId']?.toString() ??
+            data['submission_id']?.toString() ??
+            data['answerId']?.toString() ??
+            data['answer_id']?.toString();
+        if (submissionId != null && submissionId.isNotEmpty) {
+          submissionIds.add(submissionId);
+        }
+      }
+    }
+
+    return <String, dynamic>{
+      'status': 'success',
+      'message': 'Batch answers accepted via sequential submit fallback.',
+      'data': <String, dynamic>{
+        'sessionId': sessionId,
+        'submissionIds': submissionIds,
+        'totalSubmitted': answers.length,
+      },
+      'meta': <String, dynamic>{
+        'source': 'real-api',
+        'fallback': 'sequential-submit-answer',
+      },
+    };
+  }
+
+  Map<String, dynamic> _buildSignalsSkippedResponse({
+    required String sessionId,
+    required int skippedCount,
+  }) {
+    return <String, dynamic>{
+      'status': 'skipped',
+      'message':
+          'Behavioral signals endpoint unavailable. Signals skipped for this session.',
+      'data': <String, dynamic>{
+        'sessionId': sessionId,
+        'skippedCount': skippedCount,
+      },
+      'meta': <String, dynamic>{
+        'source': 'real-api',
+        'reason': 'signals_endpoint_unavailable',
+      },
+    };
   }
 
   @override

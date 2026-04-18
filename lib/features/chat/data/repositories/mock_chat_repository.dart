@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../../../chat/domain/entities/chat_message.dart';
+import '../../../quota/data/models/quota_status.dart';
 import 'chat_repository.dart';
 
 class MockChatRepository implements ChatRepository {
@@ -9,6 +10,10 @@ class MockChatRepository implements ChatRepository {
 
   final _random = Random();
   final List<ChatMessage> _history = [];
+
+  @override
+  Future<QuotaStatus> fetchQuota() async =>
+      const QuotaStatus(used: 0, limit: 30, remaining: 30);
 
   /// Context-aware mock AI responses grouped by topic keywords.
   static const _topicResponses = <String, List<String>>{
@@ -96,7 +101,10 @@ class MockChatRepository implements ChatRepository {
   ];
 
   @override
-  Future<ChatMessage> sendMessage(String userMessage) async {
+  Future<ChatSendResult> sendMessage(
+    String userMessage, {
+    List<ChatMessage> history = const [],
+  }) async {
     await Future.delayed(Duration(milliseconds: 600 + _random.nextInt(1000)));
 
     _history.add(
@@ -133,11 +141,22 @@ class MockChatRepository implements ChatRepository {
     );
 
     _history.add(aiMessage);
-    return aiMessage;
+    return ChatSendResult(reply: aiMessage);
   }
 
   @override
-  Future<ChatMessage> sendImageMessage({
+  Future<List<ChatMessage>> loadHistory({int limit = 40}) async {
+    if (_history.isEmpty) {
+      return const [];
+    }
+    if (_history.length <= limit) {
+      return List<ChatMessage>.from(_history);
+    }
+    return _history.sublist(_history.length - limit);
+  }
+
+  @override
+  Future<ChatSendResult> sendImageMessage({
     required String userMessage,
     required Uint8List imageBytes,
     required String imageName,
@@ -168,7 +187,7 @@ class MockChatRepository implements ChatRepository {
     );
 
     _history.add(aiMessage);
-    return aiMessage;
+    return ChatSendResult(reply: aiMessage);
   }
 
   @override
@@ -187,9 +206,6 @@ class MockChatRepository implements ChatRepository {
       timestamp: DateTime.now(),
     );
   }
-
-  @override
-  Future<List<ChatMessage>> loadHistory() async => [];
 
   @override
   void clearHistory() {

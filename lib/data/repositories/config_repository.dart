@@ -22,10 +22,34 @@ class ConfigRepository {
       return _cache[category]!;
     }
     final response = await _client.get('/configs/$category');
-    _cache[category] = response;
-    return response;
+    final payload = _unwrapPayload(response);
+    _cache[category] = payload;
+    return payload;
+  }
+
+  /// Upload/replace config for [category] via `POST /configs/{category}`.
+  ///
+  /// Keeps local cache in sync after successful upload.
+  Future<Map<String, dynamic>> uploadConfig(
+    String category,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _client.post('/configs/$category', payload);
+    final normalized = _unwrapPayload(response);
+    _cache[category] = normalized;
+    return normalized;
   }
 
   /// Clears the in-memory cache for all categories.
   void clearCache() => _cache.clear();
+
+  Map<String, dynamic> _unwrapPayload(Map<String, dynamic> raw) {
+    for (final key in const <String>['data', 'result', 'payload']) {
+      final nested = raw[key];
+      if (nested is Map) {
+        return Map<String, dynamic>.from(nested);
+      }
+    }
+    return raw;
+  }
 }

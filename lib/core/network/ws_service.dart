@@ -20,10 +20,14 @@ import '../network/api_config.dart';
 ///    - Read-only stream of full dashboard payloads after each
 ///      orchestrator step (academic, empathy, strategy, orchestrator states).
 class AgenticWsService {
-  AgenticWsService({String? wsBaseUrl})
-    : _wsBaseUrl = wsBaseUrl ?? _defaultWsBaseUrl;
+  AgenticWsService({
+    String? wsBaseUrl,
+    Future<String?> Function()? getAccessToken,
+  }) : _wsBaseUrl = wsBaseUrl ?? _defaultWsBaseUrl,
+       _getAccessToken = getAccessToken;
 
   final String _wsBaseUrl;
+  final Future<String?> Function()? _getAccessToken;
 
   WebSocketChannel? _behaviorChannel;
   WebSocketChannel? _dashboardChannel;
@@ -47,10 +51,10 @@ class AgenticWsService {
   // ─── Connect ───────────────────────────────────────────────────────────
 
   /// Opens the behavior telemetry WebSocket for a session.
-  void connectBehavior(String sessionId) {
+  Future<void> connectBehavior(String sessionId) async {
     disconnectBehavior();
 
-    final uri = Uri.parse('$_wsBaseUrl/behavior/$sessionId');
+    final uri = await _buildSessionUri('behavior/$sessionId');
     _log('Connecting behavior WS: $uri');
 
     _behaviorChannel = WebSocketChannel.connect(uri);
@@ -76,10 +80,10 @@ class AgenticWsService {
   }
 
   /// Opens the dashboard stream WebSocket for a session.
-  void connectDashboard(String sessionId) {
+  Future<void> connectDashboard(String sessionId) async {
     disconnectDashboard();
 
-    final uri = Uri.parse('$_wsBaseUrl/dashboard/stream/$sessionId');
+    final uri = await _buildSessionUri('dashboard/stream/$sessionId');
     _log('Connecting dashboard WS: $uri');
 
     _dashboardChannel = WebSocketChannel.connect(uri);
@@ -105,9 +109,11 @@ class AgenticWsService {
   }
 
   /// Opens both channels at once for a session.
-  void connectAll(String sessionId) {
-    connectBehavior(sessionId);
-    connectDashboard(sessionId);
+  Future<void> connectAll(String sessionId) async {
+    await Future.wait([
+      connectBehavior(sessionId),
+      connectDashboard(sessionId),
+    ]);
   }
 
   // ─── Send Signals ──────────────────────────────────────────────────────
@@ -166,6 +172,20 @@ class AgenticWsService {
     final wsScheme = restUrl.startsWith('https') ? 'wss' : 'ws';
     final uri = Uri.parse(restUrl);
     return '$wsScheme://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}/ws/v1';
+  }
+
+  Future<Uri> _buildSessionUri(String path) async {
+    final uri = Uri.parse('$_wsBaseUrl/$path');
+    final accessToken = await _getAccessToken?.call();
+    if (accessToken == null || accessToken.isEmpty) {
+      return uri;
+    }
+    return uri.replace(
+      queryParameters: <String, String>{
+        ...uri.queryParameters,
+        'access_token': accessToken,
+      },
+    );
   }
 
   void _log(String message) {

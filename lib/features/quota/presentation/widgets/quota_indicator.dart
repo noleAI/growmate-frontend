@@ -17,6 +17,19 @@ class QuotaIndicator extends StatelessWidget {
 
     return BlocBuilder<QuotaCubit, QuotaState>(
       builder: (context, state) {
+        if (state is QuotaLoading) {
+          return Container(
+            width: 36,
+            height: 24,
+            alignment: Alignment.center,
+            child: SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+          );
+        }
+
         if (state is! QuotaLoaded) {
           return const SizedBox.shrink();
         }
@@ -44,11 +57,7 @@ class QuotaIndicator extends StatelessWidget {
           child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(
-                Icons.chat_bubble_rounded,
-                size: 14,
-                color: textColor,
-              ),
+              Icon(Icons.chat_bubble_rounded, size: 14, color: textColor),
               const SizedBox(width: 4),
               Text(
                 '$remaining',
@@ -106,10 +115,7 @@ class QuotaLimitedTextField extends StatelessWidget {
           borderRadius: BorderRadius.circular(16),
           borderSide: BorderSide.none,
         ),
-        counterStyle: TextStyle(
-          color: colors.onSurfaceVariant,
-          fontSize: 11,
-        ),
+        counterStyle: TextStyle(color: colors.onSurfaceVariant, fontSize: 11),
       ),
     );
   }

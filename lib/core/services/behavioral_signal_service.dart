@@ -2,8 +2,8 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 
+import '../../features/auth/data/repositories/data_consent_repository.dart';
 import '../models/signal_batch.dart';
 
 class BehavioralSignalService with WidgetsBindingObserver {
@@ -17,13 +17,14 @@ class BehavioralSignalService with WidgetsBindingObserver {
   final List<SignalBatch> _pendingBatches = <SignalBatch>[];
   final Stopwatch _windowStopwatch = Stopwatch();
   final Stopwatch _idleStopwatch = Stopwatch();
+  final DataConsentRepository _dataConsentRepository =
+      DataConsentRepository.instance;
 
   Future<void> Function(List<SignalBatch> batch)? _batchSubmitter;
+  String? Function()? _activeUserKeyResolver;
 
   Timer? _batchTimer;
   Stopwatch? _questionStopwatch;
-
-  static const String _consentAcceptedKey = 'data_consent_accepted';
   bool _observerAttached = false;
   bool _isPaused = false;
   bool _isCollecting = false;
@@ -69,6 +70,10 @@ class BehavioralSignalService with WidgetsBindingObserver {
     Future<void> Function(List<SignalBatch> batch) submitter,
   ) {
     _batchSubmitter = submitter;
+  }
+
+  void setActiveUserKeyResolver(String? Function()? resolver) {
+    _activeUserKeyResolver = resolver;
   }
 
   void startQuestion({required String questionId}) {
@@ -383,8 +388,10 @@ class BehavioralSignalService with WidgetsBindingObserver {
     }
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasConsent = prefs.getBool(_consentAcceptedKey) == true;
+      final userKey = _activeUserKeyResolver?.call();
+      final hasConsent = await _dataConsentRepository.isAccepted(
+        userKey: userKey,
+      );
       _hasActiveConsent = hasConsent;
       return hasConsent;
     } catch (_) {

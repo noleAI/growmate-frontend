@@ -284,6 +284,8 @@ class QuizCubit extends Cubit<QuizCubitState> {
       int? nextRegenInSeconds;
 
       if (_quizApiRepository != null && _sessionId != null) {
+        final apiSessionId = _sessionId;
+
         // Dispatch correct field per question type to match backend contract.
         String? selectedOption;
         String? answerField;
@@ -300,15 +302,17 @@ class QuizCubit extends Cubit<QuizCubitState> {
         }
 
         final apiResponse = await _quizApiRepository.submitAnswer(
-          sessionId: _sessionId,
+          sessionId: apiSessionId,
           questionId: question.id,
           selectedOption: selectedOption,
           answer: answerField,
           answers: answersField,
         );
-        submissionId = apiResponse.questionId.isNotEmpty
-            ? apiResponse.questionId
-            : question.id;
+        submissionId = apiSessionId.isNotEmpty
+            ? apiSessionId
+            : (apiResponse.questionId.isNotEmpty
+                  ? apiResponse.questionId
+                  : question.id);
         responseIsCorrect = apiResponse.isCorrect;
         livesRemaining = apiResponse.livesRemaining;
         canPlay = apiResponse.canPlay;
@@ -383,11 +387,14 @@ class QuizCubit extends Cubit<QuizCubitState> {
         return;
       }
       if (e is ForbiddenException) {
+        final nextRegenInSeconds = _extractNextRegenInSeconds(e.details);
         emit(
           QuizNoLivesState(
-            message:
-                'Bạn đã hết tim! Hãy chờ hồi sinh hoặc xem lại bài cũ nhé.',
+            message: e.message.isNotEmpty
+                ? e.message
+                : 'Bạn đã hết tim! Hãy chờ hồi sinh hoặc xem lại bài cũ nhé.',
             answer: visibleAnswer,
+            nextRegenInSeconds: nextRegenInSeconds,
           ),
         );
         return;
@@ -401,8 +408,10 @@ class QuizCubit extends Cubit<QuizCubitState> {
     }
   }
 
-  Future<void> submitAllAnswers(List<QuizQuestionUserAnswer> answers) async {
-    if (answers.isEmpty) {
+  Future<void> submitAllAnswers(
+    List<Map<String, dynamic>> answerEntries,
+  ) async {
+    if (answerEntries.isEmpty) {
       emit(
         const QuizSubmitFailureState(
           message: 'Không có câu trả lời nào để gửi.',
@@ -415,18 +424,14 @@ class QuizCubit extends Cubit<QuizCubitState> {
     emit(const QuizBatchSubmittingState(answer: ''));
 
     try {
-      final payload = answers
-          .map((a) => <String, dynamic>{'answer': jsonEncode(a.toJson())})
-          .toList(growable: false);
-
       final response = await _quizRepository.submitBatchAnswers(
-        answers: payload,
+        answers: answerEntries,
       );
 
       final data = response['data'] is Map<String, dynamic>
           ? response['data'] as Map<String, dynamic>
           : <String, dynamic>{};
-      final total = data['totalSubmitted'] as int? ?? answers.length;
+      final total = data['totalSubmitted'] as int? ?? answerEntries.length;
 
       emit(QuizBatchSubmitSuccessState(totalSubmitted: total, answer: ''));
     } catch (_) {
@@ -496,5 +501,25 @@ class QuizCubit extends Cubit<QuizCubitState> {
     }
 
     return '';
+  }
+
+  static int? _extractNextRegenInSeconds(Map<String, dynamic>? details) {
+    if (details == null || details.isEmpty) {
+      return null;
+    }
+
+    return _tryParseInt(details['next_regen_in_seconds']) ??
+        _tryParseInt(details['nextRegenInSeconds']) ??
+        _tryParseInt(details['next_regen_seconds']);
+  }
+
+  static int? _tryParseInt(dynamic value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is String) {
+      return int.tryParse(value.trim());
+    }
+    return null;
   }
 }
