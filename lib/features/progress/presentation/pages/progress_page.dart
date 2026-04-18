@@ -358,7 +358,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     const SizedBox(
                                       height: GrowMateLayout.sectionGapLg,
                                     ),
-                                    AiProgressNarrative(progress: progress),
+                                    AiProgressNarrative(
+                                      progress: progress,
+                                      isConfirmed:
+                                          widget.realProgressRepository != null,
+                                    ),
                                     // Agentic reflection summary
                                     BlocBuilder<
                                       AgenticSessionCubit,

@@ -33,6 +33,8 @@ import '../../../session_recovery/data/repositories/session_recovery_repository.
 import '../cubit/home_hydration_cubit.dart';
 import '../cubit/home_hydration_state.dart';
 import '../widgets/resume_banner.dart';
+import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
+import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
 
 class TodayPage extends StatefulWidget {
@@ -75,21 +77,27 @@ class _TodayPageState extends State<TodayPage> {
 
   Future<void> _checkDailyStreak() async {
     final prefs = await SharedPreferences.getInstance();
+    if (!mounted) {
+      return;
+    }
     final now = DateTime.now();
     final today = now.toIso8601String().substring(0, 10);
     final lastShown = prefs.getString('streak_popup_date');
-    if (lastShown == today) return;
-
-    await prefs.setString('streak_popup_date', today);
-    if (!mounted) return;
+    // Prevent duplicate daily-login XP calls in the same local day.
+    if (lastShown == today) {
+      return;
+    }
 
     int streakDays = 1;
     int xpBonus = 10;
+    var shouldShowPopup = false;
     try {
       final repo = context.read<LeaderboardRepository>();
       final response = await repo.addXp(eventType: 'daily_login');
       streakDays = response.currentStreak;
       xpBonus = response.xpAdded;
+      // Show only when backend actually grants new XP for this login.
+      shouldShowPopup = xpBonus > 0 && streakDays > 0;
     } catch (_) {
       if (!mounted) return;
       // Fallback: read streak from cubit or local counter.
@@ -110,8 +118,16 @@ class _TodayPageState extends State<TodayPage> {
         await prefs.setInt('streak_days', streakDays);
       }
       xpBonus = streakDays * 10;
+      shouldShowPopup = streakDays > 0;
     }
-    if (!mounted || streakDays <= 0) return;
+    if (!mounted || !shouldShowPopup) {
+      return;
+    }
+
+    await prefs.setString('streak_popup_date', today);
+    if (!mounted) {
+      return;
+    }
 
     StreakPopup.show(
       context,
@@ -172,113 +188,205 @@ class _TodayPageState extends State<TodayPage> {
       value: hydrationCubit,
       child: BlocBuilder<HomeHydrationCubit, HomeHydrationState>(
         builder: (context, hydrationState) {
-          final colors = theme.colorScheme;
           final history = hydrationState.history;
           final latestSession = hydrationState.latestSession;
           final pendingSession = hydrationState.pendingSession;
+          final hasPendingSession = pendingSession?.hasPending == true;
+          return Scaffold(
+            backgroundColor: AmbientGradient.colorFor(
+              theme.scaffoldBackgroundColor,
+              hydrationState.emotion,
+            ),
+            body: ZenPageContainer(
+              includeBottomSafeArea: false,
+              child: RefreshIndicator(
+                onRefresh: context.read<HomeHydrationCubit>().refresh,
+                child: ListView(
+                  children: [
+                    _buildTopAppBar(context),
 
-        return Scaffold(
-          backgroundColor: AmbientGradient.colorFor(
-            theme.scaffoldBackgroundColor,
-            hydrationState.emotion,
-          ),
-          body: ZenPageContainer(
-            includeBottomSafeArea: false,
-            child: RefreshIndicator(
-              onRefresh: context.read<HomeHydrationCubit>().refresh,
-              child: ListView(
-                children: [
-                  _buildTopAppBar(context),
-
-                  const SizedBox(height: GrowMateLayout.space16),
-                  Text(
-                    _dateLabel(context, DateTime.now()),
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: colors.onSurfaceVariant,
-                      fontWeight: FontWeight.w500,
-                    ),
-                  ),
-                  const SizedBox(height: GrowMateLayout.contentGap),
-
-                  if (hydrationState.showEmptyOnboarding &&
-                      !_onboardingDismissed) ...[
-                    FadeSlideIn(
-                      delayMs: 0,
-                      child: _OnboardingCard(onDismiss: _dismissOnboarding),
-                    ),
-                    const SizedBox(height: GrowMateLayout.space12),
-                  ],
-
-                  if (!_resumeDismissed && pendingSession != null)
-                    ResumeBanner(
+                    const SizedBox(height: GrowMateLayout.space16),
+                    _HomeHeader(
+                      dateLabel: _dateLabel(context, DateTime.now()),
+                      hydrationStatus: hydrationState.status,
                       pendingSession: pendingSession,
-                      onResume: (pending) => _resumePendingSession(
-                        context: context,
-                        pending: pending,
-                      ),
-                      onDismiss: () {
-                        setState(() => _resumeDismissed = true);
+                    ),
+                    const SizedBox(height: GrowMateLayout.contentGap),
+
+                    // Recovery mode indicator (subtle) — only when AgenticSessionCubit is present
+                    Builder(
+                      builder: (innerCtx) {
+                        AgenticSessionCubit? agenticCubit;
+                        try {
+                          agenticCubit = innerCtx.read<AgenticSessionCubit>();
+                        } catch (_) {
+                          agenticCubit = null;
+                        }
+                        if (agenticCubit == null) {
+                          return const SizedBox.shrink();
+                        }
+
+                        return BlocBuilder<
+                          AgenticSessionCubit,
+                          AgenticSessionState
+                        >(
+                          bloc: agenticCubit,
+                          builder: (context, agenticState) {
+                            if (!agenticState.isRecovery) {
+                              return const SizedBox.shrink();
+                            }
+                            final colors = Theme.of(context).colorScheme;
+                            return Padding(
+                              padding: const EdgeInsets.only(bottom: 8.0),
+                              child: Container(
+                                width: double.infinity,
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 12,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: colors.primary.withValues(alpha: 0.06),
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: colors.primary.withValues(
+                                      alpha: 0.08,
+                                    ),
+                                  ),
+                                ),
+                                child: Row(
+                                  children: [
+                                    Icon(
+                                      Icons.self_improvement,
+                                      size: 18,
+                                      color: colors.primary,
+                                    ),
+                                    const SizedBox(width: 8),
+                                    Expanded(
+                                      child: Text(
+                                        context.t(
+                                          vi: 'Chế độ phục hồi đang bật — thử một bài ngắn để giảm áp lực.',
+                                          en: 'Recovery mode active — try a short, gentle activity.',
+                                        ),
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodyMedium
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ),
+                                    TextButton(
+                                      onPressed: () =>
+                                          context.push(AppRoutes.recovery),
+                                      child: Text(
+                                        context.t(vi: 'Xem', en: 'View'),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ),
+                            );
+                          },
+                        );
                       },
                     ),
 
-                  // ── AI State Card (focal point) ──
-                  AnimatedSwitcher(
-                    duration: const Duration(milliseconds: 240),
-                    switchInCurve: Curves.easeOut,
-                    switchOutCurve: Curves.easeOut,
-                    child: switch (hydrationState.status) {
-                      HomeHydrationStatus.loading => _ThinkingHero(theme: theme),
-                      HomeHydrationStatus.ready => FadeSlideIn(
-                        delayMs: 150,
-                        child: _AiStateCard(
-                          latestSession: latestSession,
-                          confidence: hydrationState.confidence,
-                          emotion: hydrationState.emotion,
-                          onStartSession: () => context.push(AppRoutes.quiz),
-                        ),
+                    if (hydrationState.showEmptyOnboarding &&
+                        !_onboardingDismissed) ...[
+                      FadeSlideIn(
+                        delayMs: 0,
+                        child: _OnboardingCard(onDismiss: _dismissOnboarding),
                       ),
-                      HomeHydrationStatus.empty => FadeSlideIn(
-                        delayMs: 150,
-                        child: const _EmptyHeroCard(),
-                      ),
-                      HomeHydrationStatus.error => FadeSlideIn(
-                        delayMs: 150,
-                        child: _HydrationErrorHero(
-                          onRetry: context.read<HomeHydrationCubit>().refresh,
-                        ),
-                      ),
-                    },
-                  ),
+                      const SizedBox(height: GrowMateLayout.space12),
+                    ],
 
-                  const SizedBox(height: GrowMateLayout.breath),
-
-                  // ── Pulse Metrics ──
-                  if (hydrationState.hasReadyHistory)
-                    FadeSlideIn(
-                      delayMs: 250,
-                      child: _PulseMetrics(history: history),
+                    // ── AI State Card (focal point) ──
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 240),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeOut,
+                      child: switch (hydrationState.status) {
+                        HomeHydrationStatus.loading => _ThinkingHero(
+                          theme: theme,
+                        ),
+                        HomeHydrationStatus.error => FadeSlideIn(
+                          delayMs: 150,
+                          child: _HydrationErrorHero(
+                            onRetry: context.read<HomeHydrationCubit>().refresh,
+                          ),
+                        ),
+                        _ when hasPendingSession => FadeSlideIn(
+                          delayMs: 150,
+                          child: _PendingHeroCard(
+                            pendingSession: pendingSession!,
+                            onResume: (pending) => _resumePendingSession(
+                              context: context,
+                              pending: pending,
+                            ),
+                          ),
+                        ),
+                        HomeHydrationStatus.ready => FadeSlideIn(
+                          delayMs: 150,
+                          child: _AiStateCard(
+                            latestSession: latestSession,
+                            confidence: hydrationState.confidence,
+                            emotion: hydrationState.emotion,
+                            onStartSession: () => context.push(AppRoutes.quiz),
+                          ),
+                        ),
+                        HomeHydrationStatus.empty => FadeSlideIn(
+                          delayMs: 150,
+                          child: const _EmptyHeroCard(),
+                        ),
+                      },
                     ),
 
-                  const SizedBox(height: GrowMateLayout.breath),
+                    if (!_resumeDismissed && hasPendingSession) ...[
+                      const SizedBox(height: GrowMateLayout.space12),
+                      ResumeBanner(
+                        pendingSession: pendingSession!,
+                        onResume: (pending) => _resumePendingSession(
+                          context: context,
+                          pending: pending,
+                        ),
+                        onDismiss: () {
+                          setState(() => _resumeDismissed = true);
+                        },
+                      ),
+                    ],
 
-                  // ── Quick Actions ──
-                  FadeSlideIn(delayMs: 350, child: const _FeatureHubSection()),
+                    const SizedBox(height: GrowMateLayout.breath),
 
-                  const SizedBox(height: GrowMateLayout.breath),
+                    // ── Pulse Metrics ──
+                    if (hydrationState.hasReadyHistory)
+                      FadeSlideIn(
+                        delayMs: 250,
+                        child: _PulseMetrics(history: history),
+                      ),
 
-                  // Đã loại bỏ mục "Phân tích AI gần nhất"
-                ],
+                    const SizedBox(height: GrowMateLayout.breath),
+
+                    // ── Quick Actions ──
+                    FadeSlideIn(
+                      delayMs: 350,
+                      child: const _FeatureHubSection(),
+                    ),
+
+                    const SizedBox(height: GrowMateLayout.breath),
+
+                    // Đã loại bỏ mục "Phân tích AI gần nhất"
+                  ],
+                ),
               ),
             ),
-          ),
-          bottomNavigationBar: GrowMateBottomNavBar(
-            currentTab: GrowMateTab.today,
-            onTabSelected: (tab) => handleTabNavigation(context, tab),
-          ),
-          floatingActionButton: _ChatFab(),
-          floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
-        );
-      },
+            bottomNavigationBar: GrowMateBottomNavBar(
+              currentTab: GrowMateTab.today,
+              onTabSelected: (tab) => handleTabNavigation(context, tab),
+            ),
+            floatingActionButton: _ChatFab(),
+            floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
+          );
+        },
       ),
     );
   }
@@ -585,10 +693,176 @@ class _AiStateCard extends StatelessWidget {
 
           // ── CTA Row ──
           ZenButton(
-            label: context.t(vi: 'Bắt đầu phiên mới', en: 'Start session'),
+            label: context.t(
+              vi: 'Bắt đầu phiên tiếp theo',
+              en: 'Start next session',
+            ),
             onPressed: onStartSession,
           ),
         ],
+      ),
+    );
+  }
+}
+
+class _PendingHeroCard extends StatelessWidget {
+  const _PendingHeroCard({
+    required this.pendingSession,
+    required this.onResume,
+  });
+
+  final PendingSession pendingSession;
+  final ValueChanged<PendingSession> onResume;
+
+  String _progressLabel(BuildContext context) {
+    final progress = pendingSession.progressPercent;
+    if (progress != null) {
+      return context.t(vi: '$progress% hoàn thành', en: '$progress% complete');
+    }
+
+    final total = pendingSession.totalQuestions;
+    final index =
+        pendingSession.lastQuestionIndex ?? pendingSession.nextQuestionIndex;
+    if (total != null && total > 0 && index != null && index >= 0) {
+      final derived = (((index + 1) / total) * 100).clamp(0, 100).toInt();
+      return context.t(vi: '$derived% hoàn thành', en: '$derived% complete');
+    }
+
+    return context.t(vi: 'Sẵn sàng tiếp tục', en: 'Ready to resume');
+  }
+
+  String _nextQuestionLabel(BuildContext context) {
+    final index =
+        pendingSession.lastQuestionIndex ?? pendingSession.nextQuestionIndex;
+    final total = pendingSession.totalQuestions;
+    if (index == null || index < 0) {
+      return context.t(
+        vi: 'Câu tiếp theo chưa rõ',
+        en: 'Next question unknown',
+      );
+    }
+    final question = index + 1;
+    if (total != null && total > 0) {
+      return context.t(
+        vi: 'Câu $question/$total',
+        en: 'Question $question/$total',
+      );
+    }
+    return context.t(vi: 'Câu $question', en: 'Question $question');
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      key: const ValueKey<String>('ai-hero-pending'),
+      width: double.infinity,
+      padding: GrowMateLayout.cardPaddingAi,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusLg),
+        border: Border.all(color: colors.tertiary.withValues(alpha: 0.24)),
+        boxShadow: [
+          BoxShadow(
+            color: colors.tertiary.withValues(alpha: 0.08),
+            blurRadius: 28,
+            offset: const Offset(0, 8),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 40,
+                height: 40,
+                decoration: BoxDecoration(
+                  color: colors.tertiary.withValues(alpha: 0.14),
+                  shape: BoxShape.circle,
+                ),
+                child: Icon(
+                  Icons.play_circle_rounded,
+                  color: colors.tertiary,
+                  size: 22,
+                ),
+              ),
+              const SizedBox(width: GrowMateLayout.space12),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Tiếp tục phiên học đang dở',
+                    en: 'Continue your unfinished session',
+                  ),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            context.t(
+              vi: 'Giữ nhịp học hiện tại bằng cách quay lại đúng câu bạn đang làm.',
+              en: 'Keep your momentum by resuming exactly where you left off.',
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurfaceVariant,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _PendingChip(
+                label: _progressLabel(context),
+                color: colors.tertiary,
+              ),
+              _PendingChip(
+                label: _nextQuestionLabel(context),
+                color: colors.primary,
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(vi: 'Tiếp tục phiên học', en: 'Resume session'),
+            onPressed: () => onResume(pendingSession),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PendingChip extends StatelessWidget {
+  const _PendingChip({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: theme.textTheme.labelSmall?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w700,
+        ),
       ),
     );
   }
@@ -664,6 +938,138 @@ class _HydrationErrorHero extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _HomeHeader extends StatelessWidget {
+  const _HomeHeader({
+    required this.dateLabel,
+    required this.hydrationStatus,
+    required this.pendingSession,
+  });
+
+  final String dateLabel;
+  final HomeHydrationStatus hydrationStatus;
+  final PendingSession? pendingSession;
+
+  String _greeting(BuildContext context, DateTime now) {
+    if (context.isEnglish) {
+      if (now.hour < 12) return 'Good morning';
+      if (now.hour < 18) return 'Good afternoon';
+      return 'Good evening';
+    }
+    if (now.hour < 12) return 'Chào buổi sáng';
+    if (now.hour < 18) return 'Chào buổi chiều';
+    return 'Chào buổi tối';
+  }
+
+  (String, Color) _status(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final hasPending = pendingSession?.hasPending == true;
+
+    if (hydrationStatus == HomeHydrationStatus.loading) {
+      return (
+        context.t(
+          vi: 'Đang đồng bộ dữ liệu học',
+          en: 'Syncing your learning data',
+        ),
+        colors.onSurfaceVariant,
+      );
+    }
+    if (hydrationStatus == HomeHydrationStatus.error) {
+      return (
+        context.t(
+          vi: 'Dữ liệu chưa xác nhận, thử tải lại',
+          en: 'Data not confirmed yet, retry needed',
+        ),
+        colors.error,
+      );
+    }
+    if (hasPending) {
+      return (
+        context.t(
+          vi: 'Bạn có phiên học đang dở',
+          en: 'You have an unfinished session',
+        ),
+        colors.tertiary,
+      );
+    }
+    if (hydrationStatus == HomeHydrationStatus.ready) {
+      return (
+        context.t(
+          vi: 'Sẵn sàng cho phiên tiếp theo',
+          en: 'Ready for your next session',
+        ),
+        colors.primary,
+      );
+    }
+    return (
+      context.t(
+        vi: 'Bắt đầu phiên đầu tiên để mở insight',
+        en: 'Start your first session to unlock insights',
+      ),
+      colors.primary,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final greeting = _greeting(context, DateTime.now());
+    final (statusText, statusColor) = _status(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          greeting,
+          style: theme.textTheme.titleLarge?.copyWith(
+            fontWeight: FontWeight.w800,
+            color: colors.onSurface,
+          ),
+        ),
+        const SizedBox(height: 6),
+        Text(
+          dateLabel,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+            fontWeight: FontWeight.w500,
+          ),
+        ),
+        const SizedBox(height: GrowMateLayout.space8),
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+          decoration: BoxDecoration(
+            color: statusColor.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Container(
+                width: 6,
+                height: 6,
+                decoration: BoxDecoration(
+                  color: statusColor,
+                  shape: BoxShape.circle,
+                ),
+              ),
+              const SizedBox(width: 6),
+              Text(
+                statusText,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: statusColor,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -944,10 +1350,6 @@ class _PulseCircleState extends State<_PulseCircle>
   }
 }
 
-/// ── Feature Hub Section ──
-///
-/// Replaces the old quick-strip panel with a prominent grid that surfaces
-/// all major features so users can discover them at a glance.
 class _FeatureHubSection extends StatelessWidget {
   const _FeatureHubSection();
 
@@ -956,96 +1358,139 @@ class _FeatureHubSection extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // ── Mood check strip (special — opens dialog, not a page) ──
-        _MoodCheckStrip(),
-        const SizedBox(height: GrowMateLayout.breath),
+    final primary = <_FeatureShortcutData>[
+      _FeatureShortcutData(
+        icon: Icons.edit_note_rounded,
+        label: context.t(vi: 'Làm bài', en: 'Quiz'),
+        color: colors.primary,
+        route: AppRoutes.quiz,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.refresh_rounded,
+        label: context.t(vi: 'Ôn tập', en: 'Review'),
+        color: colors.tertiary,
+        route: AppRoutes.spacedReview,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.timer_rounded,
+        label: context.t(vi: 'Tập trung', en: 'Focus'),
+        color: const Color(0xFF2563EB),
+        route: AppRoutes.focusTimer,
+      ),
+    ];
 
-        // ── Section header ──
-        Text(
-          context.t(vi: 'Tính năng', en: 'Features'),
-          style: theme.textTheme.titleMedium?.copyWith(
-            fontWeight: FontWeight.w700,
-            color: colors.onSurface,
+    final secondary = <_FeatureShortcutData>[
+      _FeatureShortcutData(
+        icon: Icons.map_rounded,
+        label: context.t(vi: 'Lộ trình', en: 'Roadmap'),
+        color: const Color(0xFF0EA5E9),
+        route: AppRoutes.thptRoadmap,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.calendar_month_rounded,
+        label: context.t(vi: 'Lịch học', en: 'Schedule'),
+        color: const Color(0xFFF59E0B),
+        route: AppRoutes.schedule,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.groups_rounded,
+        label: context.t(vi: 'So tài', en: 'Versus'),
+        color: const Color(0xFF10B981),
+        route: AppRoutes.multiplayer,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.spa_rounded,
+        label: context.t(vi: 'Thư giãn', en: 'Relax'),
+        color: const Color(0xFF14B8A6),
+        route: AppRoutes.mindfulBreak,
+      ),
+      _FeatureShortcutData(
+        icon: Icons.pets_rounded,
+        label: context.t(vi: 'Linh vật', en: 'Mascot'),
+        color: const Color(0xFF8B5CF6),
+        route: AppRoutes.mascotSelection,
+      ),
+    ];
+
+    return ZenCard(
+      radius: GrowMateLayout.cardRadiusLg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.t(vi: 'Lối tắt nhanh', en: 'Quick shortcuts'),
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w700,
+              color: colors.onSurface,
+            ),
           ),
-        ),
-        const SizedBox(height: GrowMateLayout.space12),
-
-        // ── Study row ──
-        _FeatureTileRow(
-          tiles: [
-            _FeatureTileData(
-              icon: Icons.edit_note_rounded,
-              label: context.t(vi: 'Làm bài', en: 'Quiz'),
-              color: colors.primary,
-              route: AppRoutes.quiz,
+          const SizedBox(height: 4),
+          Text(
+            context.t(
+              vi: 'Giữ Home gọn nhẹ. Chỉ hiện các tác vụ hay dùng nhất.',
+              en: 'Keep Home calm. Show only your most-used actions first.',
             ),
-            _FeatureTileData(
-              icon: Icons.refresh_rounded,
-              label: context.t(vi: 'Ôn tập', en: 'Review'),
-              color: colors.tertiary,
-              route: AppRoutes.spacedReview,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+              height: 1.35,
             ),
-            _FeatureTileData(
-              icon: Icons.timer_rounded,
-              label: context.t(vi: 'Hẹn giờ', en: 'Focus'),
-              color: const Color(0xFF6366F1),
-              route: AppRoutes.focusTimer,
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Wrap(
+            spacing: GrowMateLayout.space8,
+            runSpacing: GrowMateLayout.space8,
+            children: [
+              for (final item in primary)
+                _FeatureShortcutChip(data: item, emphasized: true),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space8),
+          Theme(
+            data: theme.copyWith(dividerColor: Colors.transparent),
+            child: ExpansionTile(
+              tilePadding: EdgeInsets.zero,
+              childrenPadding: EdgeInsets.zero,
+              iconColor: colors.onSurfaceVariant,
+              collapsedIconColor: colors.onSurfaceVariant,
+              title: Text(
+                context.t(vi: 'Khám phá thêm', en: 'Explore more'),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontWeight: FontWeight.w700,
+                  color: colors.onSurface,
+                ),
+              ),
+              subtitle: Text(
+                context.t(
+                  vi: 'Lộ trình, lịch học, đấu đôi, linh vật...',
+                  en: 'Roadmap, schedule, versus, mascot...',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              children: [
+                const SizedBox(height: GrowMateLayout.space8),
+                Wrap(
+                  spacing: GrowMateLayout.space8,
+                  runSpacing: GrowMateLayout.space8,
+                  children: [
+                    for (final item in secondary)
+                      _FeatureShortcutChip(data: item),
+                  ],
+                ),
+                const SizedBox(height: GrowMateLayout.space12),
+                _MoodCheckAction(),
+              ],
             ),
-            _FeatureTileData(
-              icon: Icons.map_rounded,
-              label: context.t(vi: 'Lộ trình', en: 'Roadmap'),
-              color: const Color(0xFF0EA5E9),
-              route: AppRoutes.thptRoadmap,
-            ),
-          ],
-        ),
-        const SizedBox(height: GrowMateLayout.space12),
-
-        // ── Explore row ──
-        _FeatureTileRow(
-          tiles: [
-            _FeatureTileData(
-              icon: Icons.calendar_month_rounded,
-              label: context.t(vi: 'Lịch học', en: 'Schedule'),
-              color: const Color(0xFFF59E0B),
-              route: AppRoutes.schedule,
-            ),
-            _FeatureTileData(
-              icon: Icons.groups_rounded,
-              label: context.t(vi: 'Đấu đội', en: 'Versus'),
-              color: const Color(0xFF10B981),
-              route: AppRoutes.multiplayer,
-            ),
-            _FeatureTileData(
-              icon: Icons.spa_rounded,
-              label: context.t(vi: 'Thư giãn', en: 'Relax'),
-              color: const Color(0xFF14B8A6),
-              route: AppRoutes.mindfulBreak,
-            ),
-          ],
-        ),
-        const SizedBox(height: GrowMateLayout.space16),
-        // ── Mascot feature tile (in grid) ──
-        _FeatureTileRow(
-          tiles: [
-            _FeatureTileData(
-              icon: Icons.pets_rounded,
-              label: context.t(vi: 'Linh vật', en: 'Mascot'),
-              color: const Color(0xFF8B5CF6),
-              route: AppRoutes.mascotSelection,
-            ),
-          ],
-        ),
-      ],
+          ),
+        ],
+      ),
     );
   }
 }
 
-class _FeatureTileData {
-  const _FeatureTileData({
+class _FeatureShortcutData {
+  const _FeatureShortcutData({
     required this.icon,
     required this.label,
     required this.color,
@@ -1058,86 +1503,46 @@ class _FeatureTileData {
   final String route;
 }
 
-class _FeatureTileRow extends StatelessWidget {
-  const _FeatureTileRow({required this.tiles});
+class _FeatureShortcutChip extends StatelessWidget {
+  const _FeatureShortcutChip({required this.data, this.emphasized = false});
 
-  final List<_FeatureTileData> tiles;
-
-  @override
-  Widget build(BuildContext context) {
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final count = tiles.length;
-        if (count == 0) {
-          return const SizedBox.shrink();
-        }
-
-        final columns = count >= 4 ? 4 : count;
-        final totalSpacing = GrowMateLayout.space12 * (columns - 1);
-        final itemWidth = (constraints.maxWidth - totalSpacing) / columns;
-
-        return Wrap(
-          spacing: GrowMateLayout.space12,
-          runSpacing: GrowMateLayout.space12,
-          children: [
-            for (final tile in tiles)
-              SizedBox(
-                width: itemWidth,
-                child: _FeatureTile(data: tile),
-              ),
-          ],
-        );
-      },
-    );
-  }
-}
-
-class _FeatureTile extends StatelessWidget {
-  const _FeatureTile({required this.data});
-
-  final _FeatureTileData data;
+  final _FeatureShortcutData data;
+  final bool emphasized;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final background = emphasized
+        ? data.color.withValues(alpha: 0.12)
+        : colors.surfaceContainerLow;
+    final borderColor = emphasized
+        ? data.color.withValues(alpha: 0.3)
+        : colors.outlineVariant.withValues(alpha: 0.42);
 
     return Material(
-      color: colors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+      color: Colors.transparent,
       child: InkWell(
-        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
+        borderRadius: BorderRadius.circular(999),
         onTap: () => context.push(data.route),
         child: Container(
-          padding: const EdgeInsets.symmetric(vertical: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusSm),
-            border: Border.all(
-              color: colors.outlineVariant.withValues(alpha: 0.35),
-            ),
+            color: background,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(color: borderColor),
           ),
-          child: Column(
+          child: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Container(
-                width: 40,
-                height: 40,
-                decoration: BoxDecoration(
-                  color: data.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(data.icon, size: 20, color: data.color),
-              ),
-              const SizedBox(height: 8),
+              Icon(data.icon, size: 18, color: data.color),
+              const SizedBox(width: 8),
               Text(
                 data.label,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
+                style: theme.textTheme.labelLarge?.copyWith(
                   color: colors.onSurface,
+                  fontWeight: FontWeight.w700,
                 ),
-                textAlign: TextAlign.center,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
               ),
             ],
           ),
@@ -1147,26 +1552,27 @@ class _FeatureTile extends StatelessWidget {
   }
 }
 
-class _MoodCheckStrip extends StatelessWidget {
-  const _MoodCheckStrip();
-
+class _MoodCheckAction extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
-    return _QuickStrip(
-      icon: Icons.mood_rounded,
-      title: context.t(vi: 'Cảm xúc hôm nay', en: 'Today\'s mood'),
-      subtitle: context.t(
-        vi: 'Ghi lại cảm xúc giúp AI hiểu bạn hơn.',
-        en: 'Log your mood to help AI understand you better.',
+    return OutlinedButton.icon(
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size.fromHeight(40),
+        alignment: Alignment.centerLeft,
+        side: BorderSide(
+          color: Theme.of(
+            context,
+          ).colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
       ),
-      onTap: () async {
+      onPressed: () async {
         final mood = await MoodCheckDialog.show(context);
         if (mood != null && context.mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 context.t(
-                  vi: 'Đã ghi nhận: ${mood.emoji} ${mood.viLabel}',
+                  vi: 'Da ghi nhan: ${mood.emoji} ${mood.viLabel}',
                   en: 'Recorded: ${mood.emoji} ${mood.enLabel}',
                 ),
               ),
@@ -1176,72 +1582,12 @@ class _MoodCheckStrip extends StatelessWidget {
           );
         }
       },
-    );
-  }
-}
-
-class _QuickStrip extends StatelessWidget {
-  const _QuickStrip({
-    required this.icon,
-    required this.title,
-    required this.subtitle,
-    required this.onTap,
-  });
-
-  final IconData icon;
-  final String title;
-  final String subtitle;
-  final VoidCallback onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-
-    return InkWell(
-      borderRadius: BorderRadius.circular(14),
-      onTap: onTap,
-      child: Container(
-        width: double.infinity,
-        padding: const EdgeInsets.all(12),
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.45),
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(icon, size: 18, color: colors.primary),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  Text(
-                    subtitle,
-                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Icon(
-              Icons.chevron_right_rounded,
-              color: colors.onSurfaceVariant,
-              size: 18,
-            ),
-          ],
-        ),
+      icon: Icon(
+        Icons.mood_rounded,
+        color: Theme.of(context).colorScheme.primary,
+      ),
+      label: Text(
+        context.t(vi: 'Ghi cảm xúc hôm nay', en: 'Log today\'s mood'),
       ),
     );
   }
@@ -1331,7 +1677,10 @@ class _EmptyHeroCard extends StatelessWidget {
           ),
           const SizedBox(height: GrowMateLayout.space16),
           ZenButton(
-            label: context.t(vi: 'Bắt đầu ngay', en: 'Get started'),
+            label: context.t(
+              vi: 'Làm phiên đầu tiên',
+              en: 'Complete first session',
+            ),
             onPressed: () => context.push(AppRoutes.quiz),
           ),
         ],

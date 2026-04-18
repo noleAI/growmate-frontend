@@ -89,7 +89,10 @@ class ResumeBanner extends StatelessWidget {
     final modeLabel = _modeLabel(context, pendingSession.mode);
     final progressLabel = _progressLabel(context, pendingSession);
     final nextQuestionLabel = _nextQuestionLabel(context, pendingSession);
-    final lastActiveLabel = _lastActiveLabel(context, pendingSession.lastActiveAt);
+    final lastActiveLabel = _lastActiveLabel(
+      context,
+      pendingSession.lastActiveAt,
+    );
     final pauseReason = pendingSession.pauseReason?.trim();
 
     return AnimatedSlide(

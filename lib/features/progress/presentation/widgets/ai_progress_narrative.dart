@@ -21,12 +21,14 @@ class AiProgressNarrative extends StatefulWidget {
     this.updatedAgo = '2h trước',
     this.onWhyTap,
     this.onTopicTap,
+    this.isConfirmed = true,
   });
 
   final UserProgressSnapshot progress;
   final String updatedAgo;
   final VoidCallback? onWhyTap;
   final ValueChanged<String>? onTopicTap;
+  final bool isConfirmed;
 
   @override
   State<AiProgressNarrative> createState() => _AiProgressNarrativeState();
@@ -151,6 +153,7 @@ class _AiProgressNarrativeState extends State<AiProgressNarrative> {
           onWhyTap: () =>
               setState(() => _reasoningExpanded = !_reasoningExpanded),
           isEmpty: widget.progress.isEmpty,
+          isConfirmed: widget.isConfirmed,
         ),
         const SizedBox(height: GrowMateLayout.breath),
 
@@ -190,6 +193,7 @@ class _Level1Card extends StatelessWidget {
     required this.updatedAgo,
     required this.onWhyTap,
     required this.isEmpty,
+    required this.isConfirmed,
   });
 
   final String headline;
@@ -198,6 +202,7 @@ class _Level1Card extends StatelessWidget {
   final String updatedAgo;
   final VoidCallback onWhyTap;
   final bool isEmpty;
+  final bool isConfirmed;
 
   @override
   Widget build(BuildContext context) {
@@ -262,15 +267,27 @@ class _Level1Card extends StatelessWidget {
                 color: theme.colorScheme.onSurfaceVariant,
               ),
               const SizedBox(width: 4),
-              Text(
-                context.t(
-                  vi: 'AI cập nhật $updatedAgo',
-                  en: 'AI updated $updatedAgo',
+              if (isConfirmed) ...[
+                Text(
+                  context.t(
+                    vi: 'AI cập nhật $updatedAgo',
+                    en: 'AI updated $updatedAgo',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
+              ] else ...[
+                Text(
+                  context.t(
+                    vi: 'Dữ liệu tạm thời · có thể chưa chính xác',
+                    en: 'Data provisional · may be approximate',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
                 ),
-              ),
+              ],
               const Spacer(),
               GestureDetector(
                 onTap: onWhyTap,
