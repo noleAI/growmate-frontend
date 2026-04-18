@@ -11,6 +11,11 @@ import '../network/api_service.dart';
 
 /// Production-ready REST API service.
 ///
+/// **DEPRECATED**: The endpoints used here (`/quiz/submit-answer`,
+/// `/quiz/submit-batch`, `/diagnosis/get`, etc.) do not exist in the current
+/// backend. Use [QuizApiRepository] for quiz and [AgenticApiService] /
+/// [RealAgenticApiService] for agentic interaction.
+///
 /// Features:
 /// - Auth header injection (Bearer token)
 /// - Automatic token refresh on 401
@@ -18,6 +23,9 @@ import '../network/api_service.dart';
 /// - Timeout handling
 /// - Request/response logging (debug only)
 /// - Unified error handling via [AppException] hierarchy
+@Deprecated(
+  'Use QuizApiRepository for quiz flow, RealAgenticApiService for agentic flow.',
+)
 class RealApiService implements ApiService {
   RealApiService({
     http.Client? httpClient,

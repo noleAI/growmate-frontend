@@ -254,8 +254,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
       LeaderboardCubit(repository: _leaderboardRepository);
 
   QuotaCubit get _resolvedQuotaCubit =>
-      _quotaCubit ??= QuotaCubit(repository: _quotaRepository!)
-        ..loadQuota(silent: true);
+      _quotaCubit ??= QuotaCubit(repository: _quotaRepository!);
 
   /// Khởi tạo API service với token injection (cho production REST API)
   ApiService _buildApiService() {
@@ -353,6 +352,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
     _interventionRepository = InterventionRepository(
       apiService: _apiService,
+      agenticApiService: _agenticApiService,
       sessionId: _activeSessionId!,
     );
 
@@ -424,6 +424,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
     _notificationRepository = NotificationRepository.instance;
     _offlineModeRepository = OfflineModeRepository.instance;
     _sessionHistoryRepository = SessionHistoryRepository.instance;
+    _sessionHistoryRepository.configure(quizApiRepository: _quizApiRepository);
     _privacyRepository = PrivacyRepository(
       profileRepository: _profileRepository,
       notificationRepository: _notificationRepository,
@@ -446,7 +447,9 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
     // ===== Agentic Backend Initialization =====
     if (useAgenticBackend) {
-      _agenticWsService = AgenticWsService();
+      _agenticWsService = AgenticWsService(
+        getAccessToken: GlobalTokenStorage.instance.getAccessToken,
+      );
       _agenticApiService = RealAgenticApiService(
         getAccessToken: GlobalTokenStorage.instance.getAccessToken,
         getRefreshToken: GlobalTokenStorage.instance.getRefreshToken,

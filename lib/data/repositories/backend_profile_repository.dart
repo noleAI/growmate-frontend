@@ -14,6 +14,8 @@ class BackendUserProfile {
     this.studyGoal,
     required this.dailyMinutes,
     this.onboardedAt,
+    this.createdAt,
+    this.updatedAt,
   });
 
   final String userId;
@@ -23,6 +25,8 @@ class BackendUserProfile {
   final String? studyGoal;
   final int dailyMinutes;
   final DateTime? onboardedAt;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   factory BackendUserProfile.fromJson(Map<String, dynamic> json) {
     return BackendUserProfile(
@@ -34,6 +38,12 @@ class BackendUserProfile {
       dailyMinutes: _toInt(json['daily_minutes']) ?? 15,
       onboardedAt: json['onboarded_at'] != null
           ? DateTime.tryParse(json['onboarded_at'].toString())
+          : null,
+      createdAt: json['created_at'] != null
+          ? DateTime.tryParse(json['created_at'].toString())
+          : null,
+      updatedAt: json['updated_at'] != null
+          ? DateTime.tryParse(json['updated_at'].toString())
           : null,
     );
   }

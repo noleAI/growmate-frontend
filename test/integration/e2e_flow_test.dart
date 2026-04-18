@@ -31,6 +31,7 @@ void main() {
         'auth_email': 'learner@growmate.vn',
         'auth_name': 'Learner',
         DataConsentRepository.consentAcceptedKey: true,
+        'isOnboarded_learner@growmate.vn': true,
       });
 
       tester.view.physicalSize = const Size(430, 932);

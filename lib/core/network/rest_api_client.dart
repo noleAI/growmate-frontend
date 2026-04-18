@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
+import 'package:http_parser/http_parser.dart';
 
 import '../error/app_exceptions.dart';
 import 'api_config.dart';
@@ -91,6 +92,40 @@ class RestApiClient {
     return _parseResponse(response);
   }
 
+  Future<Map<String, dynamic>> postMultipart(
+    String path, {
+    Map<String, String>? fields,
+    required String fileField,
+    required Uint8List fileBytes,
+    required String filename,
+    required String mimeType,
+  }) async {
+    final uri = Uri.parse('$_baseUrl$path');
+    _log('POST', path, body: fields?.map((k, v) => MapEntry(k, v)));
+
+    final response = await _executeWithRetry(() async {
+      final headers = await _buildHeaders(includeJsonContentType: false);
+      final request = http.MultipartRequest('POST', uri);
+      request.headers.addAll(headers);
+      if (fields != null && fields.isNotEmpty) {
+        request.fields.addAll(fields);
+      }
+      request.files.add(
+        http.MultipartFile.fromBytes(
+          fileField,
+          fileBytes,
+          filename: filename,
+          contentType: MediaType.parse(mimeType),
+        ),
+      );
+      final streamed = await request.send().timeout(ApiConfig.receiveTimeout);
+      return http.Response.fromStream(streamed);
+    });
+
+    _logResponse(response, path);
+    return _parseResponse(response);
+  }
+
   Future<Map<String, dynamic>> put(
     String path,
     Map<String, dynamic> body,
@@ -123,13 +158,34 @@ class RestApiClient {
     return _parseResponse(response);
   }
 
+  Future<Map<String, dynamic>> delete(
+    String path, {
+    Map<String, String>? queryParams,
+  }) async {
+    var uri = Uri.parse('$_baseUrl$path');
+    if (queryParams != null && queryParams.isNotEmpty) {
+      uri = uri.replace(queryParameters: queryParams);
+    }
+    final headers = await _buildHeaders();
+    _log('DELETE', path);
+    final response = await _executeWithRetry(
+      () => _httpClient
+          .delete(uri, headers: headers)
+          .timeout(ApiConfig.receiveTimeout),
+    );
+    _logResponse(response, path);
+    return _parseResponse(response);
+  }
+
   // ─── Helpers ───────────────────────────────────────────────────────────
 
-  Future<Map<String, String>> _buildHeaders() async {
-    final headers = <String, String>{
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    };
+  Future<Map<String, String>> _buildHeaders({
+    bool includeJsonContentType = true,
+  }) async {
+    final headers = <String, String>{'Accept': 'application/json'};
+    if (includeJsonContentType) {
+      headers['Content-Type'] = 'application/json';
+    }
     final token = await _getAccessToken();
     if (token != null && token.isNotEmpty) {
       headers[ApiConfig.authHeaderKey] = '${ApiConfig.bearerPrefix} $token';

@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import '../../../chat/domain/entities/chat_message.dart';
+import '../../../quota/data/models/quota_status.dart';
 
 class ChatSendResult {
   const ChatSendResult({required this.reply, this.remainingQuota});
@@ -20,8 +21,11 @@ abstract class ChatRepository {
   /// Load recent conversation history.
   Future<List<ChatMessage>> loadHistory({int limit = 40});
 
+  /// Fetch current chatbot quota from `GET /api/v1/chatbot/quota`.
+  Future<QuotaStatus> fetchQuota();
+
   /// Send an image with an optional question and get an AI response.
-  Future<ChatMessage> sendImageMessage({
+  Future<ChatSendResult> sendImageMessage({
     required String userMessage,
     required Uint8List imageBytes,
     required String imageName,

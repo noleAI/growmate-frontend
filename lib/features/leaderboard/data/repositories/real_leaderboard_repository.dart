@@ -34,15 +34,7 @@ class RealLeaderboardRepository implements LeaderboardRepository {
       queryParams: {'period': period},
     );
     if (json.isEmpty) return null;
-    return LeaderboardEntry(
-      userId: (json['user_id'] ?? '').toString(),
-      displayName: (json['display_name'] ?? '').toString(),
-      avatarUrl: json['avatar_url']?.toString(),
-      rank: (json['rank'] as num?)?.toInt() ?? 0,
-      weeklyXp: (json['weekly_xp'] as num?)?.toInt() ?? 0,
-      totalXp: (json['total_xp'] as num?)?.toInt() ?? 0,
-      currentStreak: (json['current_streak'] as num?)?.toInt() ?? 0,
-    );
+    return LeaderboardEntry.fromJson(json);
   }
 
   @override

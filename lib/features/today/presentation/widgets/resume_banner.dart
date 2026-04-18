@@ -3,107 +3,19 @@ import 'package:flutter/material.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../recovery/data/repositories/session_recovery_local.dart';
 import '../../../session_recovery/data/models/pending_session.dart';
-import '../../../session_recovery/data/repositories/session_recovery_repository.dart';
 
-/// Banner hiển thị khi có phiên học còn dở dang.
-///
-/// Checks the backend API via [SessionRecoveryRepository] when provided,
-/// falling back to local SharedPreferences via [SessionRecoveryLocal].
-class ResumeBanner extends StatefulWidget {
+/// Presentational banner shown when a pending study session can be resumed.
+class ResumeBanner extends StatelessWidget {
   const ResumeBanner({
     super.key,
+    required this.pendingSession,
     required this.onResume,
     required this.onDismiss,
-    this.sessionRecoveryRepository,
   });
 
+  final PendingSession pendingSession;
   final ValueChanged<PendingSession> onResume;
   final VoidCallback onDismiss;
-  final SessionRecoveryRepository? sessionRecoveryRepository;
-
-  @override
-  State<ResumeBanner> createState() => _ResumeBannerState();
-}
-
-class _ResumeBannerState extends State<ResumeBanner> {
-  bool _hasPending = false;
-  bool _dismissed = false;
-  PendingSession? _pendingSession;
-
-  @override
-  void initState() {
-    super.initState();
-    _checkPending();
-  }
-
-  Future<void> _checkPending() async {
-    LocalPendingSession? localFallback;
-
-    // Try backend API first when available.
-    final repo = widget.sessionRecoveryRepository;
-    if (repo != null) {
-      try {
-        final pending = await repo.getPendingSession();
-        if (pending.hasPending) {
-          if (mounted) {
-            setState(() {
-              _hasPending = true;
-              _pendingSession = pending;
-            });
-          }
-          return;
-        }
-
-        // Backend is the source of truth. If there is no pending session,
-        // clear local fallback state to avoid stale resume prompts.
-        await SessionRecoveryLocal.clear();
-        if (mounted) {
-          setState(() {
-            _hasPending = false;
-            _pendingSession = null;
-          });
-        }
-        return;
-      } catch (_) {
-        // Network/backend error -> try validated local fallback.
-      }
-    }
-
-    // Fallback to local SharedPreferences with freshness + metadata checks.
-    localFallback = await SessionRecoveryLocal.loadFreshSnapshot();
-
-    if (mounted) {
-      setState(() {
-        _hasPending = localFallback != null;
-        _pendingSession = localFallback == null
-            ? null
-            : PendingSession(
-                hasPending: true,
-                sessionId: localFallback.sessionId,
-                status: localFallback.status,
-                lastQuestionIndex: localFallback.lastQuestionIndex,
-                nextQuestionIndex: localFallback.lastQuestionIndex,
-                totalQuestions: localFallback.totalQuestions,
-                progressPercent: localFallback.totalQuestions > 0
-                    ? ((localFallback.lastQuestionIndex + 1) /
-                              localFallback.totalQuestions *
-                              100)
-                          .clamp(0, 100)
-                          .toInt()
-                    : null,
-                mode: 'academic',
-                pauseState: false,
-                pauseReason: null,
-                resumeContextVersion: 1,
-                lastActiveAt: localFallback.updatedAt,
-                abandonedAt: null,
-              );
-      });
-    }
-  }
-
-  /// The session ID from the backend, if available.
-  String? get pendingSessionId => _pendingSession?.sessionId;
 
   String _modeLabel(BuildContext context, String? mode) {
     switch ((mode ?? '').trim().toLowerCase()) {
@@ -168,20 +80,17 @@ class _ResumeBannerState extends State<ResumeBanner> {
 
   @override
   Widget build(BuildContext context) {
-    if (!_hasPending || _dismissed) return const SizedBox.shrink();
-
-    final session = _pendingSession;
-    if (session == null) {
+    if (!pendingSession.hasPending) {
       return const SizedBox.shrink();
     }
 
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final modeLabel = _modeLabel(context, session.mode);
-    final progressLabel = _progressLabel(context, session);
-    final nextQuestionLabel = _nextQuestionLabel(context, session);
-    final lastActiveLabel = _lastActiveLabel(context, session.lastActiveAt);
-    final pauseReason = session.pauseReason?.trim();
+    final modeLabel = _modeLabel(context, pendingSession.mode);
+    final progressLabel = _progressLabel(context, pendingSession);
+    final nextQuestionLabel = _nextQuestionLabel(context, pendingSession);
+    final lastActiveLabel = _lastActiveLabel(context, pendingSession.lastActiveAt);
+    final pauseReason = pendingSession.pauseReason?.trim();
 
     return AnimatedSlide(
       offset: Offset.zero,
@@ -269,9 +178,8 @@ class _ResumeBannerState extends State<ResumeBanner> {
                     padding: const EdgeInsets.symmetric(horizontal: 8),
                   ),
                   onPressed: () async {
-                    setState(() => _dismissed = true);
                     await SessionRecoveryLocal.clear();
-                    widget.onDismiss();
+                    onDismiss();
                   },
                   child: Text(
                     context.t(vi: 'Bỏ phiên này', en: 'Discard session'),
@@ -285,7 +193,7 @@ class _ResumeBannerState extends State<ResumeBanner> {
                     padding: const EdgeInsets.symmetric(horizontal: 14),
                     minimumSize: const Size(0, 36),
                   ),
-                  onPressed: () => widget.onResume(session),
+                  onPressed: () => onResume(pendingSession),
                   child: Text(
                     context.t(vi: 'Tiếp tục bài dở', en: 'Resume now'),
                   ),

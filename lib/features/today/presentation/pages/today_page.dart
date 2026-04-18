@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
@@ -32,6 +30,8 @@ import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 import '../../../wellness/presentation/widgets/mood_check_dialog.dart';
 import '../../../session_recovery/data/models/pending_session.dart';
 import '../../../session_recovery/data/repositories/session_recovery_repository.dart';
+import '../cubit/home_hydration_cubit.dart';
+import '../cubit/home_hydration_state.dart';
 import '../widgets/resume_banner.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
 
@@ -43,27 +43,34 @@ class TodayPage extends StatefulWidget {
 }
 
 class _TodayPageState extends State<TodayPage> {
-  Timer? _thinkingTimer;
-  bool _aiReady = false;
   bool _onboardingDismissed = true;
   bool _resumeDismissed = false;
-  String _emotion = 'focused';
-  double _confidence = 0.0;
+  HomeHydrationCubit? _homeHydrationCubit;
+  bool _didInitializeHydration = false;
 
   static const String _onboardingKey = 'onboarding_dismissed';
 
   @override
   void initState() {
     super.initState();
-    _thinkingTimer = Timer(const Duration(milliseconds: 880), () {
-      if (!mounted) return;
-      setState(() {
-        _aiReady = true;
-      });
-    });
     _loadOnboardingFlag();
-    _loadDiagnosisSnapshot();
     _checkDailyStreak();
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (_didInitializeHydration) {
+      return;
+    }
+
+    _didInitializeHydration = true;
+    _homeHydrationCubit = HomeHydrationCubit(
+      historyRepository: SessionHistoryRepository.instance,
+      diagnosisSnapshotCacheRepository:
+          DiagnosisSnapshotCacheRepository.instance,
+      sessionRecoveryRepository: _tryReadSessionRecovery(context),
+    )..hydrate();
   }
 
   Future<void> _checkDailyStreak() async {
@@ -147,61 +154,38 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
-  Future<void> _loadDiagnosisSnapshot() async {
-    final cached = await DiagnosisSnapshotCacheRepository.instance
-        .readSnapshot();
-    if (!mounted || cached == null) return;
-    setState(() {
-      _confidence = cached.confidenceScore.clamp(0.0, 1.0);
-    });
-  }
-
   @override
   void dispose() {
-    _thinkingTimer?.cancel();
+    _homeHydrationCubit?.close();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    final hydrationCubit = _homeHydrationCubit;
     final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    if (hydrationCubit == null) {
+      return const SizedBox.shrink();
+    }
 
-    return StreamBuilder<List<SessionHistoryEntry>>(
-      stream: SessionHistoryRepository.instance.watchHistory(),
-      builder: (context, snapshot) {
-        final history = snapshot.data ?? const <SessionHistoryEntry>[];
-        final latestSession = history.isEmpty ? null : history.first;
-
-        // Derive emotion from latest session focus
-        if (latestSession != null && _emotion == 'focused') {
-          final focus = latestSession.focusScore;
-          if (focus < 2.0) {
-            _emotion = 'exhausted';
-          } else if (focus < 3.0) {
-            _emotion = 'confused';
-          }
-        }
+    return BlocProvider<HomeHydrationCubit>.value(
+      value: hydrationCubit,
+      child: BlocBuilder<HomeHydrationCubit, HomeHydrationState>(
+        builder: (context, hydrationState) {
+          final colors = theme.colorScheme;
+          final history = hydrationState.history;
+          final latestSession = hydrationState.latestSession;
+          final pendingSession = hydrationState.pendingSession;
 
         return Scaffold(
           backgroundColor: AmbientGradient.colorFor(
             theme.scaffoldBackgroundColor,
-            _emotion,
+            hydrationState.emotion,
           ),
           body: ZenPageContainer(
             includeBottomSafeArea: false,
             child: RefreshIndicator(
-              onRefresh: () async {
-                setState(() {
-                  _aiReady = false;
-                });
-                await _loadDiagnosisSnapshot();
-                await Future.delayed(const Duration(milliseconds: 500));
-                if (!mounted) return;
-                setState(() {
-                  _aiReady = true;
-                });
-              },
+              onRefresh: context.read<HomeHydrationCubit>().refresh,
               child: ListView(
                 children: [
                   _buildTopAppBar(context),
@@ -216,7 +200,8 @@ class _TodayPageState extends State<TodayPage> {
                   ),
                   const SizedBox(height: GrowMateLayout.contentGap),
 
-                  if (history.isEmpty && !_onboardingDismissed) ...[
+                  if (hydrationState.showEmptyOnboarding &&
+                      !_onboardingDismissed) ...[
                     FadeSlideIn(
                       delayMs: 0,
                       child: _OnboardingCard(onDismiss: _dismissOnboarding),
@@ -224,8 +209,9 @@ class _TodayPageState extends State<TodayPage> {
                     const SizedBox(height: GrowMateLayout.space12),
                   ],
 
-                  if (!_resumeDismissed)
+                  if (!_resumeDismissed && pendingSession != null)
                     ResumeBanner(
+                      pendingSession: pendingSession,
                       onResume: (pending) => _resumePendingSession(
                         context: context,
                         pending: pending,
@@ -233,9 +219,6 @@ class _TodayPageState extends State<TodayPage> {
                       onDismiss: () {
                         setState(() => _resumeDismissed = true);
                       },
-                      sessionRecoveryRepository: _tryReadSessionRecovery(
-                        context,
-                      ),
                     ),
 
                   // ── AI State Card (focal point) ──
@@ -243,24 +226,34 @@ class _TodayPageState extends State<TodayPage> {
                     duration: const Duration(milliseconds: 240),
                     switchInCurve: Curves.easeOut,
                     switchOutCurve: Curves.easeOut,
-                    child: _aiReady
-                        ? FadeSlideIn(
-                            delayMs: 150,
-                            child: _AiStateCard(
-                              latestSession: latestSession,
-                              confidence: _confidence,
-                              emotion: _emotion,
-                              onStartSession: () =>
-                                  context.push(AppRoutes.quiz),
-                            ),
-                          )
-                        : _ThinkingHero(theme: theme),
+                    child: switch (hydrationState.status) {
+                      HomeHydrationStatus.loading => _ThinkingHero(theme: theme),
+                      HomeHydrationStatus.ready => FadeSlideIn(
+                        delayMs: 150,
+                        child: _AiStateCard(
+                          latestSession: latestSession,
+                          confidence: hydrationState.confidence,
+                          emotion: hydrationState.emotion,
+                          onStartSession: () => context.push(AppRoutes.quiz),
+                        ),
+                      ),
+                      HomeHydrationStatus.empty => FadeSlideIn(
+                        delayMs: 150,
+                        child: const _EmptyHeroCard(),
+                      ),
+                      HomeHydrationStatus.error => FadeSlideIn(
+                        delayMs: 150,
+                        child: _HydrationErrorHero(
+                          onRetry: context.read<HomeHydrationCubit>().refresh,
+                        ),
+                      ),
+                    },
                   ),
 
                   const SizedBox(height: GrowMateLayout.breath),
 
                   // ── Pulse Metrics ──
-                  if (_aiReady)
+                  if (hydrationState.hasReadyHistory)
                     FadeSlideIn(
                       delayMs: 250,
                       child: _PulseMetrics(history: history),
@@ -286,6 +279,7 @@ class _TodayPageState extends State<TodayPage> {
           floatingActionButtonLocation: FloatingActionButtonLocation.endFloat,
         );
       },
+      ),
     );
   }
 
@@ -593,6 +587,80 @@ class _AiStateCard extends StatelessWidget {
           ZenButton(
             label: context.t(vi: 'Bắt đầu phiên mới', en: 'Start session'),
             onPressed: onStartSession,
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HydrationErrorHero extends StatelessWidget {
+  const _HydrationErrorHero({required this.onRetry});
+
+  final Future<void> Function() onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      key: const ValueKey<String>('ai-hero-error'),
+      width: double.infinity,
+      padding: GrowMateLayout.cardPaddingAi,
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(GrowMateLayout.cardRadiusLg),
+        border: Border.all(color: colors.error.withValues(alpha: 0.18)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: colors.error.withValues(alpha: 0.1),
+                ),
+                child: Icon(
+                  Icons.cloud_off_rounded,
+                  size: 16,
+                  color: colors.error,
+                ),
+              ),
+              const SizedBox(width: GrowMateLayout.space8),
+              Expanded(
+                child: Text(
+                  context.t(
+                    vi: 'Chưa xác nhận được dữ liệu mới',
+                    en: 'Latest data not confirmed yet',
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.error,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: GrowMateLayout.space12),
+          Text(
+            context.t(
+              vi: 'Home đang chờ dữ liệu học mới từ server trước khi hiển thị gợi ý AI.',
+              en: 'Home is waiting for fresh server data before showing AI guidance.',
+            ),
+            style: theme.textTheme.bodyLarge?.copyWith(
+              color: colors.onSurface,
+              height: 1.4,
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.space16),
+          ZenButton(
+            label: context.t(vi: 'Thử tải lại', en: 'Retry'),
+            onPressed: () => onRetry(),
           ),
         ],
       ),

@@ -66,6 +66,8 @@ class QuizApiRepository {
     Map<String, dynamic>? answers,
     double? timeTakenSec,
     String? mode,
+    int? questionIndex,
+    int? totalQuestions,
   }) async {
     final body = <String, dynamic>{
       'session_id': sessionId,
@@ -76,6 +78,8 @@ class QuizApiRepository {
     if (answers != null) body['answers'] = answers;
     if (timeTakenSec != null) body['time_taken_sec'] = timeTakenSec;
     if (mode != null) body['mode'] = mode;
+    if (questionIndex != null) body['question_index'] = questionIndex;
+    if (totalQuestions != null) body['total_questions'] = totalQuestions;
 
     try {
       final json = await _client.post('/quiz/submit', body);

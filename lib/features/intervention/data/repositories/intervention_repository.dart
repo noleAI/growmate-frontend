@@ -1,13 +1,17 @@
 import '../../../../core/network/api_service.dart';
+import '../../../../core/network/agentic_api_service.dart';
 import '../../../../data/models/api_models.dart';
 
 class InterventionRepository {
   InterventionRepository({
-    required ApiService apiService,
+    ApiService? apiService,
+    AgenticApiService? agenticApiService,
     required this.sessionId,
-  }) : _apiService = apiService;
+  }) : _apiService = apiService,
+       _agenticApiService = agenticApiService;
 
-  final ApiService _apiService;
+  final ApiService? _apiService;
+  final AgenticApiService? _agenticApiService;
   final String sessionId;
 
   Future<InterventionFeedbackResponse> submitFeedback({
@@ -19,7 +23,41 @@ class InterventionRepository {
     required int remainingRestSeconds,
     bool skipped = false,
   }) async {
-    final response = await _apiService.submitInterventionFeedback(
+    final agenticApiService = _agenticApiService;
+    if (agenticApiService != null) {
+      final response = await agenticApiService.interact(
+        sessionId: sessionId,
+        actionType: 'feedback',
+        responseData: <String, dynamic>{
+          'submission_id': submissionId,
+          'diagnosis_id': diagnosisId,
+          'option_id': optionId,
+          'option_label': optionLabel,
+          'mode': mode,
+          'remaining_rest_seconds': remainingRestSeconds,
+          'skipped': skipped,
+        },
+      );
+
+      return InterventionFeedbackResponse.fromJson(<String, dynamic>{
+        'updated_q_values': <String, dynamic>{},
+        'selected_option': <String, dynamic>{
+          'id': optionId,
+          'label': optionLabel,
+        },
+        'completion': <String, dynamic>{
+          'topic': optionLabel,
+          'next_action': response.content,
+        },
+      });
+    }
+
+    final apiService = _apiService;
+    if (apiService == null) {
+      throw StateError('InterventionRepository requires an API service.');
+    }
+
+    final response = await apiService.submitInterventionFeedback(
       sessionId: sessionId,
       submissionId: submissionId,
       diagnosisId: diagnosisId,

@@ -7,6 +7,11 @@ enum MockDiagnosisScenario {
   recoveryMode,
 }
 
+/// Mock implementation of the legacy [ApiService].
+///
+/// **DEPRECATED** along with [ApiService]. Use mock repositories for
+/// [QuizApiRepository] and [AgenticApiService] instead.
+@Deprecated('Use mock repositories for QuizApiRepository / AgenticApiService.')
 class MockApiService implements ApiService {
   MockApiService({this.scenario = MockDiagnosisScenario.autoCycle});
 

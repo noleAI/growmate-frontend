@@ -2,6 +2,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import '../../../chat/domain/entities/chat_message.dart';
+import '../../../quota/data/models/quota_status.dart';
 import 'chat_repository.dart';
 
 class MockChatRepository implements ChatRepository {
@@ -9,6 +10,10 @@ class MockChatRepository implements ChatRepository {
 
   final _random = Random();
   final List<ChatMessage> _history = [];
+
+  @override
+  Future<QuotaStatus> fetchQuota() async =>
+      const QuotaStatus(used: 0, limit: 30, remaining: 30);
 
   /// Context-aware mock AI responses grouped by topic keywords.
   static const _topicResponses = <String, List<String>>{
@@ -151,7 +156,7 @@ class MockChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatMessage> sendImageMessage({
+  Future<ChatSendResult> sendImageMessage({
     required String userMessage,
     required Uint8List imageBytes,
     required String imageName,
@@ -182,7 +187,7 @@ class MockChatRepository implements ChatRepository {
     );
 
     _history.add(aiMessage);
-    return aiMessage;
+    return ChatSendResult(reply: aiMessage);
   }
 
   @override

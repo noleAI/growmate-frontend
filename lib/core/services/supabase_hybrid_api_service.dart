@@ -3,6 +3,11 @@ import 'package:supabase_flutter/supabase_flutter.dart';
 import '../network/api_service.dart';
 import '../network/mock_api_service.dart';
 
+/// Hybrid Supabase + REST implementation of the legacy [ApiService].
+///
+/// **DEPRECATED** along with [ApiService]. Use [QuizApiRepository] for quiz
+/// and [AgenticApiService] for agentic interaction.
+@Deprecated('Use QuizApiRepository / AgenticApiService instead.')
 class SupabaseHybridApiService implements ApiService {
   SupabaseHybridApiService({
     ApiService? fallbackApiService,

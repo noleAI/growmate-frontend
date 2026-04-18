@@ -27,6 +27,10 @@ class QuotaCubit extends Cubit<QuotaState> {
     }
   }
 
+  void setQuota(QuotaStatus quota) {
+    emit(QuotaLoaded(quota));
+  }
+
   /// Locally decrement remaining after a chat message is sent.
   void useOne() {
     final current = state;

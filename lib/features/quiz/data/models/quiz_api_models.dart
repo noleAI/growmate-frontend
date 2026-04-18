@@ -5,6 +5,12 @@ class QuizSubmitResponse {
     required this.questionId,
     required this.isCorrect,
     required this.explanation,
+    this.score,
+    this.maxScore,
+    this.progressPercent,
+    this.lastQuestionIndex,
+    this.totalQuestions,
+    this.quizSummary,
     this.livesRemaining,
     this.canPlay,
     this.nextRegenInSeconds,
@@ -14,19 +20,52 @@ class QuizSubmitResponse {
   final String questionId;
   final bool isCorrect;
   final String explanation;
+
+  /// Score awarded for this question (e.g. 1.0 for correct, 0.0 for incorrect).
+  final double? score;
+
+  /// Maximum possible score for this question.
+  final double? maxScore;
+
+  /// Overall session progress as percentage (0-100).
+  final int? progressPercent;
+
+  /// Index of the last answered question (1-based from backend).
+  final int? lastQuestionIndex;
+
+  /// Total number of questions in this quiz session.
+  final int? totalQuestions;
+
+  /// Running score summary for the entire session so far.
+  final QuizSessionScoreSummary? quizSummary;
+
   final int? livesRemaining;
   final bool? canPlay;
   final int? nextRegenInSeconds;
 
   factory QuizSubmitResponse.fromJson(Map<String, dynamic> json) {
+    final rawSummary = json['quiz_summary'];
+    QuizSessionScoreSummary? quizSummary;
+    if (rawSummary is Map) {
+      quizSummary = QuizSessionScoreSummary.fromJson(
+        Map<String, dynamic>.from(rawSummary),
+      );
+    }
+
     return QuizSubmitResponse(
       sessionId: (json['session_id'] ?? '').toString(),
       questionId: (json['question_id'] ?? '').toString(),
       isCorrect: json['is_correct'] == true,
       explanation: (json['explanation'] ?? '').toString(),
-      livesRemaining: json['lives_remaining'] as int?,
+      score: _toDouble(json['score']),
+      maxScore: _toDouble(json['max_score']),
+      progressPercent: _toInt(json['progress_percent']),
+      lastQuestionIndex: _toInt(json['last_question_index']),
+      totalQuestions: _toInt(json['total_questions']),
+      quizSummary: quizSummary,
+      livesRemaining: _toInt(json['lives_remaining']),
       canPlay: json['can_play'] as bool?,
-      nextRegenInSeconds: json['next_regen_in_seconds'] as int?,
+      nextRegenInSeconds: _toInt(json['next_regen_in_seconds']),
     );
   }
 }

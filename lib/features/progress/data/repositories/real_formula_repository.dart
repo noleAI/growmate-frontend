@@ -21,8 +21,16 @@ class RealFormulaRepository implements FormulaRepository {
   @override
   Future<List<Formula>> searchFormulas(String query) async {
     if (query.trim().isEmpty) return const <Formula>[];
-    final json = await _client.get('/formulas', queryParams: {'search': query});
-    // The search response may have formulas nested in categories
+    final json = await _client.get(
+      '/formulas',
+      queryParams: {'category': 'all', 'search': query},
+    );
+    final directResults = _parseFormulas(json['formulas']);
+    if (directResults.isNotEmpty) {
+      return directResults;
+    }
+
+    // The search response may also return formulas nested inside categories.
     final categories = _parseCategories(json);
     final results = <Formula>[];
     for (final cat in categories) {
@@ -32,28 +40,37 @@ class RealFormulaRepository implements FormulaRepository {
   }
 
   List<FormulaCategory> _parseCategories(Map<String, dynamic> json) {
-    final rawCategories = json['categories'];
+    final rawCategories = json['categories'] ?? json['items'];
     if (rawCategories is! List) return const [];
 
     return rawCategories
         .whereType<Map<String, dynamic>>()
         .map((cat) {
-          final rawFormulas = cat['formulas'];
-          final formulas = <Formula>[];
-          if (rawFormulas is List) {
-            for (final f in rawFormulas) {
-              if (f is Map<String, dynamic>) {
-                formulas.add(_mapFormula(f, cat['id']?.toString()));
-              }
-            }
-          }
+          final formulas = _parseFormulas(
+            cat['formulas'],
+            categoryId: cat['id']?.toString(),
+          );
           return FormulaCategory(
             id: (cat['id'] ?? '').toString(),
             name: (cat['name'] ?? '').toString(),
             icon: _iconForCategory((cat['id'] ?? '').toString()),
+            description: cat['description']?.toString(),
+            formulaCountOverride: _toInt(cat['formula_count']),
+            masteryPercent: _toDouble(cat['mastery_percent']),
             formulas: formulas,
           );
         })
+        .toList(growable: false);
+  }
+
+  List<Formula> _parseFormulas(Object? raw, {String? categoryId}) {
+    if (raw is! List) {
+      return const <Formula>[];
+    }
+
+    return raw
+        .whereType<Map<String, dynamic>>()
+        .map((f) => _mapFormula(f, categoryId))
         .toList(growable: false);
   }
 
@@ -61,13 +78,17 @@ class RealFormulaRepository implements FormulaRepository {
   Formula _mapFormula(Map<String, dynamic> f, String? categoryId) {
     return Formula(
       id: (f['id'] ?? '').toString(),
+      title: f['title']?.toString(),
       latex: (f['formula_text'] ?? f['latex'] ?? '').toString(),
       explanation: (f['description'] ?? f['explanation'] ?? '').toString(),
+      example: f['example']?.toString(),
       exampleLatex: f['example_latex']?.toString(),
       exampleExplanation: f['example_explanation']?.toString(),
       hypothesis: f['hypothesis']?.toString(),
       difficulty: (f['difficulty'] ?? 'easy').toString(),
       categoryId: categoryId,
+      masteryPercent: _toDouble(f['mastery_percent']),
+      masteryStatus: f['mastery_status']?.toString(),
     );
   }
 
@@ -82,4 +103,18 @@ class RealFormulaRepository implements FormulaRepository {
       _ => '📖',
     };
   }
+}
+
+int? _toInt(Object? raw) {
+  if (raw is int) return raw;
+  if (raw is num) return raw.toInt();
+  if (raw is String) return int.tryParse(raw);
+  return null;
+}
+
+double? _toDouble(Object? raw) {
+  if (raw is double) return raw;
+  if (raw is num) return raw.toDouble();
+  if (raw is String) return double.tryParse(raw);
+  return null;
 }

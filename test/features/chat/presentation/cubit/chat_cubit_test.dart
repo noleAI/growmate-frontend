@@ -6,6 +6,7 @@ import 'package:growmate_frontend/features/chat/data/repositories/chat_repositor
 import 'package:growmate_frontend/features/chat/domain/entities/chat_message.dart';
 import 'package:growmate_frontend/features/chat/presentation/cubit/chat_cubit.dart';
 import 'package:growmate_frontend/features/chat/presentation/cubit/chat_state.dart';
+import 'package:growmate_frontend/features/quota/data/models/quota_status.dart';
 
 class _FakeChatRepository implements ChatRepository {
   _FakeChatRepository({this.history = const [], this.sendError});
@@ -36,17 +37,23 @@ class _FakeChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatMessage> sendImageMessage({
+  Future<QuotaStatus> fetchQuota() async =>
+      const QuotaStatus(used: 0, limit: 30, remaining: 30);
+
+  @override
+  Future<ChatSendResult> sendImageMessage({
     required String userMessage,
     required Uint8List imageBytes,
     required String imageName,
     required String imageMimeType,
   }) async {
-    return ChatMessage(
-      id: 'ai_img_1',
-      role: ChatRole.assistant,
-      content: 'Image received',
-      timestamp: DateTime(2026, 1, 1),
+    return ChatSendResult(
+      reply: ChatMessage(
+        id: 'ai_img_1',
+        role: ChatRole.assistant,
+        content: 'Image received',
+        timestamp: DateTime(2026, 1, 1),
+      ),
     );
   }
 

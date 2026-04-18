@@ -16,12 +16,53 @@ class AgenticSessionResponse {
     required this.status,
     required this.startTime,
     required this.initialState,
+    this.reusedExistingSession = false,
   });
 
   final String sessionId;
   final String status;
   final String startTime;
   final Map<String, dynamic> initialState;
+  final bool reusedExistingSession;
+
+  /// Whether the backend returned an existing active session instead of
+  /// creating a new one. The backend `POST /sessions` is idempotent — if
+  /// the user already has an active session it returns the old one.
+  ///
+  /// Callers should check this to decide between a "resume" or "fresh start" UI.
+  bool get isResumed {
+    final progress = _initialStateInt('progress_percent');
+    final lastIdx = _initialStateInt('last_question_index');
+    return (progress != null && progress > 0) ||
+        (lastIdx != null && lastIdx > 0);
+  }
+
+  /// Session progress percent from the initial state (0-100), if available.
+  int? get progressPercent => _initialStateInt('progress_percent');
+
+  /// Index of the last answered question from the initial state, if available.
+  int? get lastQuestionIndex => _initialStateInt('last_question_index');
+
+  /// Learning mode persisted in the session (e.g. 'exam_prep', 'explore').
+  String? get mode {
+    final raw = initialState['mode'];
+    if (raw is String && raw.isNotEmpty) return raw;
+    // Also check nested strategy_state
+    final strategy = initialState['strategy_state'];
+    if (strategy is Map) {
+      final m = strategy['mode'];
+      if (m is String && m.isNotEmpty) return m;
+    }
+    return null;
+  }
+
+  int? _initialStateInt(String key) {
+    final raw = initialState[key];
+    if (raw is int) return raw;
+    if (raw is num) return raw.toInt();
+    if (raw is String) return int.tryParse(raw);
+    return null;
+  }
 
   factory AgenticSessionResponse.fromJson(Map<String, dynamic> json) {
     return AgenticSessionResponse(
@@ -29,6 +70,7 @@ class AgenticSessionResponse {
       status: (json['status'] ?? 'active').toString(),
       startTime: (json['start_time'] ?? '').toString(),
       initialState: _asMap(json['initial_state']),
+      reusedExistingSession: json['reused_existing_session'] == true,
     );
   }
 
@@ -37,6 +79,7 @@ class AgenticSessionResponse {
     'status': status,
     'start_time': startTime,
     'initial_state': initialState,
+    'reused_existing_session': reusedExistingSession,
   };
 }
 

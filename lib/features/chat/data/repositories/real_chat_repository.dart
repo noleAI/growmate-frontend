@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../core/error/app_exceptions.dart';
 import '../../../../core/network/rest_api_client.dart';
 import '../../../chat/domain/entities/chat_message.dart';
+import '../../../quota/data/models/quota_status.dart';
 import 'chat_repository.dart';
 
 /// Real chat repository with comprehensive error handling.
@@ -14,6 +15,19 @@ class RealChatRepository implements ChatRepository {
   RealChatRepository({required RestApiClient client}) : _client = client;
 
   final RestApiClient _client;
+
+  @override
+  Future<QuotaStatus> fetchQuota() async {
+    try {
+      final json = await _client.get('/chatbot/quota');
+      return QuotaStatus.fromJson(_unwrapPayload(json));
+    } on AppException catch (e) {
+      if (e.statusCode == 404) {
+        return QuotaStatus.defaultQuota;
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<ChatSendResult> sendMessage(
@@ -86,22 +100,27 @@ class RealChatRepository implements ChatRepository {
   }
 
   @override
-  Future<ChatMessage> sendImageMessage({
+  Future<ChatSendResult> sendImageMessage({
     required String userMessage,
     required Uint8List imageBytes,
     required String imageName,
     required String imageMimeType,
   }) async {
     if (imageBytes.isEmpty) {
-      return _errorMessage('Ảnh không hợp lệ. Vui lòng chọn ảnh khác.');
+      return ChatSendResult(
+        reply: _errorMessage('Ảnh không hợp lệ. Vui lòng chọn ảnh khác.'),
+      );
     }
 
-    final payload = <String, dynamic>{'message': userMessage};
-
     try {
-      // For simplicity, try sending via the regular endpoint first
-      // In production, this would use a proper multipart/form-data endpoint
-      final json = await _client.post('/chatbot/chat', payload);
+      final json = await _client.postMultipart(
+        '/chatbot/chat/image',
+        fields: {'message': userMessage},
+        fileField: 'image',
+        fileBytes: imageBytes,
+        filename: imageName,
+        mimeType: imageMimeType,
+      );
 
       final data = _unwrapPayload(json);
       final replyText = _extractTextField(data, [
@@ -112,14 +131,25 @@ class RealChatRepository implements ChatRepository {
         'response',
         'answer',
       ]);
+      final remainingQuota = _toInt(
+        data['remaining_quota'] ??
+            data['remainingQuota'] ??
+            data['quota'] ??
+            data['quotaRemaining'] ??
+            data['remaining'] ??
+            data['left'],
+      );
 
-      return ChatMessage(
-        id: 'ai_img_${DateTime.now().millisecondsSinceEpoch}',
-        role: ChatRole.assistant,
-        content: replyText?.isNotEmpty == true
-            ? replyText!
-            : 'Mình chưa nhận được phản hồi hợp lệ từ server. Bạn thử lại giúp mình nhé!',
-        timestamp: DateTime.now(),
+      return ChatSendResult(
+        reply: ChatMessage(
+          id: 'ai_img_${DateTime.now().millisecondsSinceEpoch}',
+          role: ChatRole.assistant,
+          content: replyText?.isNotEmpty == true
+              ? replyText!
+              : 'Mình chưa nhận được phản hồi hợp lệ từ server. Bạn thử lại giúp mình nhé!',
+          timestamp: DateTime.now(),
+        ),
+        remainingQuota: remainingQuota,
       );
     } on AppException catch (e) {
       if (kDebugMode) {
@@ -128,14 +158,20 @@ class RealChatRepository implements ChatRepository {
         );
       }
       if (e.statusCode == 404) {
-        return _errorMessage('Chức năng gửi ảnh hiện không khả dụng.');
+        return ChatSendResult(
+          reply: _errorMessage('Chức năng gửi ảnh hiện không khả dụng.'),
+        );
       }
-      return _errorMessage('Không thể xử lý ảnh. Bạn thử lại nhé!');
+      return ChatSendResult(
+        reply: _errorMessage('Không thể xử lý ảnh. Bạn thử lại nhé!'),
+      );
     } catch (e) {
       if (kDebugMode) {
         debugPrint('🖼️ [CHAT IMAGE] Error: $e');
       }
-      return _errorMessage('Không thể gửi ảnh. Bạn thử lại nhé!');
+      return ChatSendResult(
+        reply: _errorMessage('Không thể gửi ảnh. Bạn thử lại nhé!'),
+      );
     }
   }
 
@@ -210,9 +246,22 @@ class RealChatRepository implements ChatRepository {
 
   @override
   void clearHistory() {
-    // Placeholder for future implementation
-    if (kDebugMode) {
-      debugPrint('🤖 [CHAT] clearHistory called');
+    // Fire-and-forget call to backend.
+    // Errors are logged but not surfaced to the caller since the
+    // ChatBloc already clears local state synchronously.
+    _clearHistoryAsync();
+  }
+
+  Future<void> _clearHistoryAsync() async {
+    try {
+      await _client.delete('/chatbot/history');
+      if (kDebugMode) {
+        debugPrint('🤖 [CHAT] clearHistory success');
+      }
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('🤖 [CHAT] clearHistory error (best-effort): $e');
+      }
     }
   }
 

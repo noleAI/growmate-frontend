@@ -21,6 +21,8 @@ class ChatCubit extends Cubit<ChatState> {
   final QuotaCubit? _quotaCubit;
 
   Future<void> initialize() async {
+    final quotaCubit = _quotaCubit;
+
     try {
       final history = await _repository.loadHistory();
       if (history.isNotEmpty) {
@@ -32,9 +34,8 @@ class ChatCubit extends Cubit<ChatState> {
       emit(ChatReady(messages: [_repository.getGreeting()]));
     }
 
-    final quotaCubit = _quotaCubit;
     if (quotaCubit != null) {
-      unawaited(quotaCubit.loadQuota(silent: true));
+      unawaited(_syncChatQuota(quotaCubit));
     }
   }
 
@@ -166,7 +167,7 @@ class ChatCubit extends Cubit<ChatState> {
     );
 
     try {
-      final aiResponse = await _repository.sendImageMessage(
+      final sendResult = await _repository.sendImageMessage(
         userMessage: trimmed,
         imageBytes: imageBytes,
         imageName: imageName,
@@ -178,10 +179,19 @@ class ChatCubit extends Cubit<ChatState> {
 
       emit(
         updated.copyWith(
-          messages: [...updated.messages, aiResponse],
+          messages: [...updated.messages, sendResult.reply],
           isAiTyping: false,
         ),
       );
+
+      final quotaCubit = _quotaCubit;
+      if (quotaCubit != null) {
+        if (sendResult.remainingQuota != null) {
+          quotaCubit.syncFromRemaining(sendResult.remainingQuota!);
+        } else {
+          quotaCubit.useOne();
+        }
+      }
     } catch (e) {
       final updated = state;
       if (updated is! ChatReady) return;
@@ -205,6 +215,15 @@ class ChatCubit extends Cubit<ChatState> {
   void clearChat() {
     _repository.clearHistory();
     emit(ChatReady(messages: [_repository.getGreeting()]));
+  }
+
+  Future<void> _syncChatQuota(QuotaCubit quotaCubit) async {
+    try {
+      final quota = await _repository.fetchQuota();
+      quotaCubit.setQuota(quota);
+    } catch (_) {
+      // Preserve chat UX if quota fetch fails; send-time 429 still updates state.
+    }
   }
 
   List<ChatMessage> _historyForRequest(List<ChatMessage> messages) {

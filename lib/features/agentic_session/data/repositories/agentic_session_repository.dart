@@ -69,7 +69,7 @@ class AgenticSessionRepository {
     _sessionId = response.sessionId;
 
     // Open WebSocket connections for real-time features
-    _ws.connectAll(response.sessionId);
+    await _ws.connectAll(response.sessionId);
 
     _log('Session started: ${response.sessionId}');
     return response;

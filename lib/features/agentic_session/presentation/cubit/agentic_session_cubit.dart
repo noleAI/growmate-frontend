@@ -61,6 +61,14 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
         state.copyWith(
           phase: AgenticPhase.ready,
           sessionId: response.sessionId,
+          sessionWasResumed:
+              response.reusedExistingSession || response.isResumed,
+          resumedProgressPercent: response.progressPercent,
+          resumedLastQuestionIndex: response.lastQuestionIndex,
+          sessionMode: response.mode,
+          currentAction: response.isResumed
+              ? 'resume_session'
+              : 'start_session',
         ),
       );
     } catch (e) {

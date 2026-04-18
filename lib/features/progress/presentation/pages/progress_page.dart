@@ -82,7 +82,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
   UniqueKey _streamKey = UniqueKey();
   late Stream<List<SessionHistoryEntry>> _historyStream;
   Future<List<TopicMastery>>? _realMasteryFuture;
-  bool _historySyncedFromServer = false;
 
   bool get _shouldWaitForRealMastery =>
       widget.realProgressRepository != null && _resolveSessionId() != null;
@@ -94,7 +93,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
         .watchHistory()
         .asBroadcastStream();
     _realMasteryFuture = _loadRealMastery();
-    unawaited(_syncSessionHistoryFromServer());
   }
 
   void refresh() {
@@ -105,84 +103,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
           .asBroadcastStream();
       _realMasteryFuture = _loadRealMastery();
     });
-    unawaited(_syncSessionHistoryFromServer());
-  }
-
-  Future<void> _syncSessionHistoryFromServer() async {
-    final quizApiRepository = widget.quizApiRepository;
-    if (quizApiRepository == null) {
-      if (mounted) {
-        setState(() {
-          _historySyncedFromServer = false;
-        });
-      }
-      return;
-    }
-
-    try {
-      final response = await quizApiRepository.getQuizHistory(
-        limit: 50,
-        offset: 0,
-      );
-
-      for (final item in response.items) {
-        final sessionId = item.sessionId.trim();
-        if (sessionId.isEmpty) {
-          continue;
-        }
-
-        final confidence = (item.summary.accuracyPercent / 100)
-            .clamp(0.0, 1.0)
-            .toDouble();
-        await widget.sessionHistoryRepository.upsertCompletedSession(
-          sourceKey: 'session:$sessionId',
-          topic: _historyTopicLabel(sessionId),
-          mode: item.status.toLowerCase() == 'abandoned'
-              ? 'recovery'
-              : 'academic',
-          durationMinutes: _historyDurationMinutes(item.summary.answeredCount),
-          focusScore: (confidence * 4).clamp(0.0, 4.0).toDouble(),
-          confidenceScore: confidence,
-          nextAction: _historyNextAction(confidence),
-          completedAt: item.endTime ?? item.startTime ?? DateTime.now().toUtc(),
-        );
-      }
-
-      if (mounted) {
-        setState(() {
-          _historySyncedFromServer = true;
-        });
-      }
-    } catch (error) {
-      if (mounted) {
-        setState(() {
-          _historySyncedFromServer = false;
-        });
-      }
-      debugPrint('⚠️ Unable to sync quiz history from backend: $error');
-    }
-  }
-
-  static String _historyTopicLabel(String sessionId) {
-    final suffix = sessionId.length > 8
-        ? sessionId.substring(sessionId.length - 8)
-        : sessionId;
-    return 'Phiên quiz #$suffix';
-  }
-
-  static int _historyDurationMinutes(int answeredCount) {
-    final estimated = answeredCount <= 0 ? 8 : answeredCount * 2;
-    return estimated.clamp(5, 120).toInt();
-  }
-
-  static String _historyNextAction(double confidence) {
-    if (confidence >= 0.85) {
-      return 'Tăng nhẹ độ khó ở phiên kế tiếp';
-    }
-    if (confidence >= 0.6) {
-      return 'Ôn lại nhóm câu sai và làm thêm 2 câu tương tự';
-    }
-    return 'Ôn lại lý thuyết cốt lõi trước khi tiếp tục';
   }
 
   Future<List<TopicMastery>> _loadRealMastery() async {
@@ -477,7 +397,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     ),
                                     _RecentSessionsSection(
                                       history: history,
-                                      fromServer: _historySyncedFromServer,
+                                      fromServer: widget
+                                          .sessionHistoryRepository
+                                          .hasRemoteSourceConfigured,
                                     ),
                                     const SizedBox(
                                       height: GrowMateLayout.sectionGap,

@@ -1,3 +1,18 @@
+/// Legacy API service interface — endpoints referenced here do NOT exist
+/// in the current backend.
+///
+/// **Migration guide:**
+/// - `submitAnswer()` → use [QuizApiRepository.submitAnswer] (`POST /quiz/submit`)
+/// - `submitBatchAnswers()` → iterate [QuizApiRepository.submitAnswer] per question
+/// - `getDiagnosis()` / `confirmHITL()` → use [AgenticApiService.interact]
+///   (`POST /sessions/{id}/interact`)
+/// - `submitSignals()` → use WebSocket (`/ws/v1/behavior`)
+/// - `submitInterventionFeedback()` / `saveInteractionFeedback()`
+///   → use [AgenticApiService.interact] with appropriate `action_type`
+@Deprecated(
+  'Use QuizApiRepository for quiz flow, AgenticApiService for agentic flow. '
+  'See migration guide in doc comment above.',
+)
 abstract interface class ApiService {
   Future<Map<String, dynamic>> submitAnswer({
     required String sessionId,
