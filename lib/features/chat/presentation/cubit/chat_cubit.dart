@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../data/repositories/chat_repository.dart';
@@ -68,6 +70,72 @@ class ChatCubit extends Cubit<ChatState> {
         id: 'error_${DateTime.now().millisecondsSinceEpoch}',
         role: ChatRole.assistant,
         content: 'Xin lỗi, đã có lỗi xảy ra. Bạn thử lại nhé! 🙏',
+        timestamp: DateTime.now(),
+      );
+
+      emit(
+        updated.copyWith(
+          messages: [...updated.messages, errorMessage],
+          isAiTyping: false,
+        ),
+      );
+    }
+  }
+
+  Future<void> sendImageMessage({
+    required String text,
+    required Uint8List imageBytes,
+    required String imageName,
+    required String imageMimeType,
+  }) async {
+    final current = state;
+    if (current is! ChatReady) return;
+
+    final trimmed = text.trim();
+    if (trimmed.isEmpty && imageBytes.isEmpty) return;
+
+    final userMessage = ChatMessage(
+      id: 'user_img_${DateTime.now().millisecondsSinceEpoch}',
+      role: ChatRole.user,
+      content: trimmed,
+      timestamp: DateTime.now(),
+      imageBytes: imageBytes,
+      imageName: imageName,
+      imageMimeType: imageMimeType,
+    );
+
+    emit(
+      current.copyWith(
+        messages: [...current.messages, userMessage],
+        isAiTyping: true,
+      ),
+    );
+
+    try {
+      final aiResponse = await _repository.sendImageMessage(
+        userMessage: trimmed,
+        imageBytes: imageBytes,
+        imageName: imageName,
+        imageMimeType: imageMimeType,
+      );
+
+      final updated = state;
+      if (updated is! ChatReady) return;
+
+      emit(
+        updated.copyWith(
+          messages: [...updated.messages, aiResponse],
+          isAiTyping: false,
+        ),
+      );
+    } catch (e) {
+      final updated = state;
+      if (updated is! ChatReady) return;
+
+      final errorMessage = ChatMessage(
+        id: 'error_img_${DateTime.now().millisecondsSinceEpoch}',
+        role: ChatRole.assistant,
+        content: 'Mình chưa gửi được ảnh lúc này. Bạn thử lại nhé! 🙏',
         timestamp: DateTime.now(),
       );
 
