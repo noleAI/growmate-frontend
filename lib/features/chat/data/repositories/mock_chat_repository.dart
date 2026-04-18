@@ -1,4 +1,5 @@
 import 'dart:math';
+import 'dart:typed_data';
 
 import '../../../chat/domain/entities/chat_message.dart';
 import 'chat_repository.dart';
@@ -150,6 +151,41 @@ class MockChatRepository implements ChatRepository {
   }
 
   @override
+  Future<ChatMessage> sendImageMessage({
+    required String userMessage,
+    required Uint8List imageBytes,
+    required String imageName,
+    required String imageMimeType,
+  }) async {
+    await Future.delayed(Duration(milliseconds: 700 + _random.nextInt(900)));
+
+    _history.add(
+      ChatMessage(
+        id: 'user_img_${DateTime.now().millisecondsSinceEpoch}',
+        role: ChatRole.user,
+        content: userMessage,
+        timestamp: DateTime.now(),
+        imageBytes: imageBytes,
+        imageMimeType: imageMimeType,
+        imageName: imageName,
+      ),
+    );
+
+    final aiMessage = ChatMessage(
+      id: 'ai_img_${DateTime.now().millisecondsSinceEpoch}',
+      role: ChatRole.assistant,
+      content:
+          'Mình đã nhận ảnh rồi nè 📷\n\n'
+          'Hiện tại bạn đang ở mock mode nên mình chỉ mô phỏng phản hồi. '
+          'Khi dùng backend thật, mình sẽ phân tích trực tiếp nội dung trong ảnh và trả lời chi tiết hơn.',
+      timestamp: DateTime.now(),
+    );
+
+    _history.add(aiMessage);
+    return aiMessage;
+  }
+
+  @override
   ChatMessage getGreeting() {
     return ChatMessage(
       id: 'greeting_0',
@@ -165,6 +201,9 @@ class MockChatRepository implements ChatRepository {
       timestamp: DateTime.now(),
     );
   }
+
+  @override
+  Future<List<ChatMessage>> loadHistory() async => [];
 
   @override
   void clearHistory() {

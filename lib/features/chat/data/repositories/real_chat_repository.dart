@@ -1,26 +1,21 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
 import '../../../../core/error/app_exceptions.dart';
-import '../../../../core/network/agentic_api_service.dart';
 import '../../../../core/network/rest_api_client.dart';
 import '../../../chat/domain/entities/chat_message.dart';
 import 'chat_repository.dart';
 
-/// Real chat repository using chatbot endpoints.
+/// Real chat repository with comprehensive error handling.
 ///
-/// Improved version with comprehensive error handling and multiple field name support.
+/// Uses RestApiClient for enhanced API handling and comprehensive error detection.
 class RealChatRepository implements ChatRepository {
   RealChatRepository({
     required RestApiClient client,
-    AgenticApiService? legacyApiService,
-    String? legacySessionId,
-  }) : _client = client,
-       _legacyApiService = legacyApiService,
-       _legacySessionId = legacySessionId;
+  }) : _client = client;
 
   final RestApiClient _client;
-  final AgenticApiService? _legacyApiService;
-  final String? _legacySessionId;
 
   @override
   Future<ChatSendResult> sendMessage(
@@ -44,7 +39,7 @@ class RealChatRepository implements ChatRepository {
         debugPrint('🤖 [CHAT] Unwrapped data: $data');
       }
 
-      // Try multiple field names for reply (backend might use different names)
+      // Try multiple field names for reply
       final replyText = _extractTextField(data, [
         'reply',
         'content',
@@ -68,10 +63,6 @@ class RealChatRepository implements ChatRepository {
             data['left'],
       );
 
-      if (kDebugMode) {
-        debugPrint('🤖 [CHAT] Remaining quota: $remainingQuota');
-      }
-
       return ChatSendResult(
         reply: ChatMessage(
           id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
@@ -87,15 +78,64 @@ class RealChatRepository implements ChatRepository {
       if (kDebugMode) {
         debugPrint('🤖 [CHAT] AppException (${e.statusCode}): ${e.message}');
       }
-      if (e.statusCode == 404) {
-        return _sendViaLegacyInteract(userMessage);
-      }
       rethrow;
     } catch (e) {
       if (kDebugMode) {
         debugPrint('🤖 [CHAT] Unexpected error: $e');
       }
       rethrow;
+    }
+  }
+
+  @override
+  Future<ChatMessage> sendImageMessage({
+    required String userMessage,
+    required Uint8List imageBytes,
+    required String imageName,
+    required String imageMimeType,
+  }) async {
+    if (imageBytes.isEmpty) {
+      return _errorMessage('Ảnh không hợp lệ. Vui lòng chọn ảnh khác.');
+    }
+
+    final payload = <String, dynamic>{'message': userMessage};
+
+    try {
+      // For simplicity, try sending via the regular endpoint first
+      // In production, this would use a proper multipart/form-data endpoint
+      final json = await _client.post('/chatbot/chat', payload);
+      
+      final data = _unwrapPayload(json);
+      final replyText = _extractTextField(data, [
+        'reply',
+        'content',
+        'message',
+        'text',
+        'response',
+        'answer',
+      ]);
+
+      return ChatMessage(
+        id: 'ai_img_${DateTime.now().millisecondsSinceEpoch}',
+        role: ChatRole.assistant,
+        content: replyText?.isNotEmpty == true
+            ? replyText!
+            : 'Mình chưa nhận được phản hồi hợp lệ từ server. Bạn thử lại giúp mình nhé!',
+        timestamp: DateTime.now(),
+      );
+    } on AppException catch (e) {
+      if (kDebugMode) {
+        debugPrint('🖼️ [CHAT IMAGE] AppException (${e.statusCode}): ${e.message}');
+      }
+      if (e.statusCode == 404) {
+        return _errorMessage('Chức năng gửi ảnh hiện không khả dụng.');
+      }
+      return _errorMessage('Không thể xử lý ảnh. Bạn thử lại nhé!');
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('🖼️ [CHAT IMAGE] Error: $e');
+      }
+      return _errorMessage('Không thể gửi ảnh. Bạn thử lại nhé!');
     }
   }
 
@@ -143,6 +183,11 @@ class RealChatRepository implements ChatRepository {
         return const [];
       }
       rethrow;
+    } catch (e) {
+      if (kDebugMode) {
+        debugPrint('🤖 [CHAT] loadHistory error: $e');
+      }
+      return const [];
     }
   }
 
@@ -153,120 +198,74 @@ class RealChatRepository implements ChatRepository {
       role: ChatRole.assistant,
       content:
           'Xin chào! Mình là GrowMate AI 🤖\n\n'
-          'Mình có thể giúp bạn:\n'
-          '• Giải thích bài tập Toán (đạo hàm, tích phân, logarit...)\n'
-          '• Ôn tập kiến thức THPT 2026\n'
-          '• Gợi ý phương pháp học hiệu quả\n'
-          '• Giải đề thi thử\n\n'
-          'Hỏi mình bất cứ điều gì nhé! 📚',
+          'Mình có thể giúp bạn với bất kỳ môn học THPT nào:\n'
+          '• 📐 Toán, Lý, Hóa, Sinh\n'
+          '• 📖 Văn, Sử, Địa, GDCD\n'
+          '• 🌍 Tiếng Anh, Tin học\n'
+          '• 💡 Phương pháp ôn thi THPT Quốc gia\n\n'
+          'Hỏi mình bất cứ điều gì về kiến thức học thuật nhé! 📚',
       timestamp: DateTime.now(),
     );
   }
 
   @override
   void clearHistory() {
-    // Real chat history is server-side; nothing to clear locally.
+    // Placeholder for future implementation
+    if (kDebugMode) {
+      debugPrint('🤖 [CHAT] clearHistory called');
+    }
   }
 
-  Future<ChatSendResult> _sendViaLegacyInteract(String userMessage) async {
-    final legacyApiService = _legacyApiService;
-    final legacySessionId = _legacySessionId;
-    if (legacyApiService == null || legacySessionId == null) {
-      throw const NotFoundException(
-        resource: 'chatbot',
-        message: 'Không tìm thấy chatbot endpoint phù hợp.',
-      );
-    }
+  // ── Helpers ───────────────────────────────────────────────────────────────
 
-    final response = await legacyApiService.interact(
-      sessionId: legacySessionId,
-      actionType: 'chat',
-      responseData: {'message': userMessage},
-    );
-
-    return ChatSendResult(
-      reply: ChatMessage(
-        id: 'ai_${DateTime.now().millisecondsSinceEpoch}',
-        role: ChatRole.assistant,
-        content: response.content,
-        timestamp: DateTime.now(),
-        planRepaired: response.planRepaired,
-        beliefEntropy: response.beliefEntropy,
-        nextNodeType: response.nextNodeType,
-      ),
+  ChatMessage _errorMessage(String content) {
+    return ChatMessage(
+      id: 'error_${DateTime.now().millisecondsSinceEpoch}',
+      role: ChatRole.assistant,
+      content: content,
+      timestamp: DateTime.now(),
     );
   }
 
-  Map<String, dynamic> _unwrapPayload(Map<String, dynamic> json) {
-    final data = json['data'];
-    if (data is Map) {
-      return Map<String, dynamic>.from(data);
+  Map<String, dynamic> _unwrapPayload(dynamic json) {
+    if (json is Map<String, dynamic>) {
+      if (json.containsKey('data') && json['data'] is Map) {
+        return Map<String, dynamic>.from(json['data']);
+      }
+      return json;
     }
-    return json;
+    return {};
   }
 
-  /// Extract text from first non-empty field matching any of the given keys.
-  String? _extractTextField(
-    Map<String, dynamic> data,
-    List<String> fieldNames,
-  ) {
-    for (final field in fieldNames) {
-      final value = data[field]?.toString().trim();
-      if (value != null && value.isNotEmpty) {
-        if (kDebugMode) {
-          debugPrint('🤖 [CHAT] Found reply in field: "$field"');
-        }
+  String? _extractTextField(Map<String, dynamic> data, List<String> fieldNames) {
+    for (final fieldName in fieldNames) {
+      final value = data[fieldName];
+      if (value is String && value.isNotEmpty) {
         return value;
       }
     }
-    if (kDebugMode) {
-      debugPrint('🤖 [CHAT] No reply found in fields: $fieldNames');
-    }
     return null;
-  }
-
-  List<Map<String, String>> _toHistoryPayload(List<ChatMessage> history) {
-    final turns = <Map<String, String>>[];
-    for (final message in history) {
-      if (message.id.startsWith('greeting_')) {
-        continue;
-      }
-
-      final role = switch (message.role) {
-        ChatRole.user => 'user',
-        ChatRole.assistant => 'assistant',
-        ChatRole.system => null,
-      };
-      if (role == null) {
-        continue;
-      }
-
-      final content = message.content.trim();
-      if (content.isEmpty) {
-        continue;
-      }
-
-      turns.add({'role': role, 'content': content});
-    }
-
-    if (turns.length <= 20) {
-      return turns;
-    }
-    return turns.sublist(turns.length - 20);
-  }
-
-  ChatRole? _parseRole(String? rawRole) {
-    return switch (rawRole?.toLowerCase()) {
-      'user' => ChatRole.user,
-      'assistant' => ChatRole.assistant,
-      _ => null,
-    };
   }
 
   int? _toInt(dynamic value) {
     if (value is int) return value;
-    if (value is num) return value.toInt();
-    if (value is String) return int.tryParse(value.trim());
+    if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  ChatRole? _parseRole(String? roleStr) {
+    if (roleStr == null) return null;
+    if (roleStr == 'user') return ChatRole.user;
+    if (roleStr == 'assistant') return ChatRole.assistant;
+    return null;
+  }
+
+  List<Map<String, dynamic>> _toHistoryPayload(List<ChatMessage> history) {
+    return history
+        .map((m) => {
+              'role': m.role == ChatRole.user ? 'user' : 'assistant',
+              'content': m.content,
+            })
+        .toList();
   }
 }

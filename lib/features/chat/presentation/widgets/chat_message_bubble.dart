@@ -115,6 +115,39 @@ class ChatMessageBubble extends StatelessWidget {
         ? theme.colorScheme.onPrimary
         : theme.colorScheme.onSurface;
 
+    final hasImage =
+        message.imageBytes != null && message.imageBytes!.isNotEmpty;
+    final hasText = message.content.trim().isNotEmpty;
+
+    if (hasImage) {
+      const imageWidth = 220.0;
+      const imageHeight = 160.0;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(12),
+            child: Image.memory(
+              message.imageBytes!,
+              fit: BoxFit.cover,
+              width: imageWidth,
+              height: imageHeight,
+              cacheWidth: 660,
+              filterQuality: FilterQuality.low,
+            ),
+          ),
+          if (hasText) ...[
+            const SizedBox(height: 8),
+            _buildTextContent(theme, textColor),
+          ],
+        ],
+      );
+    }
+
+    return _buildTextContent(theme, textColor);
+  }
+
+  Widget _buildTextContent(ThemeData theme, Color textColor) {
     // Check if content has LaTeX ($...$)
     if (message.content.contains(r'$')) {
       return QuizMathText(
