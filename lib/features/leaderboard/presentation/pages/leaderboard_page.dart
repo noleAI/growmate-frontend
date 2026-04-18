@@ -38,6 +38,14 @@ class _LeaderboardViewState extends State<_LeaderboardView>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      final state = context.read<LeaderboardCubit>().state;
+      if (state is! LeaderboardLoaded && state is! LeaderboardLoading) {
+        context.read<LeaderboardCubit>().loadLeaderboard();
+      }
+    });
   }
 
   @override
