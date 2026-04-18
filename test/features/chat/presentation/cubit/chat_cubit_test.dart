@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:growmate_frontend/core/error/app_exceptions.dart';
+import 'dart:typed_data';
 import 'package:growmate_frontend/features/chat/data/repositories/chat_repository.dart';
 import 'package:growmate_frontend/features/chat/domain/entities/chat_message.dart';
 import 'package:growmate_frontend/features/chat/presentation/cubit/chat_cubit.dart';
@@ -32,6 +33,21 @@ class _FakeChatRepository implements ChatRepository {
   @override
   Future<List<ChatMessage>> loadHistory({int limit = 40}) async {
     return history;
+  }
+
+  @override
+  Future<ChatMessage> sendImageMessage({
+    required String userMessage,
+    required Uint8List imageBytes,
+    required String imageName,
+    required String imageMimeType,
+  }) async {
+    return ChatMessage(
+      id: 'ai_img_1',
+      role: ChatRole.assistant,
+      content: 'Image received',
+      timestamp: DateTime(2026, 1, 1),
+    );
   }
 
   @override

@@ -359,9 +359,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
     // Attach optional legacy fallback for deployments that do not expose
     // `/chatbot/*` yet.
     if (!useMockApi && _restApiClient != null) {
-      _chatRepository = RealChatRepository(
-        client: _restApiClient!,
-      );
+      _chatRepository = RealChatRepository(client: _restApiClient!);
     }
 
     // Flush queued signals từ offline mode

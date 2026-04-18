@@ -11,9 +11,7 @@ import 'chat_repository.dart';
 ///
 /// Uses RestApiClient for enhanced API handling and comprehensive error detection.
 class RealChatRepository implements ChatRepository {
-  RealChatRepository({
-    required RestApiClient client,
-  }) : _client = client;
+  RealChatRepository({required RestApiClient client}) : _client = client;
 
   final RestApiClient _client;
 
@@ -104,7 +102,7 @@ class RealChatRepository implements ChatRepository {
       // For simplicity, try sending via the regular endpoint first
       // In production, this would use a proper multipart/form-data endpoint
       final json = await _client.post('/chatbot/chat', payload);
-      
+
       final data = _unwrapPayload(json);
       final replyText = _extractTextField(data, [
         'reply',
@@ -125,7 +123,9 @@ class RealChatRepository implements ChatRepository {
       );
     } on AppException catch (e) {
       if (kDebugMode) {
-        debugPrint('🖼️ [CHAT IMAGE] AppException (${e.statusCode}): ${e.message}');
+        debugPrint(
+          '🖼️ [CHAT IMAGE] AppException (${e.statusCode}): ${e.message}',
+        );
       }
       if (e.statusCode == 404) {
         return _errorMessage('Chức năng gửi ảnh hiện không khả dụng.');
@@ -237,7 +237,10 @@ class RealChatRepository implements ChatRepository {
     return {};
   }
 
-  String? _extractTextField(Map<String, dynamic> data, List<String> fieldNames) {
+  String? _extractTextField(
+    Map<String, dynamic> data,
+    List<String> fieldNames,
+  ) {
     for (final fieldName in fieldNames) {
       final value = data[fieldName];
       if (value is String && value.isNotEmpty) {
@@ -262,10 +265,12 @@ class RealChatRepository implements ChatRepository {
 
   List<Map<String, dynamic>> _toHistoryPayload(List<ChatMessage> history) {
     return history
-        .map((m) => {
-              'role': m.role == ChatRole.user ? 'user' : 'assistant',
-              'content': m.content,
-            })
+        .map(
+          (m) => {
+            'role': m.role == ChatRole.user ? 'user' : 'assistant',
+            'content': m.content,
+          },
+        )
         .toList();
   }
 }

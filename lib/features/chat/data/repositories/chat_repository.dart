@@ -28,10 +28,6 @@ abstract class ChatRepository {
     required String imageMimeType,
   });
 
-  /// Load conversation history from the server (oldest first).
-  /// Returns empty list if unavailable.
-  Future<List<ChatMessage>> loadHistory();
-
   /// Get initial greeting message (shown when history is empty).
   ChatMessage getGreeting();
 

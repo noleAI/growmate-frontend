@@ -203,9 +203,6 @@ class MockChatRepository implements ChatRepository {
   }
 
   @override
-  Future<List<ChatMessage>> loadHistory() async => [];
-
-  @override
   void clearHistory() {
     _history.clear();
   }
