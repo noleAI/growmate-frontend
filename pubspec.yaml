@@ -55,6 +55,10 @@ dependencies:
   flutter_math_fork: ^0.7.4
   web_socket_channel: ^3.0.2
   crypto: ^3.0.7
+  speech_to_text: ^7.0.0
+  image_picker: ^1.2.0
+  http_parser: ^4.1.2
+  path_provider: ^2.1.5
 
 dev_dependencies:
   flutter_test:

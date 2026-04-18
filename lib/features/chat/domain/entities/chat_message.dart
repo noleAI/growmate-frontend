@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 enum ChatRole { user, assistant, system }
 
 class ChatMessage {
@@ -10,6 +12,9 @@ class ChatMessage {
     this.planRepaired = false,
     this.beliefEntropy,
     this.nextNodeType,
+    this.imageBytes,
+    this.imageMimeType,
+    this.imageName,
   });
 
   final String id;
@@ -28,6 +33,11 @@ class ChatMessage {
   /// "de_stress", "recovery", "hitl_pending").
   final String? nextNodeType;
 
+  /// Optional image payload attached to this chat message.
+  final Uint8List? imageBytes;
+  final String? imageMimeType;
+  final String? imageName;
+
   ChatMessage copyWith({
     String? id,
     ChatRole? role,
@@ -37,6 +47,9 @@ class ChatMessage {
     bool? planRepaired,
     double? beliefEntropy,
     String? nextNodeType,
+    Uint8List? imageBytes,
+    String? imageMimeType,
+    String? imageName,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -47,6 +60,9 @@ class ChatMessage {
       planRepaired: planRepaired ?? this.planRepaired,
       beliefEntropy: beliefEntropy ?? this.beliefEntropy,
       nextNodeType: nextNodeType ?? this.nextNodeType,
+      imageBytes: imageBytes ?? this.imageBytes,
+      imageMimeType: imageMimeType ?? this.imageMimeType,
+      imageName: imageName ?? this.imageName,
     );
   }
 }

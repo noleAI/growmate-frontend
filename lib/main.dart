@@ -359,14 +359,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
       debugPrint('❌ Lỗi khởi tạo repositories: $error');
     }
 
-    // Pre-fetch remote feature flags / configs at app init.
-    if (_configRepository != null) {
-      try {
-        await _configRepository!.getConfig('feature_flags');
-      } catch (e) {
-        debugPrint('⚠️ Không tải được remote config: $e');
-      }
-    }
+    // Prefetch remote config in background so startup is never blocked.
+    unawaited(_prefetchRemoteConfig());
 
     if (!mounted) {
       return;
@@ -376,6 +370,23 @@ class _GrowMateAppState extends State<GrowMateApp> {
       _appRouter = _buildAppRouter();
       _didInitializeDependencies = true;
     });
+  }
+
+  Future<void> _prefetchRemoteConfig() async {
+    final repository = _configRepository;
+    if (repository == null) {
+      return;
+    }
+
+    try {
+      await repository
+          .getConfig('feature_flags')
+          .timeout(const Duration(seconds: 5));
+    } on TimeoutException {
+      debugPrint('ℹ️ Bỏ qua remote config lần này (timeout).');
+    } catch (e) {
+      debugPrint('⚠️ Không tải được remote config: $e');
+    }
   }
 
   @override
