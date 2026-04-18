@@ -7,15 +7,17 @@ import '../../../../shared/widgets/zen_button.dart';
 ///
 /// Designed to be non-frustrating with encouraging tone and soft animation.
 class QuotaExceededDialog extends StatelessWidget {
-  const QuotaExceededDialog({super.key});
+  const QuotaExceededDialog({super.key, this.limit = 30});
+
+  final int limit;
 
   /// Shows the quota exceeded dialog as a modal bottom sheet.
-  static Future<void> show(BuildContext context) {
+  static Future<void> show(BuildContext context, {int? limit}) {
     return showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
       backgroundColor: Colors.transparent,
-      builder: (_) => const QuotaExceededDialog(),
+      builder: (_) => QuotaExceededDialog(limit: limit ?? 30),
     );
   }
 
@@ -74,8 +76,8 @@ class QuotaExceededDialog extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             context.t(
-              vi: 'Bạn đã dùng hết 20 lượt chat hôm nay.\nQuay lại ngày mai để tiếp tục trò chuyện với AI nhé! 💪',
-              en: 'You\'ve used all 20 chat turns today.\nCome back tomorrow to continue chatting with AI! 💪',
+              vi: 'Bạn đã dùng hết $limit lượt chat hôm nay.\nQuay lại ngày mai để tiếp tục trò chuyện với AI nhé! 💪',
+              en: 'You\'ve used all $limit chat turns today.\nCome back tomorrow to continue chatting with AI! 💪',
             ),
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.onSurfaceVariant,

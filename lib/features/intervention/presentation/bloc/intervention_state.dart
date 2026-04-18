@@ -8,15 +8,17 @@ class InterventionOption extends Equatable {
     required this.label,
     required this.type,
     this.fromBackend = false,
+    this.metadata = const <String, dynamic>{},
   });
 
   final String id;
   final String label;
   final String type;
   final bool fromBackend;
+  final Map<String, dynamic> metadata;
 
   @override
-  List<Object?> get props => <Object?>[id, label, type, fromBackend];
+  List<Object?> get props => <Object?>[id, label, type, fromBackend, metadata];
 }
 
 class InterventionState extends Equatable {
@@ -31,6 +33,11 @@ class InterventionState extends Equatable {
     this.updatedQValues = const <String, dynamic>{},
     this.selectedOptionLabel,
     this.selectedOptionId,
+    this.completionTopic,
+    this.completionNextAction,
+    this.completionDurationMinutes,
+    this.completionFocusScore,
+    this.completionConfidenceScore,
   });
 
   final InterventionMode mode;
@@ -43,6 +50,11 @@ class InterventionState extends Equatable {
   final Map<String, dynamic> updatedQValues;
   final String? selectedOptionLabel;
   final String? selectedOptionId;
+  final String? completionTopic;
+  final String? completionNextAction;
+  final int? completionDurationMinutes;
+  final double? completionFocusScore;
+  final double? completionConfidenceScore;
 
   InterventionState copyWith({
     InterventionMode? mode,
@@ -55,6 +67,11 @@ class InterventionState extends Equatable {
     Map<String, dynamic>? updatedQValues,
     String? selectedOptionLabel,
     String? selectedOptionId,
+    String? completionTopic,
+    String? completionNextAction,
+    int? completionDurationMinutes,
+    double? completionFocusScore,
+    double? completionConfidenceScore,
   }) {
     return InterventionState(
       mode: mode ?? this.mode,
@@ -68,6 +85,13 @@ class InterventionState extends Equatable {
       updatedQValues: updatedQValues ?? this.updatedQValues,
       selectedOptionLabel: selectedOptionLabel ?? this.selectedOptionLabel,
       selectedOptionId: selectedOptionId ?? this.selectedOptionId,
+      completionTopic: completionTopic ?? this.completionTopic,
+      completionNextAction: completionNextAction ?? this.completionNextAction,
+      completionDurationMinutes:
+          completionDurationMinutes ?? this.completionDurationMinutes,
+      completionFocusScore: completionFocusScore ?? this.completionFocusScore,
+      completionConfidenceScore:
+          completionConfidenceScore ?? this.completionConfidenceScore,
     );
   }
 
@@ -83,5 +107,10 @@ class InterventionState extends Equatable {
     updatedQValues,
     selectedOptionLabel,
     selectedOptionId,
+    completionTopic,
+    completionNextAction,
+    completionDurationMinutes,
+    completionFocusScore,
+    completionConfidenceScore,
   ];
 }

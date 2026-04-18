@@ -1,7 +1,11 @@
+import 'dart:async';
+
 import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
 import '../../../../data/models/user_profile.dart';
 import '../../../../features/session/data/models/session_history_entry.dart';
@@ -16,6 +20,7 @@ import '../../../../shared/widgets/ai_reflection_widget.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
+import '../../../quiz/data/repositories/quiz_api_repository.dart';
 import '../../data/mock_user_progress_generator.dart';
 import '../../data/real_progress_repository.dart';
 import '../widgets/ai_progress_narrative.dart';
@@ -26,15 +31,18 @@ class ProgressPage extends StatelessWidget {
     super.key,
     SessionHistoryRepository? sessionHistoryRepository,
     RealProgressRepository? realProgressRepository,
+    QuizApiRepository? quizApiRepository,
   }) : _profile = null,
        _forceEmptyState = false,
        _sessionHistoryRepository = sessionHistoryRepository,
-       _realProgressRepository = realProgressRepository;
+       _realProgressRepository = realProgressRepository,
+       _quizApiRepository = quizApiRepository;
 
   final UserProfile? _profile;
   final bool _forceEmptyState;
   final SessionHistoryRepository? _sessionHistoryRepository;
   final RealProgressRepository? _realProgressRepository;
+  final QuizApiRepository? _quizApiRepository;
 
   @override
   Widget build(BuildContext context) {
@@ -44,6 +52,7 @@ class ProgressPage extends StatelessWidget {
       sessionHistoryRepository:
           _sessionHistoryRepository ?? SessionHistoryRepository.instance,
       realProgressRepository: _realProgressRepository,
+      quizApiRepository: _quizApiRepository,
     );
   }
 }
@@ -55,12 +64,14 @@ class ProgressScreen extends StatefulWidget {
     this.forceEmptyState = false,
     required this.sessionHistoryRepository,
     this.realProgressRepository,
+    this.quizApiRepository,
   });
 
   final UserProfile? profile;
   final bool forceEmptyState;
   final SessionHistoryRepository sessionHistoryRepository;
   final RealProgressRepository? realProgressRepository;
+  final QuizApiRepository? quizApiRepository;
 
   @override
   State<ProgressScreen> createState() => _ProgressScreenState();
@@ -71,6 +82,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   UniqueKey _streamKey = UniqueKey();
   late Stream<List<SessionHistoryEntry>> _historyStream;
   Future<List<TopicMastery>>? _realMasteryFuture;
+  bool _historySyncedFromServer = false;
 
   bool get _shouldWaitForRealMastery =>
       widget.realProgressRepository != null && _resolveSessionId() != null;
@@ -82,6 +94,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         .watchHistory()
         .asBroadcastStream();
     _realMasteryFuture = _loadRealMastery();
+    unawaited(_syncSessionHistoryFromServer());
   }
 
   void refresh() {
@@ -92,6 +105,84 @@ class _ProgressScreenState extends State<ProgressScreen> {
           .asBroadcastStream();
       _realMasteryFuture = _loadRealMastery();
     });
+    unawaited(_syncSessionHistoryFromServer());
+  }
+
+  Future<void> _syncSessionHistoryFromServer() async {
+    final quizApiRepository = widget.quizApiRepository;
+    if (quizApiRepository == null) {
+      if (mounted) {
+        setState(() {
+          _historySyncedFromServer = false;
+        });
+      }
+      return;
+    }
+
+    try {
+      final response = await quizApiRepository.getQuizHistory(
+        limit: 50,
+        offset: 0,
+      );
+
+      for (final item in response.items) {
+        final sessionId = item.sessionId.trim();
+        if (sessionId.isEmpty) {
+          continue;
+        }
+
+        final confidence = (item.summary.accuracyPercent / 100)
+            .clamp(0.0, 1.0)
+            .toDouble();
+        await widget.sessionHistoryRepository.upsertCompletedSession(
+          sourceKey: 'session:$sessionId',
+          topic: _historyTopicLabel(sessionId),
+          mode: item.status.toLowerCase() == 'abandoned'
+              ? 'recovery'
+              : 'academic',
+          durationMinutes: _historyDurationMinutes(item.summary.answeredCount),
+          focusScore: (confidence * 4).clamp(0.0, 4.0).toDouble(),
+          confidenceScore: confidence,
+          nextAction: _historyNextAction(confidence),
+          completedAt: item.endTime ?? item.startTime ?? DateTime.now().toUtc(),
+        );
+      }
+
+      if (mounted) {
+        setState(() {
+          _historySyncedFromServer = true;
+        });
+      }
+    } catch (error) {
+      if (mounted) {
+        setState(() {
+          _historySyncedFromServer = false;
+        });
+      }
+      debugPrint('⚠️ Unable to sync quiz history from backend: $error');
+    }
+  }
+
+  static String _historyTopicLabel(String sessionId) {
+    final suffix = sessionId.length > 8
+        ? sessionId.substring(sessionId.length - 8)
+        : sessionId;
+    return 'Phiên quiz #$suffix';
+  }
+
+  static int _historyDurationMinutes(int answeredCount) {
+    final estimated = answeredCount <= 0 ? 8 : answeredCount * 2;
+    return estimated.clamp(5, 120).toInt();
+  }
+
+  static String _historyNextAction(double confidence) {
+    if (confidence >= 0.85) {
+      return 'Tăng nhẹ độ khó ở phiên kế tiếp';
+    }
+    if (confidence >= 0.6) {
+      return 'Ôn lại nhóm câu sai và làm thêm 2 câu tương tự';
+    }
+    return 'Ôn lại lý thuyết cốt lõi trước khi tiếp tục';
   }
 
   Future<List<TopicMastery>> _loadRealMastery() async {
@@ -102,11 +193,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
       return const <TopicMastery>[];
     }
 
-    try {
-      return await repo.fetchMasteryMap(sessionId: sessionId);
-    } catch (_) {
-      return const <TopicMastery>[];
-    }
+    return repo.fetchMasteryMap(sessionId: sessionId);
   }
 
   String? _resolveSessionId() {
@@ -141,14 +228,100 @@ class _ProgressScreenState extends State<ProgressScreen> {
     );
   }
 
+  UserProgressSnapshot _buildBaseProgressSnapshot(
+    List<SessionHistoryEntry> history,
+  ) {
+    if (widget.realProgressRepository == null) {
+      return MockUserProgressGenerator.fromUserProfile(
+        widget.profile,
+        forceEmptyState: widget.forceEmptyState,
+      );
+    }
+
+    return _buildRealProgressFromHistory(history);
+  }
+
+  UserProgressSnapshot _buildRealProgressFromHistory(
+    List<SessionHistoryEntry> history,
+  ) {
+    if (widget.forceEmptyState || history.isEmpty) {
+      return const UserProgressSnapshot(
+        learningRhythm: '',
+        weeklyConsistency: '',
+        fixedConcepts: <String>[],
+        masteryMap: <TopicMastery>[],
+        moodTrend: <MoodTrendPoint>[],
+      );
+    }
+
+    final now = DateTime.now();
+    final weekAgo = now.subtract(const Duration(days: 7));
+    final recent = history
+        .where((entry) => entry.completedAt.toLocal().isAfter(weekAgo))
+        .toList(growable: false);
+    final baseline = recent.isEmpty ? history : recent;
+
+    final uniqueStudyDays = baseline
+        .map(
+          (entry) => DateTime(
+            entry.completedAt.toLocal().year,
+            entry.completedAt.toLocal().month,
+            entry.completedAt.toLocal().day,
+          ).toIso8601String(),
+        )
+        .toSet()
+        .length;
+
+    final avgDuration =
+        baseline.fold<int>(0, (sum, entry) => sum + entry.durationMinutes) /
+        baseline.length;
+
+    final topicFrequency = <String, int>{};
+    for (final entry in baseline) {
+      final topic = entry.topic.trim();
+      if (topic.isEmpty) {
+        continue;
+      }
+      topicFrequency[topic] = (topicFrequency[topic] ?? 0) + 1;
+    }
+
+    final fixedConcepts = topicFrequency.entries.toList(growable: false)
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    final sortedByTime = List<SessionHistoryEntry>.from(baseline)
+      ..sort((a, b) => a.completedAt.compareTo(b.completedAt));
+    final trendSource = sortedByTime.length > 4
+        ? sortedByTime.sublist(sortedByTime.length - 4)
+        : sortedByTime;
+
+    final moodTrend = trendSource
+        .asMap()
+        .entries
+        .map(
+          (entry) => MoodTrendPoint(
+            sessionLabel: 'Phiên ${entry.key + 1}',
+            focusScore: entry.value.focusScore.clamp(0.0, 4.0).toDouble(),
+          ),
+        )
+        .toList(growable: false);
+
+    return UserProgressSnapshot(
+      learningRhythm:
+          'Trung bình ${avgDuration.round()} phút mỗi phiên trong dữ liệu gần đây.',
+      weeklyConsistency:
+          '$uniqueStudyDays/7 ngày có hoạt động học tập tuần này',
+      fixedConcepts: fixedConcepts
+          .take(3)
+          .map((e) => e.key)
+          .toList(growable: false),
+      masteryMap: const <TopicMastery>[],
+      moodTrend: moodTrend,
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-
-    final mockProgress = MockUserProgressGenerator.fromUserProfile(
-      widget.profile,
-      forceEmptyState: widget.forceEmptyState,
-    );
 
     return DefaultTabController(
       length: 2,
@@ -222,6 +395,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
                           final history =
                               snapshot.data ?? const <SessionHistoryEntry>[];
+                          final baseProgress = _buildBaseProgressSnapshot(
+                            history,
+                          );
 
                           return FutureBuilder<List<TopicMastery>>(
                             future: _realMasteryFuture,
@@ -233,8 +409,20 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                 return const _LoadingStateWidget();
                               }
 
+                              if (_shouldWaitForRealMastery &&
+                                  masterySnapshot.hasError &&
+                                  baseProgress.isEmpty) {
+                                return ZenErrorCard(
+                                  message: context.t(
+                                    vi: 'Không tải được dữ liệu tiến trình từ server.',
+                                    en: 'Unable to load progress data from server.',
+                                  ),
+                                  onRetry: refresh,
+                                );
+                              }
+
                               final progress = _mergeProgressWithBeliefs(
-                                mockProgress,
+                                baseProgress,
                                 masterySnapshot.data ?? const <TopicMastery>[],
                               );
 
@@ -283,6 +471,13 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     _WeeklyMomentumSection(
                                       history: history,
                                       progress: progress,
+                                    ),
+                                    const SizedBox(
+                                      height: GrowMateLayout.sectionGap,
+                                    ),
+                                    _RecentSessionsSection(
+                                      history: history,
+                                      fromServer: _historySyncedFromServer,
                                     ),
                                     const SizedBox(
                                       height: GrowMateLayout.sectionGap,
@@ -485,6 +680,165 @@ class _WeeklyMomentumSection extends StatelessWidget {
 
     return _topicLabel(context, gaps.first.topic);
   }
+}
+
+class _RecentSessionsSection extends StatelessWidget {
+  const _RecentSessionsSection({
+    required this.history,
+    required this.fromServer,
+  });
+
+  final List<SessionHistoryEntry> history;
+  final bool fromServer;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    if (history.isEmpty) {
+      return Section(
+        title: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
+        subtitle: context.t(
+          vi: 'Lịch sử phiên học theo session_id',
+          en: 'Session history keyed by session_id',
+        ),
+        child: Text(
+          context.t(
+            vi: 'Chưa có phiên nào để hiển thị.',
+            en: 'No sessions to show yet.',
+          ),
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+      );
+    }
+
+    final latest = history.take(5).toList(growable: false);
+    final sourceLabel = fromServer
+        ? context.t(vi: 'Nguồn: Server history', en: 'Source: Server history')
+        : context.t(vi: 'Nguồn: Local fallback', en: 'Source: Local fallback');
+
+    return Section(
+      title: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
+      subtitle: context.t(
+        vi: 'Mở nhanh chi tiết kết quả theo session',
+        en: 'Open result details by session',
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: fromServer
+                  ? colors.primaryContainer.withValues(alpha: 0.45)
+                  : colors.surfaceContainerHigh,
+              borderRadius: BorderRadius.circular(999),
+            ),
+            child: Text(
+              sourceLabel,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(height: 10),
+          ...latest.map((entry) {
+            final sessionId = _extractSessionId(entry.sourceKey);
+            final statusLabel = entry.mode.toLowerCase() == 'recovery'
+                ? context.t(vi: 'Phục hồi', en: 'Recovery')
+                : context.t(vi: 'Học tập', en: 'Academic');
+            final dateLabel = _formatLocalDateTime(entry.completedAt.toLocal());
+
+            return Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Container(
+                width: double.infinity,
+                padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerLow,
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(color: colors.surfaceContainerHigh),
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            entry.topic,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            context.t(
+                              vi: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
+                              en: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
+                            ),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    FilledButton.tonal(
+                      onPressed: sessionId == null
+                          ? null
+                          : () {
+                              final location = Uri(
+                                path: AppRoutes.diagnosis,
+                                queryParameters: <String, String>{
+                                  'submissionId': sessionId,
+                                },
+                              ).toString();
+                              context.push(location);
+                            },
+                      child: Text(context.t(vi: 'Xem', en: 'Open')),
+                    ),
+                  ],
+                ),
+              ),
+            );
+          }),
+        ],
+      ),
+    );
+  }
+}
+
+String? _extractSessionId(String sourceKey) {
+  final trimmed = sourceKey.trim();
+  if (trimmed.startsWith('session:')) {
+    final value = trimmed.substring('session:'.length).trim();
+    return value.isEmpty ? null : value;
+  }
+  if (trimmed.startsWith('submission:')) {
+    final segments = trimmed.split('|');
+    if (segments.isEmpty) {
+      return null;
+    }
+    final value = segments.first.substring('submission:'.length).trim();
+    return value.isEmpty ? null : value;
+  }
+  return null;
+}
+
+String _formatLocalDateTime(DateTime value) {
+  final date =
+      '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}';
+  final time =
+      '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+  return '$date • $time';
 }
 
 String _topicLabel(BuildContext context, String topic) {

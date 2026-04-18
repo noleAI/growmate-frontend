@@ -2,6 +2,7 @@ import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../app/i18n/build_context_i18n.dart';
 import '../../app/router/app_routes.dart';
@@ -10,6 +11,7 @@ import '../../app/theme/color_palette_cubit.dart';
 import '../../app/theme/theme_mode_cubit.dart';
 import '../../core/constants/layout.dart';
 import '../../data/models/user_profile.dart';
+import '../../data/repositories/backend_profile_repository.dart';
 import '../../data/repositories/profile_repository.dart';
 import '../../features/auth/presentation/bloc/auth_bloc.dart';
 import '../../features/auth/presentation/bloc/auth_event.dart';
@@ -30,11 +32,13 @@ class ProfileScreen extends StatefulWidget {
   const ProfileScreen({
     super.key,
     required this.profileRepository,
+    this.backendProfileRepository,
     required this.appVersion,
     this.section = ProfileScreenSection.profile,
   });
 
   final ProfileRepository profileRepository;
+  final BackendProfileRepository? backendProfileRepository;
   final String appVersion;
   final ProfileScreenSection section;
 
@@ -63,6 +67,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
   ];
 
   static const _subscriptionOptions = <String>['free', 'plus', 'pro'];
+  static const _studyGoalOptions = <String>['exam_prep', 'explore'];
   static const _paceOptions = <String>['gentle', 'balanced', 'focused'];
   static const _hintStyleOptions = <String>[
     'step_by_step',
@@ -80,6 +85,13 @@ class _ProfileScreenState extends State<ProfileScreen> {
   String _subscriptionTier = 'free';
   int _subscriptionPickerVersion = 0;
   String? _pendingSuccessMessage;
+  String _studyGoal = 'exam_prep';
+  int _dailyMinutes = 20;
+  String _userLevel = 'beginner';
+  DateTime? _onboardedAt;
+  bool _backendProfileLoading = false;
+  String? _backendProfileError;
+  bool _backendProfileHydrated = false;
 
   bool get _isSettingsSection =>
       widget.section == ProfileScreenSection.settings;
@@ -196,9 +208,95 @@ class _ProfileScreenState extends State<ProfileScreen> {
   }
 
   @override
+  void initState() {
+    super.initState();
+    _loadBackendProfile();
+  }
+
+  @override
   void dispose() {
     _fullNameController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadBackendProfile() async {
+    final repository = widget.backendProfileRepository;
+    if (repository == null) {
+      return;
+    }
+
+    if (mounted) {
+      setState(() {
+        _backendProfileLoading = true;
+        _backendProfileError = null;
+      });
+    }
+
+    try {
+      final backendProfile = await repository.fetchProfile();
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _studyGoal = _sanitizeStudyGoal(backendProfile.studyGoal);
+        _dailyMinutes = backendProfile.dailyMinutes.clamp(5, 180);
+        _userLevel = backendProfile.userLevel;
+        _onboardedAt = backendProfile.onboardedAt;
+        _backendProfileHydrated = true;
+        _backendProfileLoading = false;
+        _backendProfileError = null;
+      });
+    } catch (_) {
+      if (!mounted) {
+        return;
+      }
+
+      setState(() {
+        _backendProfileLoading = false;
+        _backendProfileError = context.t(
+          vi: 'Chưa tải được hồ sơ học tập từ backend.',
+          en: 'Failed to load backend learning profile.',
+        );
+      });
+    }
+  }
+
+  Future<void> _saveBackendProfile() async {
+    final repository = widget.backendProfileRepository;
+    if (repository == null) {
+      return;
+    }
+
+    final updated = await repository.updateProfile(
+      studyGoal: _sanitizeStudyGoal(_studyGoal),
+      dailyMinutes: _dailyMinutes.clamp(5, 180),
+    );
+
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setString('study_goal', _sanitizeStudyGoal(updated.studyGoal));
+    await prefs.setInt('daily_minutes', updated.dailyMinutes.clamp(5, 180));
+
+    if (!mounted) {
+      return;
+    }
+
+    setState(() {
+      _studyGoal = _sanitizeStudyGoal(updated.studyGoal);
+      _dailyMinutes = updated.dailyMinutes.clamp(5, 180);
+      _userLevel = updated.userLevel;
+      _onboardedAt = updated.onboardedAt;
+      _backendProfileHydrated = true;
+      _backendProfileError = null;
+    });
+  }
+
+  String _sanitizeStudyGoal(String? goal) {
+    final normalized = (goal ?? '').trim().toLowerCase();
+    if (_studyGoalOptions.contains(normalized)) {
+      return normalized;
+    }
+    return 'exam_prep';
   }
 
   void _hydrateFromProfile(UserProfile profile) {
@@ -388,68 +486,19 @@ class _ProfileScreenState extends State<ProfileScreen> {
                     Form(
                       key: _formKey,
                       child: Column(
-                        children: [
-                          if (!_isSettingsSection) ...[
-                            _buildPersonalInfoCard(
-                              context: context,
-                              profile: profile,
-                              isProcessing: isProcessing,
-                            ),
-                            const SizedBox(height: GrowMateLayout.sectionGapLg),
-                            _buildSubjectTagsCard(
-                              context: context,
-                              isProcessing: isProcessing,
-                            ),
-                            const SizedBox(height: GrowMateLayout.sectionGapLg),
-                            _buildAiRhythmCard(isProcessing: isProcessing),
-                            const SizedBox(height: GrowMateLayout.sectionGapLg),
-                            _buildStudyPlanCard(
-                              context: context,
-                              profile: profile,
-                              isProcessing: isProcessing,
-                            ),
-                            const SizedBox(height: GrowMateLayout.sectionGapLg),
-                            _PrimaryGradientButton(
-                              label: isProcessing
-                                  ? context.t(
-                                      vi: 'Đang lưu...',
-                                      en: 'Saving...',
-                                    )
-                                  : context.t(
-                                      vi: 'Lưu thay đổi',
-                                      en: 'Save changes',
-                                    ),
-                              onPressed: isProcessing
-                                  ? null
-                                  : () async {
-                                      if (!_formKey.currentState!.validate()) {
-                                        return;
-                                      }
-                                      _pendingSuccessMessage = context.t(
-                                        vi: 'Hồ sơ đã được cập nhật nhẹ nhàng rồi nè.',
-                                        en: 'Your profile has been updated successfully.',
-                                      );
-                                      await cubit.updateProfile(
-                                        _composeProfile(profile),
-                                      );
-                                    },
-                            ),
-                            const SizedBox(height: GrowMateLayout.space12),
-                          ] else ...[
-                            _buildPrivacyPlanCard(
-                              context: context,
-                              isProcessing: isProcessing,
-                            ),
-                            const SizedBox(height: GrowMateLayout.sectionGapLg),
-                            _buildSystemCard(
-                              context: context,
-                              authBloc: authBloc,
-                              profile: profile,
-                              isProcessing: isProcessing,
-                            ),
-                            const SizedBox(height: GrowMateLayout.space12),
-                          ],
-                        ],
+                        children: _isSettingsSection
+                            ? _buildSettingsSectionContent(
+                                context: context,
+                                authBloc: authBloc,
+                                profile: profile,
+                                isProcessing: isProcessing,
+                              )
+                            : _buildProfileSectionContent(
+                                context: context,
+                                cubit: cubit,
+                                profile: profile,
+                                isProcessing: isProcessing,
+                              ),
                       ),
                     )
                   else
@@ -492,6 +541,87 @@ class _ProfileScreenState extends State<ProfileScreen> {
         ),
       ],
     );
+  }
+
+  List<Widget> _buildProfileSectionContent({
+    required BuildContext context,
+    required ProfileCubit cubit,
+    required UserProfile profile,
+    required bool isProcessing,
+  }) {
+    return <Widget>[
+      _buildPersonalInfoCard(
+        context: context,
+        profile: profile,
+        isProcessing: isProcessing,
+      ),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _buildSubjectTagsCard(context: context, isProcessing: isProcessing),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _buildAiRhythmCard(isProcessing: isProcessing),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _buildLearningProfileCard(context: context, isProcessing: isProcessing),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _buildStudyPlanCard(
+        context: context,
+        profile: profile,
+        isProcessing: isProcessing,
+      ),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _PrimaryGradientButton(
+        label: isProcessing
+            ? context.t(vi: 'Đang lưu...', en: 'Saving...')
+            : context.t(vi: 'Lưu thay đổi', en: 'Save changes'),
+        onPressed: isProcessing
+            ? null
+            : () async {
+                if (!_formKey.currentState!.validate()) {
+                  return;
+                }
+                final successMessage = context.t(
+                  vi: 'Hồ sơ đã được cập nhật nhẹ nhàng rồi nè.',
+                  en: 'Your profile has been updated successfully.',
+                );
+                final partialMessage = context.t(
+                  vi: 'Đã lưu hồ sơ cục bộ, nhưng chưa đồng bộ mục tiêu học lên server.',
+                  en: 'Local profile saved, but learning goal was not synced to server.',
+                );
+                var backendSynced = true;
+                if (widget.backendProfileRepository != null) {
+                  try {
+                    await _saveBackendProfile();
+                  } catch (_) {
+                    backendSynced = false;
+                  }
+                }
+
+                _pendingSuccessMessage = backendSynced
+                    ? successMessage
+                    : partialMessage;
+                await cubit.updateProfile(_composeProfile(profile));
+              },
+      ),
+      const SizedBox(height: GrowMateLayout.space12),
+    ];
+  }
+
+  List<Widget> _buildSettingsSectionContent({
+    required BuildContext context,
+    required AuthBloc authBloc,
+    required UserProfile profile,
+    required bool isProcessing,
+  }) {
+    return <Widget>[
+      _buildPrivacyPlanCard(context: context, isProcessing: isProcessing),
+      const SizedBox(height: GrowMateLayout.sectionGap),
+      _buildSystemCard(
+        context: context,
+        authBloc: authBloc,
+        profile: profile,
+        isProcessing: isProcessing,
+      ),
+      const SizedBox(height: GrowMateLayout.space12),
+    ];
   }
 
   Widget _buildPersonalInfoCard({
@@ -747,6 +877,197 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  Widget _buildLearningProfileCard({
+    required BuildContext context,
+    required bool isProcessing,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final hasBackendRepo = widget.backendProfileRepository != null;
+    final canEdit = hasBackendRepo && !isProcessing && !_backendProfileLoading;
+
+    return _CalmCard(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _CardHeading(
+            title: context.t(vi: 'Hồ sơ học tập', en: 'Learning profile'),
+            subtitle: context.t(
+              vi: 'Đồng bộ với backend để gợi ý lộ trình chính xác trên mọi thiết bị.',
+              en: 'Synced with backend to keep recommendations consistent across devices.',
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.contentGap),
+          if (!hasBackendRepo)
+            Text(
+              context.t(
+                vi: 'Backend profile chưa khả dụng ở môi trường này. Dữ liệu local vẫn hoạt động bình thường.',
+                en: 'Backend profile is not available in this environment. Local data still works.',
+              ),
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            )
+          else ...[
+            if (_backendProfileLoading)
+              const Padding(
+                padding: EdgeInsets.only(bottom: 12),
+                child: LinearProgressIndicator(minHeight: 3),
+              ),
+            if (_backendProfileError != null)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 12),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        _backendProfileError!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.error,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    TextButton(
+                      onPressed: _backendProfileLoading
+                          ? null
+                          : _loadBackendProfile,
+                      child: Text(context.t(vi: 'Thử lại', en: 'Retry')),
+                    ),
+                  ],
+                ),
+              ),
+            _FieldCaption(context.t(vi: 'Mục tiêu học tập', en: 'Study goal')),
+            const SizedBox(height: GrowMateLayout.space8),
+            DropdownButtonFormField<String>(
+              initialValue: _studyGoalOptions.contains(_studyGoal)
+                  ? _studyGoal
+                  : _studyGoalOptions.first,
+              decoration: _softFieldDecoration(),
+              style: _dropdownValueStyle(context),
+              icon: Icon(
+                Icons.keyboard_arrow_down_rounded,
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+              items: _studyGoalOptions
+                  .map(
+                    (goal) => DropdownMenuItem<String>(
+                      value: goal,
+                      child: _dropdownOptionText(
+                        context,
+                        _studyGoalLabel(context, goal),
+                      ),
+                    ),
+                  )
+                  .toList(growable: false),
+              onChanged: canEdit
+                  ? (value) {
+                      if (value == null) {
+                        return;
+                      }
+                      setState(() {
+                        _studyGoal = value;
+                      });
+                    }
+                  : null,
+            ),
+            const SizedBox(height: 12),
+            _FieldCaption(
+              context.t(vi: 'Thời lượng học mỗi ngày', en: 'Daily minutes'),
+            ),
+            const SizedBox(height: GrowMateLayout.space8),
+            Container(
+              padding: const EdgeInsets.fromLTRB(14, 8, 14, 4),
+              decoration: BoxDecoration(
+                color: _softInputBackground(context),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${_dailyMinutes.toInt()} ${context.t(vi: 'phút/ngày', en: 'min/day')}',
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  Slider(
+                    value: _dailyMinutes.toDouble(),
+                    min: 5,
+                    max: 180,
+                    divisions: 35,
+                    label: '$_dailyMinutes',
+                    onChanged: canEdit
+                        ? (value) {
+                            final stepped = ((value / 5).round() * 5)
+                                .clamp(5, 180)
+                                .toInt();
+                            setState(() {
+                              _dailyMinutes = stepped;
+                            });
+                          }
+                        : null,
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            _FieldCaption(context.t(vi: 'Trình độ hiện tại', en: 'User level')),
+            const SizedBox(height: GrowMateLayout.space8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: GrowMateLayout.contentGap,
+                vertical: GrowMateLayout.space12,
+              ),
+              decoration: BoxDecoration(
+                color: _softInputBackground(context),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _userLevelLabel(context, _userLevel),
+                style: theme.textTheme.bodyLarge,
+              ),
+            ),
+            const SizedBox(height: 12),
+            _FieldCaption(context.t(vi: 'Onboarded at', en: 'Onboarded at')),
+            const SizedBox(height: GrowMateLayout.space8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(
+                horizontal: GrowMateLayout.contentGap,
+                vertical: GrowMateLayout.space12,
+              ),
+              decoration: BoxDecoration(
+                color: _softInputBackground(context),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Text(
+                _formatOnboardedAt(context, _onboardedAt),
+                style: theme.textTheme.bodyLarge,
+              ),
+            ),
+            if (_backendProfileHydrated)
+              Padding(
+                padding: const EdgeInsets.only(top: 10),
+                child: Text(
+                  context.t(
+                    vi: 'Giá trị đang hiển thị là dữ liệu mới nhất từ backend.',
+                    en: 'Values shown above are synced from backend.',
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+          ],
+        ],
+      ),
+    );
+  }
+
   Widget _buildPrivacyPlanCard({
     required BuildContext context,
     required bool isProcessing,
@@ -978,7 +1299,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ),
           const SizedBox(height: GrowMateLayout.space8),
-          _settingsClusterLabel(context, vi: 'Dùng hằng ngày', en: 'Daily use'),
+          _settingsClusterLabel(
+            context,
+            vi: 'Trải nghiệm hằng ngày',
+            en: 'Daily experience',
+          ),
           _MenuTile(
             icon: Icons.notifications_none_rounded,
             title: context.t(vi: 'Thông báo', en: 'Notifications'),
@@ -1015,11 +1340,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           const SizedBox(height: GrowMateLayout.space24),
-          _settingsClusterLabel(
-            context,
-            vi: 'Cá nhân hóa',
-            en: 'Personalization',
-          ),
+          _settingsClusterLabel(context, vi: 'Giao diện', en: 'Appearance'),
           const Divider(height: 1, color: Color(0x1464748B)),
           BlocBuilder<ThemeModeCubit, ThemeMode>(
             builder: (context, themeMode) {
@@ -1184,11 +1505,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             },
           ),
           const SizedBox(height: GrowMateLayout.space24),
-          _settingsClusterLabel(
-            context,
-            vi: 'Hệ thống & hỗ trợ',
-            en: 'System & support',
-          ),
+          _settingsClusterLabel(context, vi: 'Hỗ trợ', en: 'Support'),
           StreamBuilder<OfflineState>(
             stream: offlineRepository.watchState(),
             builder: (context, snapshot) {
@@ -1288,8 +1605,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
           const SizedBox(height: GrowMateLayout.space24),
           _settingsClusterLabel(
             context,
-            vi: 'Dữ liệu & pháp lý',
-            en: 'Data & legal',
+            vi: 'Quyền riêng tư & dữ liệu',
+            en: 'Privacy & data',
           ),
           _MenuTile(
             icon: Icons.download_rounded,
@@ -1406,6 +1723,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: isProcessing
                 ? context.t(vi: 'Đang xử lý...', en: 'Processing...')
                 : context.t(vi: 'Xóa tài khoản', en: 'Delete account'),
+            isDanger: true,
             onPressed: isProcessing
                 ? null
                 : () {
@@ -1420,6 +1738,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
             label: isProcessing
                 ? context.t(vi: 'Đang xử lý...', en: 'Processing...')
                 : context.t(vi: 'Đăng xuất', en: 'Log out'),
+            isDanger: true,
             onPressed: isProcessing
                 ? null
                 : () {
@@ -1686,6 +2005,42 @@ class _ProfileScreenState extends State<ProfileScreen> {
       default:
         return context.t(vi: 'Từng bước', en: 'Step by step');
     }
+  }
+
+  String _studyGoalLabel(BuildContext context, String goal) {
+    switch (goal) {
+      case 'exam_prep':
+        return context.t(vi: 'Ôn thi THPT', en: 'Exam prep');
+      case 'explore':
+        return context.t(vi: 'Khám phá kiến thức', en: 'Explore learning');
+      default:
+        return goal;
+    }
+  }
+
+  String _userLevelLabel(BuildContext context, String level) {
+    switch (level.trim().toLowerCase()) {
+      case 'advanced':
+        return context.t(vi: 'Nâng cao', en: 'Advanced');
+      case 'intermediate':
+        return context.t(vi: 'Trung cấp', en: 'Intermediate');
+      default:
+        return context.t(vi: 'Cơ bản', en: 'Beginner');
+    }
+  }
+
+  String _formatOnboardedAt(BuildContext context, DateTime? value) {
+    if (value == null) {
+      return context.t(vi: 'Chưa có dữ liệu', en: 'Not available yet');
+    }
+
+    final local = value.toLocal();
+    final dd = local.day.toString().padLeft(2, '0');
+    final mm = local.month.toString().padLeft(2, '0');
+    final yyyy = local.year.toString();
+    final hh = local.hour.toString().padLeft(2, '0');
+    final min = local.minute.toString().padLeft(2, '0');
+    return '$dd/$mm/$yyyy $hh:$min';
   }
 
   InspectionCubit? _tryGetInspectionCubit(BuildContext context) {
@@ -1979,15 +2334,24 @@ class _PrimaryGradientButton extends StatelessWidget {
 }
 
 class _GhostButton extends StatelessWidget {
-  const _GhostButton({required this.label, required this.onPressed});
+  const _GhostButton({
+    required this.label,
+    required this.onPressed,
+    this.isDanger = false,
+  });
 
   final String label;
   final VoidCallback? onPressed;
+  final bool isDanger;
 
   @override
   Widget build(BuildContext context) {
     final disabled = onPressed == null;
     final colors = Theme.of(context).colorScheme;
+    final backgroundColor = isDanger
+        ? colors.errorContainer.withValues(alpha: 0.75)
+        : colors.surfaceContainerHigh;
+    final textColor = isDanger ? colors.error : colors.onSurface;
 
     return Opacity(
       opacity: disabled ? 0.55 : 1,
@@ -2002,15 +2366,18 @@ class _GhostButton extends StatelessWidget {
               vertical: GrowMateLayout.space12,
             ),
             decoration: BoxDecoration(
-              color: colors.surfaceContainerHigh,
+              color: backgroundColor,
               borderRadius: BorderRadius.circular(14),
+              border: isDanger
+                  ? Border.all(color: colors.error.withValues(alpha: 0.25))
+                  : null,
             ),
             child: Center(
               child: Text(
                 label,
                 style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w500,
+                  color: textColor,
+                  fontWeight: FontWeight.w600,
                 ),
               ),
             ),

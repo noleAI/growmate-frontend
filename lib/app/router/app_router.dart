@@ -144,9 +144,10 @@ class AppRouter {
   final RealProgressRepository? _realProgressRepository;
   bool _isSessionResolved = false;
   bool _hasAuthenticatedSession = false;
+  String? _lastAuthenticatedUserKey;
 
   late final GoRouter router = GoRouter(
-    initialLocation: homePath,
+    initialLocation: '/',
     refreshListenable: _GoRouterRefreshStream(_authBloc.stream),
     redirect: (context, state) async {
       final authState = _authBloc.state;
@@ -180,7 +181,13 @@ class AppRouter {
         // Derive a stable per-user key from the authenticated session email.
         final userKey = authState is AuthAuthenticated
             ? authState.session.email
-            : null;
+            : _lastAuthenticatedUserKey;
+
+        if (userKey != null && userKey.isNotEmpty) {
+          await _dataConsentRepository.migrateLegacyConsentToUserScope(
+            userKey: userKey,
+          );
+        }
 
         final hasConsent = await _dataConsentRepository.isAccepted(
           userKey: userKey,
@@ -290,6 +297,7 @@ class AppRouter {
           return ProgressPage(
             sessionHistoryRepository: _sessionHistoryRepository,
             realProgressRepository: _realProgressRepository,
+            quizApiRepository: _quizApiRepository,
           );
         },
       ),
@@ -298,6 +306,7 @@ class AppRouter {
         builder: (context, state) {
           return ProfileScreen(
             profileRepository: _profileRepository,
+            backendProfileRepository: _backendProfileRepository,
             appVersion: '1.0.0+1',
             section: ProfileScreenSection.profile,
           );
@@ -308,6 +317,7 @@ class AppRouter {
         builder: (context, state) {
           return ProfileScreen(
             profileRepository: _profileRepository,
+            backendProfileRepository: _backendProfileRepository,
             appVersion: '1.0.0+1',
             section: ProfileScreenSection.settings,
           );
@@ -418,6 +428,8 @@ class AppRouter {
           return ResultScreen(
             submissionId: submissionId,
             diagnosisRepository: _diagnosisRepository,
+            quizApiRepository: _quizApiRepository,
+            sessionHistoryRepository: _sessionHistoryRepository,
           );
         },
       ),
@@ -433,6 +445,10 @@ class AppRouter {
           final diagnosisId = payload['diagnosisId']?.toString() ?? '';
           final finalMode = payload['finalMode']?.toString() ?? 'normal';
           final uncertaintyHigh = payload['uncertaintyHigh'] == true;
+          final nextSuggestedTopic = payload['nextSuggestedTopic']?.toString();
+          final confidenceScore = double.tryParse(
+            payload['confidenceScore']?.toString() ?? '',
+          );
           final interventionPlan = _toPlan(payload['interventionPlan']);
 
           return InterventionPage(
@@ -442,6 +458,8 @@ class AppRouter {
             interventionPlan: interventionPlan,
             interventionRepository: _interventionRepository,
             uncertaintyHigh: uncertaintyHigh,
+            nextSuggestedTopic: nextSuggestedTopic,
+            confidenceScore: confidenceScore,
           );
         },
       ),
@@ -452,6 +470,7 @@ class AppRouter {
             queryParameters: state.uri.queryParameters,
             sessionHistoryRepository: _sessionHistoryRepository,
             notificationRepository: _notificationRepository,
+            quizApiRepository: _quizApiRepository,
           );
         },
       ),
@@ -558,6 +577,8 @@ class AppRouter {
           uncertaintyRaw == '1' ||
           uncertaintyRaw == 'true' ||
           uncertaintyRaw == 'yes',
+      'nextSuggestedTopic': query['nextSuggestedTopic']?.trim(),
+      'confidenceScore': query['confidenceScore']?.trim(),
       'interventionPlan': <Map<String, dynamic>>[],
     };
   }
@@ -571,12 +592,14 @@ class AppRouter {
     if (state is AuthAuthenticated) {
       _hasAuthenticatedSession = true;
       _isSessionResolved = true;
+      _lastAuthenticatedUserKey = state.session.email;
       return;
     }
 
     if (state is AuthUnauthenticated) {
       _hasAuthenticatedSession = false;
       _isSessionResolved = true;
+      _lastAuthenticatedUserKey = null;
     }
   }
 

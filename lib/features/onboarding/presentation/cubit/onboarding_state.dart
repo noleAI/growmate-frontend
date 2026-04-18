@@ -16,15 +16,24 @@ final class OnboardingLoading extends OnboardingState {
 
 /// Step 2 – Chọn mục tiêu
 final class OnboardingGoalSelection extends OnboardingState {
-  const OnboardingGoalSelection({required this.goals, this.selectedGoalId});
+  const OnboardingGoalSelection({
+    required this.goals,
+    this.selectedGoalId,
+    required this.selectedDailyMinutes,
+  });
 
   final List<StudyGoal> goals;
   final String? selectedGoalId;
+  final int selectedDailyMinutes;
 
-  OnboardingGoalSelection copyWith({String? selectedGoalId}) {
+  OnboardingGoalSelection copyWith({
+    String? selectedGoalId,
+    int? selectedDailyMinutes,
+  }) {
     return OnboardingGoalSelection(
       goals: goals,
       selectedGoalId: selectedGoalId ?? this.selectedGoalId,
+      selectedDailyMinutes: selectedDailyMinutes ?? this.selectedDailyMinutes,
     );
   }
 }
@@ -36,6 +45,7 @@ final class OnboardingQuizInProgress extends OnboardingState {
     required this.currentIndex,
     required this.answers,
     required this.selectedGoalId,
+    required this.dailyMinutes,
   });
 
   final List<OnboardingQuestion> questions;
@@ -44,6 +54,7 @@ final class OnboardingQuizInProgress extends OnboardingState {
   /// Map questionId → selectedOptionIndex
   final Map<String, int> answers;
   final String selectedGoalId;
+  final int dailyMinutes;
 
   OnboardingQuestion get current => questions[currentIndex];
   bool get isLast => currentIndex == questions.length - 1;
@@ -59,6 +70,7 @@ final class OnboardingQuizInProgress extends OnboardingState {
       currentIndex: currentIndex ?? this.currentIndex,
       answers: answers ?? this.answers,
       selectedGoalId: selectedGoalId,
+      dailyMinutes: dailyMinutes,
     );
   }
 }

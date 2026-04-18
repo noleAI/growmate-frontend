@@ -22,6 +22,8 @@ class InterventionPage extends StatefulWidget {
     required this.interventionPlan,
     required this.interventionRepository,
     this.uncertaintyHigh = false,
+    this.nextSuggestedTopic,
+    this.confidenceScore,
   });
 
   final String submissionId;
@@ -30,6 +32,8 @@ class InterventionPage extends StatefulWidget {
   final List<Map<String, dynamic>> interventionPlan;
   final InterventionRepository interventionRepository;
   final bool uncertaintyHigh;
+  final String? nextSuggestedTopic;
+  final double? confidenceScore;
 
   @override
   State<InterventionPage> createState() => _InterventionPageState();
@@ -60,6 +64,8 @@ class _InterventionPageState extends State<InterventionPage> {
       backendInterventionPlan: widget.interventionPlan,
       uncertaintyHigh: widget.uncertaintyHigh,
       isEnglish: context.isEnglish,
+      nextSuggestedTopic: widget.nextSuggestedTopic,
+      diagnosisConfidenceScore: widget.confidenceScore,
     )..add(const InterventionStarted());
   }
 
@@ -159,8 +165,7 @@ class _InterventionPageState extends State<InterventionPage> {
 
                 final displayedOptions = state.options
                     .where((option) => option.id != 'skip_once')
-                    .take(2)
-                    .toList();
+                    .toList(growable: false);
 
                 return ZenPageContainer(
                   includeBottomSafeArea: false,
@@ -343,25 +348,44 @@ class _InterventionPageState extends State<InterventionPage> {
                           ),
                         );
                       }),
-                      const SizedBox(height: 2),
-                      ZenButton(
-                        label: _localizedOptionLabel(
-                          context,
-                          skipOption,
-                          fallback: context.t(
-                            vi: 'Bỏ qua lần này cũng không sao',
-                            en: 'Skip this time',
+                      if (displayedOptions.isEmpty)
+                        Padding(
+                          padding: const EdgeInsets.only(bottom: 12),
+                          child: ZenCard(
+                            radius: 18,
+                            child: Text(
+                              context.t(
+                                vi: 'Hiện chưa có phương án can thiệp từ hệ thống.',
+                                en: 'No intervention options are available from the backend yet.',
+                              ),
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: theme.colorScheme.onSurfaceVariant,
+                                height: 1.35,
+                              ),
+                            ),
                           ),
                         ),
-                        variant: ZenButtonVariant.text,
-                        onPressed: state.isSubmitting || skipOption == null
-                            ? null
-                            : () {
-                                context.read<InterventionBloc>().add(
-                                  InterventionOptionSelected(skipOption),
-                                );
-                              },
-                      ),
+                      const SizedBox(height: 2),
+                      if (skipOption != null)
+                        ZenButton(
+                          label: _localizedOptionLabel(
+                            context,
+                            skipOption,
+                            fallback: context.t(
+                              vi: 'Bỏ qua lần này cũng không sao',
+                              en: 'Skip this time',
+                            ),
+                          ),
+                          variant: ZenButtonVariant.text,
+                          onPressed: state.isSubmitting
+                              ? null
+                              : () {
+                                  context.read<InterventionBloc>().add(
+                                    InterventionOptionSelected(skipOption),
+                                  );
+                                },
+                        ),
                       const SizedBox(height: GrowMateLayout.space12),
                       ZenCard(
                         radius: 26,
@@ -431,20 +455,52 @@ class _InterventionPageState extends State<InterventionPage> {
                               selectedOption,
                               fallback: state.selectedOptionLabel,
                             );
+                            final completionTopic =
+                                (state.completionTopic?.trim().isNotEmpty ??
+                                    false)
+                                ? state.completionTopic!.trim()
+                                : (selectedLabel.trim().isNotEmpty
+                                      ? selectedLabel.trim()
+                                      : widget.nextSuggestedTopic?.trim());
+                            final completionNextAction =
+                                (state.completionNextAction
+                                        ?.trim()
+                                        .isNotEmpty ??
+                                    false)
+                                ? state.completionNextAction!.trim()
+                                : (selectedLabel.trim().isNotEmpty
+                                      ? selectedLabel.trim()
+                                      : null);
+                            final completionConfidence =
+                                state.completionConfidenceScore ??
+                                widget.confidenceScore;
+
+                            final queryParameters = <String, String>{
+                              'submissionId': widget.submissionId,
+                              'diagnosisId': widget.diagnosisId,
+                              'mode': state.mode == InterventionMode.recovery
+                                  ? 'recovery'
+                                  : 'academic',
+                              if (completionTopic != null &&
+                                  completionTopic.isNotEmpty)
+                                'topic': completionTopic,
+                              if (completionNextAction != null &&
+                                  completionNextAction.isNotEmpty)
+                                'nextAction': completionNextAction,
+                              if (state.completionDurationMinutes != null)
+                                'duration': state.completionDurationMinutes
+                                    .toString(),
+                              if (state.completionFocusScore != null)
+                                'focus': state.completionFocusScore!
+                                    .toStringAsFixed(2),
+                              if (completionConfidence != null)
+                                'confidence': completionConfidence
+                                    .toStringAsFixed(2),
+                            };
+
                             final location = Uri(
                               path: AppRoutes.sessionComplete,
-                              queryParameters: <String, String>{
-                                'submissionId': widget.submissionId,
-                                'diagnosisId': widget.diagnosisId,
-                                'mode': state.mode == InterventionMode.recovery
-                                    ? 'recovery'
-                                    : 'academic',
-                                'topic': selectedLabel,
-                                'nextAction': selectedLabel,
-                                'duration': '',
-                                'focus': '',
-                                'confidence': '',
-                              },
+                              queryParameters: queryParameters,
                             ).toString();
                             context.push(location);
                             return;

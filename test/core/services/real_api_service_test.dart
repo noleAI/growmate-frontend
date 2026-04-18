@@ -229,6 +229,68 @@ void main() {
         expect(result['status'], equals('success'));
         expect(result['data']['acceptedCount'], equals(2));
       });
+
+      test('404 ở /signals/batch sẽ disable submit cho các lần sau', () async {
+        var callCount = 0;
+        final mockClient = MockClient((request) async {
+          callCount++;
+          return http.Response('Not Found', 404);
+        });
+
+        apiService = RealApiService(httpClient: mockClient);
+
+        final first = await apiService.submitSignals(
+          sessionId: 'test-session',
+          signals: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'typing_speed': 44.2,
+              'idle_time': 3.3,
+              'correction_rate': 11.0,
+            },
+          ],
+        );
+
+        final second = await apiService.submitSignals(
+          sessionId: 'test-session',
+          signals: <Map<String, dynamic>>[
+            <String, dynamic>{
+              'typing_speed': 41.0,
+              'idle_time': 2.1,
+              'correction_rate': 9.5,
+            },
+          ],
+        );
+
+        expect(first['status'], equals('skipped'));
+        expect(first['meta']['reason'], equals('signals_endpoint_unavailable'));
+        expect(second['status'], equals('skipped'));
+        expect(callCount, equals(1));
+      });
+
+      test('submitSignals vẫn ném lỗi khi không phải 404', () async {
+        final mockClient = MockClient((request) async {
+          return _jsonResponse(<String, dynamic>{
+            'status': 'error',
+            'message': 'Internal server error',
+          }, statusCode: 500);
+        });
+
+        apiService = RealApiService(httpClient: mockClient);
+
+        expect(
+          () => apiService.submitSignals(
+            sessionId: 'test-session',
+            signals: <Map<String, dynamic>>[
+              <String, dynamic>{
+                'typing_speed': 30.0,
+                'idle_time': 1.0,
+                'correction_rate': 7.0,
+              },
+            ],
+          ),
+          throwsA(isA<ServerException>()),
+        );
+      });
     });
 
     group('submitInterventionFeedback', () {

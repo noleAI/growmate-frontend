@@ -7,54 +7,104 @@ import 'leaderboard_state.dart';
 class LeaderboardCubit extends Cubit<LeaderboardState> {
   LeaderboardCubit({required LeaderboardRepository repository})
     : _repository = repository,
-      super(const LeaderboardInitial());
+      super(const LeaderboardState());
 
   final LeaderboardRepository _repository;
+  int _rankingRequestId = 0;
+  int _badgesRequestId = 0;
 
   Future<void> loadLeaderboard({String period = 'weekly'}) async {
-    emit(const LeaderboardLoading());
+    final requestId = ++_rankingRequestId;
+    emit(
+      state.copyWith(
+        selectedPeriod: period,
+        rankingStatus: LeaderboardLoadStatus.loading,
+        rankingError: null,
+      ),
+    );
+
     try {
-      final entries = await _repository.getLeaderboard(period: period);
-      final myRank = await _repository.getMyRank(period: period);
-      final allBadges = await _repository.getAllBadges();
-      final myBadges = await _repository.getMyBadges();
+      final entriesFuture = _repository.getLeaderboard(period: period);
+      final myRankFuture = _repository.getMyRank(period: period);
+
+      final entries = await entriesFuture;
+      final myRank = await myRankFuture;
+
+      if (requestId != _rankingRequestId) {
+        return;
+      }
+
       emit(
-        LeaderboardLoaded(
+        state.copyWith(
           entries: entries,
           selectedPeriod: period,
           myRank: myRank,
-          badges: allBadges,
-          myBadges: myBadges,
+          rankingStatus: LeaderboardLoadStatus.success,
+          rankingError: null,
         ),
       );
     } catch (e) {
-      emit(LeaderboardError(e.toString()));
+      if (requestId != _rankingRequestId) {
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          selectedPeriod: period,
+          rankingStatus: LeaderboardLoadStatus.failure,
+          rankingError: e.toString(),
+        ),
+      );
     }
   }
 
   Future<void> switchPeriod(String period) async {
-    final current = state;
-    if (current is LeaderboardLoaded) {
-      emit(current.copyWith(selectedPeriod: period));
-    }
-    try {
-      final entries = await _repository.getLeaderboard(period: period);
-      final current2 = state;
-      if (current2 is LeaderboardLoaded) {
-        emit(current2.copyWith(entries: entries, selectedPeriod: period));
-      }
-    } catch (_) {}
+    await loadLeaderboard(period: period);
   }
 
-  Future<void> loadBadges() async {
+  Future<void> loadBadges({bool force = false}) async {
+    if (!force &&
+        state.badgesStatus == LeaderboardLoadStatus.success &&
+        state.badges.isNotEmpty) {
+      return;
+    }
+
+    final requestId = ++_badgesRequestId;
+    emit(
+      state.copyWith(
+        badgesStatus: LeaderboardLoadStatus.loading,
+        badgesError: null,
+      ),
+    );
+
     try {
       final allBadges = await _repository.getAllBadges();
       final myBadges = await _repository.getMyBadges();
-      final current = state;
-      if (current is LeaderboardLoaded) {
-        emit(current.copyWith(badges: allBadges, myBadges: myBadges));
+
+      if (requestId != _badgesRequestId) {
+        return;
       }
-    } catch (_) {}
+
+      emit(
+        state.copyWith(
+          badges: allBadges,
+          myBadges: myBadges,
+          badgesStatus: LeaderboardLoadStatus.success,
+          badgesError: null,
+        ),
+      );
+    } catch (e) {
+      if (requestId != _badgesRequestId) {
+        return;
+      }
+
+      emit(
+        state.copyWith(
+          badgesStatus: LeaderboardLoadStatus.failure,
+          badgesError: e.toString(),
+        ),
+      );
+    }
   }
 
   /// Cộng XP sau khi trả lời đúng, cập nhật state từ server response.
@@ -68,7 +118,7 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
         extraData: extraData,
       );
       final current = state;
-      if (current is LeaderboardLoaded && current.myRank != null) {
+      if (current.myRank != null) {
         emit(
           current.copyWith(
             myRank: current.myRank!.copyWith(

@@ -111,6 +111,7 @@ class AgenticSessionRepository {
   Future<AgenticInteractionResponse> submitAnswer({
     required String questionId,
     required Map<String, dynamic> responseData,
+    bool resume = false,
   }) {
     _ensureSession();
     return _api.interact(
@@ -118,6 +119,7 @@ class AgenticSessionRepository {
       actionType: 'submit_answer',
       quizId: questionId,
       responseData: responseData,
+      resume: resume,
     );
   }
 

@@ -164,3 +164,243 @@ class QuizNextResponse {
     );
   }
 }
+
+/// Shared score summary payload used by result and history endpoints.
+class QuizSessionScoreSummary {
+  const QuizSessionScoreSummary({
+    this.answeredCount = 0,
+    this.correctCount = 0,
+    this.totalScore = 0,
+    this.maxScore = 0,
+    this.accuracyPercent = 0,
+  });
+
+  final int answeredCount;
+  final int correctCount;
+  final double totalScore;
+  final double maxScore;
+  final double accuracyPercent;
+
+  factory QuizSessionScoreSummary.fromJson(Map<String, dynamic> json) {
+    return QuizSessionScoreSummary(
+      answeredCount: _toInt(json['answered_count']) ?? 0,
+      correctCount: _toInt(json['correct_count']) ?? 0,
+      totalScore: _toDouble(json['total_score']) ?? 0,
+      maxScore: _toDouble(json['max_score']) ?? 0,
+      accuracyPercent: _toDouble(json['accuracy_percent']) ?? 0,
+    );
+  }
+}
+
+/// One submitted attempt record returned by session result endpoint.
+class QuizAttemptRecord {
+  const QuizAttemptRecord({
+    required this.questionId,
+    required this.isCorrect,
+    required this.score,
+    required this.maxScore,
+    this.questionTemplateId,
+    this.questionType,
+    this.explanation,
+    this.userAnswer,
+    this.submittedAt,
+    this.timeTakenSec,
+  });
+
+  final String questionId;
+  final bool isCorrect;
+  final double score;
+  final double maxScore;
+  final String? questionTemplateId;
+  final String? questionType;
+  final String? explanation;
+  final Map<String, dynamic>? userAnswer;
+  final DateTime? submittedAt;
+  final double? timeTakenSec;
+
+  factory QuizAttemptRecord.fromJson(Map<String, dynamic> json) {
+    return QuizAttemptRecord(
+      questionId: (json['question_id'] ?? '').toString(),
+      isCorrect: json['is_correct'] == true,
+      score: _toDouble(json['score']) ?? 0,
+      maxScore: _toDouble(json['max_score']) ?? 0,
+      questionTemplateId: json['question_template_id']?.toString(),
+      questionType: json['question_type']?.toString(),
+      explanation: json['explanation']?.toString(),
+      userAnswer: json['user_answer'] is Map
+          ? Map<String, dynamic>.from(json['user_answer'] as Map)
+          : null,
+      submittedAt: json['submitted_at'] != null
+          ? DateTime.tryParse(json['submitted_at'].toString())
+          : null,
+      timeTakenSec: _toDouble(json['time_taken_sec']),
+    );
+  }
+}
+
+/// Response model for GET /api/v1/quiz/sessions/{session_id}/result.
+class QuizSessionResultResponse {
+  const QuizSessionResultResponse({
+    required this.status,
+    required this.sessionId,
+    required this.sessionStatus,
+    required this.summary,
+    required this.attempts,
+    this.progressPercent,
+    this.lastQuestionIndex,
+    this.totalQuestions,
+    this.startedAt,
+    this.endedAt,
+  });
+
+  final String status;
+  final String sessionId;
+  final String sessionStatus;
+  final int? progressPercent;
+  final int? lastQuestionIndex;
+  final int? totalQuestions;
+  final QuizSessionScoreSummary summary;
+  final List<QuizAttemptRecord> attempts;
+  final DateTime? startedAt;
+  final DateTime? endedAt;
+
+  factory QuizSessionResultResponse.fromJson(Map<String, dynamic> json) {
+    final summaryJson = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    final rawAttempts = json['attempts'];
+    final attempts = <QuizAttemptRecord>[];
+    if (rawAttempts is List) {
+      for (final item in rawAttempts) {
+        if (item is Map) {
+          attempts.add(
+            QuizAttemptRecord.fromJson(Map<String, dynamic>.from(item)),
+          );
+        }
+      }
+    }
+
+    return QuizSessionResultResponse(
+      status: (json['status'] ?? '').toString(),
+      sessionId: (json['session_id'] ?? '').toString(),
+      sessionStatus: (json['session_status'] ?? '').toString(),
+      progressPercent: _toInt(json['progress_percent']),
+      lastQuestionIndex: _toInt(json['last_question_index']),
+      totalQuestions: _toInt(json['total_questions']),
+      summary: QuizSessionScoreSummary.fromJson(summaryJson),
+      attempts: attempts,
+      startedAt: json['started_at'] != null
+          ? DateTime.tryParse(json['started_at'].toString())
+          : null,
+      endedAt: json['ended_at'] != null
+          ? DateTime.tryParse(json['ended_at'].toString())
+          : null,
+    );
+  }
+}
+
+/// One history entry returned by GET /api/v1/quiz/history.
+class QuizHistoryItem {
+  const QuizHistoryItem({
+    required this.sessionId,
+    required this.status,
+    required this.summary,
+    this.startTime,
+    this.endTime,
+    this.progressPercent,
+    this.lastQuestionIndex,
+    this.totalQuestions,
+  });
+
+  final String sessionId;
+  final String status;
+  final DateTime? startTime;
+  final DateTime? endTime;
+  final int? progressPercent;
+  final int? lastQuestionIndex;
+  final int? totalQuestions;
+  final QuizSessionScoreSummary summary;
+
+  factory QuizHistoryItem.fromJson(Map<String, dynamic> json) {
+    final summaryJson = json['summary'] is Map
+        ? Map<String, dynamic>.from(json['summary'] as Map)
+        : const <String, dynamic>{};
+    return QuizHistoryItem(
+      sessionId: (json['session_id'] ?? '').toString(),
+      status: (json['status'] ?? '').toString(),
+      startTime: json['start_time'] != null
+          ? DateTime.tryParse(json['start_time'].toString())
+          : null,
+      endTime: json['end_time'] != null
+          ? DateTime.tryParse(json['end_time'].toString())
+          : null,
+      progressPercent: _toInt(json['progress_percent']),
+      lastQuestionIndex: _toInt(json['last_question_index']),
+      totalQuestions: _toInt(json['total_questions']),
+      summary: QuizSessionScoreSummary.fromJson(summaryJson),
+    );
+  }
+}
+
+/// Response model for GET /api/v1/quiz/history.
+class QuizHistoryResponse {
+  const QuizHistoryResponse({
+    required this.status,
+    required this.total,
+    required this.limit,
+    required this.offset,
+    required this.items,
+  });
+
+  final String status;
+  final int total;
+  final int limit;
+  final int offset;
+  final List<QuizHistoryItem> items;
+
+  factory QuizHistoryResponse.fromJson(Map<String, dynamic> json) {
+    final rawItems = json['items'];
+    final items = <QuizHistoryItem>[];
+    if (rawItems is List) {
+      for (final item in rawItems) {
+        if (item is Map) {
+          items.add(QuizHistoryItem.fromJson(Map<String, dynamic>.from(item)));
+        }
+      }
+    }
+
+    return QuizHistoryResponse(
+      status: (json['status'] ?? '').toString(),
+      total: _toInt(json['total']) ?? 0,
+      limit: _toInt(json['limit']) ?? 0,
+      offset: _toInt(json['offset']) ?? 0,
+      items: items,
+    );
+  }
+}
+
+int? _toInt(Object? raw) {
+  if (raw is int) {
+    return raw;
+  }
+  if (raw is num) {
+    return raw.toInt();
+  }
+  if (raw is String) {
+    return int.tryParse(raw);
+  }
+  return null;
+}
+
+double? _toDouble(Object? raw) {
+  if (raw is double) {
+    return raw;
+  }
+  if (raw is num) {
+    return raw.toDouble();
+  }
+  if (raw is String) {
+    return double.tryParse(raw);
+  }
+  return null;
+}

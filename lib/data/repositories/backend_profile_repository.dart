@@ -31,11 +31,18 @@ class BackendUserProfile {
       avatarUrl: json['avatar_url']?.toString(),
       userLevel: (json['user_level'] ?? 'beginner').toString(),
       studyGoal: json['study_goal']?.toString(),
-      dailyMinutes: (json['daily_minutes'] as num?)?.toInt() ?? 15,
+      dailyMinutes: _toInt(json['daily_minutes']) ?? 15,
       onboardedAt: json['onboarded_at'] != null
           ? DateTime.tryParse(json['onboarded_at'].toString())
           : null,
     );
+  }
+
+  static int? _toInt(dynamic value) {
+    if (value is int) return value;
+    if (value is num) return value.toInt();
+    if (value is String) return int.tryParse(value.trim());
+    return null;
   }
 }
 
@@ -48,7 +55,7 @@ class BackendProfileRepository {
   /// Fetch backend profile (user_level, study_goal, daily_minutes, etc.)
   Future<BackendUserProfile> fetchProfile() async {
     final json = await _client.get('/user/profile');
-    return BackendUserProfile.fromJson(json);
+    return BackendUserProfile.fromJson(_unwrapPayload(json));
   }
 
   /// Update mutable backend profile fields.
@@ -65,6 +72,14 @@ class BackendProfileRepository {
     if (dailyMinutes != null) body['daily_minutes'] = dailyMinutes;
 
     final json = await _client.put('/user/profile', body);
-    return BackendUserProfile.fromJson(json);
+    return BackendUserProfile.fromJson(_unwrapPayload(json));
+  }
+
+  Map<String, dynamic> _unwrapPayload(Map<String, dynamic> json) {
+    final data = json['data'];
+    if (data is Map) {
+      return Map<String, dynamic>.from(data);
+    }
+    return json;
   }
 }

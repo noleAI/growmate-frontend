@@ -95,6 +95,7 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
   Future<void> submitAnswer({
     required String questionId,
     required Map<String, dynamic> responseData,
+    bool resume = false,
   }) async {
     emit(state.copyWith(phase: AgenticPhase.processing));
 
@@ -102,6 +103,7 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
       final response = await _repo.submitAnswer(
         questionId: questionId,
         responseData: responseData,
+        resume: resume,
       );
 
       _handleInteractionResponse(response);

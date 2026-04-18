@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
+import '../../data/models/inspection_ops_models.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../cubit/inspection_cubit.dart';
 
@@ -94,8 +95,8 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                 en: 'AI insight panel',
                               ),
                               subtitle: context.t(
-                                vi: 'AI nhận định · Cập nhật ${_formatTimestamp(state.updatedAt)}',
-                                en: 'AI insights · Updated ${_formatTimestamp(state.updatedAt)}',
+                                vi: 'AI nhận định · Runtime ${state.runtimeFromServer ? 'server' : 'fallback'} · Cập nhật ${_formatTimestamp(state.updatedAt)}',
+                                en: 'AI insights · Runtime ${state.runtimeFromServer ? 'server' : 'fallback'} · Updated ${_formatTimestamp(state.updatedAt)}',
                               ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
@@ -118,6 +119,47 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                 ],
                               ),
                             ),
+                            if (state.runtimeLoading)
+                              Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(999),
+                                  child: const LinearProgressIndicator(
+                                    minHeight: 4,
+                                  ),
+                                ),
+                              ),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Runtime metrics',
+                                en: 'Runtime metrics',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Nguồn ${state.runtimeFromServer ? 'server' : 'local fallback'} · Cập nhật ${_formatTimestamp(state.runtimeUpdatedAt)}',
+                                en: 'Source ${state.runtimeFromServer ? 'server' : 'local fallback'} · Updated ${_formatTimestamp(state.runtimeUpdatedAt)}',
+                              ),
+                              delayMs: 20,
+                              child: _RuntimeMetricsGrid(
+                                metrics: state.runtimeMetrics,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
+                            InsightCard(
+                              title: context.t(
+                                vi: 'Runtime alerts',
+                                en: 'Runtime alerts',
+                              ),
+                              subtitle: context.t(
+                                vi: 'Cảnh báo vận hành theo ngưỡng thời gian thực',
+                                en: 'Operational alerts generated from runtime thresholds',
+                              ),
+                              delayMs: 30,
+                              child: _RuntimeAlertsList(
+                                alerts: state.runtimeAlerts,
+                                errorMessage: state.runtimeErrorMessage,
+                              ),
+                            ),
+                            const SizedBox(height: 12),
                             InsightCard(
                               title: context.t(
                                 vi: 'AI nhận định',
@@ -328,6 +370,257 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
     final hh = value.hour.toString().padLeft(2, '0');
     final mm = value.minute.toString().padLeft(2, '0');
     final ss = value.second.toString().padLeft(2, '0');
+    return '$hh:$mm:$ss';
+  }
+}
+
+class _RuntimeMetricsGrid extends StatelessWidget {
+  const _RuntimeMetricsGrid({required this.metrics});
+
+  final Map<String, int> metrics;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    if (metrics.isEmpty) {
+      return Text(
+        context.t(
+          vi: 'Chưa có số liệu runtime ở thời điểm hiện tại.',
+          en: 'No runtime metrics are available right now.',
+        ),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+          fontWeight: FontWeight.w600,
+        ),
+      );
+    }
+
+    final entries = metrics.entries.toList(growable: false)
+      ..sort((a, b) => b.value.compareTo(a.value));
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final cardWidth = (constraints.maxWidth - 8) / 2;
+        return Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: entries
+              .take(8)
+              .map((entry) {
+                return Container(
+                  width: cardWidth,
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        _metricLabel(context, entry.key),
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        entry.value.toString(),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              })
+              .toList(growable: false),
+        );
+      },
+    );
+  }
+
+  static String _metricLabel(BuildContext context, String key) {
+    switch (key) {
+      case 'signature_expired_total':
+        return context.t(vi: 'Chữ ký hết hạn', en: 'Expired signatures');
+      case 'quiz_result_fetch_failures_total':
+        return context.t(vi: 'Lỗi lấy kết quả', en: 'Result fetch failures');
+      case 'resume_signature_grace_used_total':
+        return context.t(
+          vi: 'Số lần dùng grace resume',
+          en: 'Resume grace usage',
+        );
+      case 'belief_topics_count':
+        return context.t(vi: 'Số chủ đề belief', en: 'Belief topics');
+      case 'plan_steps_count':
+        return context.t(vi: 'Số bước plan', en: 'Plan steps');
+      case 'decision_logs_count':
+        return context.t(vi: 'Số decision logs', en: 'Decision logs');
+      case 'q_values_count':
+        return context.t(vi: 'Số Q-values', en: 'Q-values');
+      case 'confidence_percent':
+        return context.t(vi: 'Độ tin cậy (%)', en: 'Confidence (%)');
+      case 'uncertainty_percent':
+        return context.t(vi: 'Độ bất định (%)', en: 'Uncertainty (%)');
+      default:
+        return key;
+    }
+  }
+}
+
+class _RuntimeAlertsList extends StatelessWidget {
+  const _RuntimeAlertsList({required this.alerts, required this.errorMessage});
+
+  final List<InspectionRuntimeAlertItem> alerts;
+  final String? errorMessage;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (errorMessage != null && errorMessage!.trim().isNotEmpty)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 10),
+            padding: const EdgeInsets.all(10),
+            decoration: BoxDecoration(
+              color: theme.colorScheme.errorContainer,
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Text(
+              errorMessage!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onErrorContainer,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+        if (alerts.isEmpty)
+          Text(
+            context.t(
+              vi: 'Không có cảnh báo runtime vượt ngưỡng.',
+              en: 'No runtime alerts are currently above threshold.',
+            ),
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w600,
+            ),
+          )
+        else
+          ...alerts
+              .take(6)
+              .map(
+                (alert) => Container(
+                  width: double.infinity,
+                  margin: const EdgeInsets.only(bottom: 8),
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Container(
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 3,
+                            ),
+                            decoration: BoxDecoration(
+                              color: _severityBgColor(context, alert.severity),
+                              borderRadius: BorderRadius.circular(999),
+                            ),
+                            child: Text(
+                              alert.severity.toUpperCase(),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: _severityFgColor(
+                                  context,
+                                  alert.severity,
+                                ),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          const Spacer(),
+                          Text(
+                            _formatTime(alert.observedAt),
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                              fontWeight: FontWeight.w600,
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 6),
+                      Text(
+                        _localizedDynamicText(
+                          context,
+                          alert.message,
+                          fallbackEn:
+                              'Runtime alert was generated from backend thresholds.',
+                        ),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        context.t(
+                          vi: '${_RuntimeMetricsGrid._metricLabel(context, alert.metric)}: ${alert.value} / ${alert.threshold}',
+                          en: '${_RuntimeMetricsGrid._metricLabel(context, alert.metric)}: ${alert.value} / ${alert.threshold}',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+      ],
+    );
+  }
+
+  static Color _severityBgColor(BuildContext context, String severity) {
+    final scheme = Theme.of(context).colorScheme;
+    final normalized = severity.toLowerCase();
+
+    if (normalized == 'warning') {
+      return scheme.tertiaryContainer;
+    }
+    if (normalized == 'error' || normalized == 'critical') {
+      return scheme.errorContainer;
+    }
+    return scheme.secondaryContainer;
+  }
+
+  static Color _severityFgColor(BuildContext context, String severity) {
+    final scheme = Theme.of(context).colorScheme;
+    final normalized = severity.toLowerCase();
+
+    if (normalized == 'warning') {
+      return scheme.tertiary;
+    }
+    if (normalized == 'error' || normalized == 'critical') {
+      return scheme.error;
+    }
+    return scheme.secondary;
+  }
+
+  static String _formatTime(DateTime time) {
+    final hh = time.hour.toString().padLeft(2, '0');
+    final mm = time.minute.toString().padLeft(2, '0');
+    final ss = time.second.toString().padLeft(2, '0');
     return '$hh:$mm:$ss';
   }
 }

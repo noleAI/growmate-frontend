@@ -26,6 +26,18 @@ class ConfigRepository {
     return response;
   }
 
+  /// Upload/replace config for [category] via `POST /configs/{category}`.
+  ///
+  /// Keeps local cache in sync after successful upload.
+  Future<Map<String, dynamic>> uploadConfig(
+    String category,
+    Map<String, dynamic> payload,
+  ) async {
+    final response = await _client.post('/configs/$category', payload);
+    _cache[category] = response;
+    return response;
+  }
+
   /// Clears the in-memory cache for all categories.
   void clearCache() => _cache.clear();
 }

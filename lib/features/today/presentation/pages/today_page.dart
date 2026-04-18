@@ -14,7 +14,6 @@ import '../../../session/data/repositories/session_history_repository.dart';
 import '../../../diagnosis/data/repositories/diagnosis_snapshot_cache_repository.dart';
 import '../../../leaderboard/data/repositories/leaderboard_repository.dart';
 import '../../../leaderboard/presentation/cubit/leaderboard_cubit.dart';
-import '../../../leaderboard/presentation/cubit/leaderboard_state.dart';
 import '../../../../shared/widgets/ambient/ambient_gradient.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/confidence/confidence_arc.dart';
@@ -31,6 +30,7 @@ import '../../../../shared/widgets/ai_components.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
 import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 import '../../../wellness/presentation/widgets/mood_check_dialog.dart';
+import '../../../session_recovery/data/models/pending_session.dart';
 import '../../../session_recovery/data/repositories/session_recovery_repository.dart';
 import '../widgets/resume_banner.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
@@ -68,7 +68,8 @@ class _TodayPageState extends State<TodayPage> {
 
   Future<void> _checkDailyStreak() async {
     final prefs = await SharedPreferences.getInstance();
-    final today = DateTime.now().toIso8601String().substring(0, 10);
+    final now = DateTime.now();
+    final today = now.toIso8601String().substring(0, 10);
     final lastShown = prefs.getString('streak_popup_date');
     if (lastShown == today) return;
 
@@ -88,12 +89,12 @@ class _TodayPageState extends State<TodayPage> {
       try {
         final lbCubit = context.read<LeaderboardCubit>();
         final lbState = lbCubit.state;
-        if (lbState is LeaderboardLoaded && lbState.myRank != null) {
+        if (lbState.myRank != null) {
           streakDays = lbState.myRank!.currentStreak;
         } else {
           await lbCubit.loadLeaderboard();
           final refreshed = lbCubit.state;
-          if (refreshed is LeaderboardLoaded && refreshed.myRank != null) {
+          if (refreshed.myRank != null) {
             streakDays = refreshed.myRank!.currentStreak;
           }
         }
@@ -109,8 +110,24 @@ class _TodayPageState extends State<TodayPage> {
       context,
       streakDays: streakDays,
       xpBonus: xpBonus,
-      weekDays: List.generate(7, (i) => i < streakDays),
+      weekDays: _buildWeekStreakMarkers(now: now, streakDays: streakDays),
     );
+  }
+
+  static List<bool> _buildWeekStreakMarkers({
+    required DateTime now,
+    required int streakDays,
+  }) {
+    final markers = List<bool>.filled(7, false);
+    final visibleDays = streakDays <= 0 ? 0 : (streakDays > 7 ? 7 : streakDays);
+
+    for (var offset = 0; offset < visibleDays; offset += 1) {
+      final rawIndex = now.weekday - 1 - offset;
+      final wrappedIndex = ((rawIndex % 7) + 7) % 7;
+      markers[wrappedIndex] = true;
+    }
+
+    return markers;
   }
 
   Future<void> _loadOnboardingFlag() async {
@@ -209,7 +226,10 @@ class _TodayPageState extends State<TodayPage> {
 
                   if (!_resumeDismissed)
                     ResumeBanner(
-                      onResume: () => context.go(AppRoutes.quiz),
+                      onResume: (pending) => _resumePendingSession(
+                        context: context,
+                        pending: pending,
+                      ),
                       onDismiss: () {
                         setState(() => _resumeDismissed = true);
                       },
@@ -355,6 +375,46 @@ class _TodayPageState extends State<TodayPage> {
     } catch (_) {
       return null;
     }
+  }
+
+  void _resumePendingSession({
+    required BuildContext context,
+    required PendingSession pending,
+  }) {
+    final queryParameters = <String, String>{'resume': '1'};
+
+    final sessionId = pending.sessionId?.trim();
+    if (sessionId != null && sessionId.isNotEmpty) {
+      queryParameters['session_id'] = sessionId;
+    }
+
+    // Always use lastQuestionIndex to ensure we resume from the current question
+    // being worked on, not the next one. This prevents skipping questions on resume.
+    final resumeIndex = pending.lastQuestionIndex ?? pending.nextQuestionIndex;
+    if (resumeIndex != null && resumeIndex >= 0) {
+      queryParameters['next_index'] = resumeIndex.toString();
+    }
+
+    final mode = pending.mode?.trim();
+    if (mode != null && mode.isNotEmpty) {
+      queryParameters['mode'] = mode;
+    }
+
+    if (pending.pauseState != null) {
+      queryParameters['pause_state'] = pending.pauseState! ? '1' : '0';
+    }
+
+    if (pending.resumeContextVersion != null) {
+      queryParameters['resume_context_version'] = pending.resumeContextVersion!
+          .toString();
+    }
+
+    final location = Uri(
+      path: AppRoutes.quiz,
+      queryParameters: queryParameters,
+    ).toString();
+
+    context.go(location);
   }
 }
 
@@ -937,18 +997,29 @@ class _FeatureTileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Row(
-      children: [
-        for (int i = 0; i < tiles.length; i++) ...[
-          if (i > 0) const SizedBox(width: GrowMateLayout.space12),
-          Expanded(child: _FeatureTile(data: tiles[i])),
-        ],
-        // Fill remaining space if row has fewer than 4 items
-        for (int i = tiles.length; i < 4; i++) ...[
-          const SizedBox(width: GrowMateLayout.space12),
-          const Expanded(child: SizedBox.shrink()),
-        ],
-      ],
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final count = tiles.length;
+        if (count == 0) {
+          return const SizedBox.shrink();
+        }
+
+        final columns = count >= 4 ? 4 : count;
+        final totalSpacing = GrowMateLayout.space12 * (columns - 1);
+        final itemWidth = (constraints.maxWidth - totalSpacing) / columns;
+
+        return Wrap(
+          spacing: GrowMateLayout.space12,
+          runSpacing: GrowMateLayout.space12,
+          children: [
+            for (final tile in tiles)
+              SizedBox(
+                width: itemWidth,
+                child: _FeatureTile(data: tile),
+              ),
+          ],
+        );
+      },
     );
   }
 }

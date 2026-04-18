@@ -4,7 +4,8 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/widgets.dart';
 import 'package:http/http.dart' as http;
-import 'package:shared_preferences/shared_preferences.dart';
+
+import '../../features/auth/data/repositories/data_consent_repository.dart';
 
 class BehavioralSignalCollector with WidgetsBindingObserver {
   BehavioralSignalCollector._internal({http.Client? httpClient})
@@ -19,13 +20,14 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   final List<Map<String, dynamic>> _pendingSignals = <Map<String, dynamic>>[];
   final Stopwatch _batchStopwatch = Stopwatch();
   final Stopwatch _idleStopwatch = Stopwatch();
+  final DataConsentRepository _dataConsentRepository =
+      DataConsentRepository.instance;
   Future<void> Function(List<Map<String, dynamic>> batch)? _batchSubmitter;
+  String? Function()? _activeUserKeyResolver;
 
   Timer? _batchTimer;
   Stopwatch? _questionStopwatch;
   Uri? _apiEndpoint;
-
-  static const String _consentAcceptedKey = 'data_consent_accepted';
   bool _isObserverAttached = false;
   bool _isPaused = false;
   // Privacy-first default: collection is disabled until user explicitly opts in.
@@ -66,6 +68,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
   ) {
     _batchSubmitter = submitter;
     _ensureInitialized();
+  }
+
+  void setActiveUserKeyResolver(String? Function()? resolver) {
+    _activeUserKeyResolver = resolver;
   }
 
   void startQuestionTimer() {
@@ -408,8 +414,10 @@ class BehavioralSignalCollector with WidgetsBindingObserver {
     }
 
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final hasConsent = prefs.getBool(_consentAcceptedKey) == true;
+      final userKey = _activeUserKeyResolver?.call();
+      final hasConsent = await _dataConsentRepository.isAccepted(
+        userKey: userKey,
+      );
       _hasActiveConsent = hasConsent;
       return hasConsent;
     } catch (_) {

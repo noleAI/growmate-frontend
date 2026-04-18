@@ -31,6 +31,30 @@ class QuizApiRepository {
     return QuizNextResponse.fromJson(json);
   }
 
+  /// GET /api/v1/quiz/sessions/{session_id}/result
+  Future<QuizSessionResultResponse> getSessionResult({
+    required String sessionId,
+  }) async {
+    final encodedSessionId = Uri.encodeComponent(sessionId);
+    final json = await _client.get('/quiz/sessions/$encodedSessionId/result');
+    return QuizSessionResultResponse.fromJson(json);
+  }
+
+  /// GET /api/v1/quiz/history
+  Future<QuizHistoryResponse> getQuizHistory({
+    int limit = 20,
+    int offset = 0,
+  }) async {
+    final json = await _client.get(
+      '/quiz/history',
+      queryParams: <String, String>{
+        'limit': limit.toString(),
+        'offset': offset.toString(),
+      },
+    );
+    return QuizHistoryResponse.fromJson(json);
+  }
+
   /// POST /api/v1/quiz/submit
   ///
   /// Throws [RateLimitException] on 429 (daily session limit exceeded).

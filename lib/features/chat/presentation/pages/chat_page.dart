@@ -1,27 +1,34 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
-
+import '../../../mascot/presentation/pages/mascot_selection_page.dart';
+import '../../../quota/presentation/cubit/quota_cubit.dart';
+import '../../../quota/presentation/cubit/quota_state.dart';
+import '../../../quota/presentation/widgets/quota_exceeded_dialog.dart';
+import '../../../quota/presentation/widgets/quota_indicator.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/chat_state.dart';
 import '../widgets/chat_message_bubble.dart';
 import '../widgets/chat_quick_chips.dart';
 import '../widgets/chat_typing_indicator.dart';
-import 'package:shared_preferences/shared_preferences.dart';
-import '../../../mascot/presentation/pages/mascot_selection_page.dart';
 
 class ChatPage extends StatelessWidget {
   const ChatPage({super.key});
 
   @override
   Widget build(BuildContext context) {
+    final quotaCubit = context.read<QuotaCubit?>();
+
     return BlocProvider(
-      create: (_) =>
-          ChatCubit(repository: context.read<ChatRepository>())..initialize(),
+      create: (_) => ChatCubit(
+        repository: context.read<ChatRepository>(),
+        quotaCubit: quotaCubit,
+      )..initialize(),
       child: const _ChatView(),
     );
   }
@@ -80,12 +87,156 @@ class _ChatViewState extends State<_ChatView> {
     }
   }
 
-  void _sendMessage(String text) {
-    if (text.trim().isEmpty) return;
-    context.read<ChatCubit>().sendMessage(text);
-    _textController.clear();
-    _focusNode.unfocus();
-    _scrollToBottom();
+  Future<void> _sendMessage(String text) async {
+    final trimmed = text.trim();
+    if (trimmed.isEmpty) return;
+
+    final quotaCubit = context.read<QuotaCubit?>();
+    if (quotaCubit != null && !quotaCubit.canChat) {
+      await QuotaExceededDialog.show(
+        context,
+        limit: _quotaLimitFromState(quotaCubit.state),
+      );
+      return;
+    }
+
+    final outcome = await context.read<ChatCubit>().sendMessage(trimmed);
+
+    if (!mounted) {
+      return;
+    }
+
+    if (outcome != ChatSendOutcome.ignored) {
+      _textController.clear();
+      _focusNode.unfocus();
+      _scrollToBottom();
+    }
+
+    if (outcome == ChatSendOutcome.quotaExceeded) {
+      await QuotaExceededDialog.show(
+        context,
+        limit: _quotaLimitFromState(quotaCubit?.state),
+      );
+    }
+  }
+
+  int _quotaLimitFromState(QuotaState? state) {
+    if (state is QuotaLoaded) {
+      return state.quota.limit;
+    }
+    return 30;
+  }
+
+  bool _canChatFromQuotaState(QuotaState state) {
+    if (state is QuotaLoaded) {
+      return !state.quota.isExceeded;
+    }
+    return true;
+  }
+
+  Widget _buildInputBar({
+    required ThemeData theme,
+    required ColorScheme colors,
+    required bool canChat,
+    required bool isTyping,
+  }) {
+    final isEnabled = canChat && !isTyping;
+
+    return Container(
+      padding: EdgeInsets.fromLTRB(
+        12,
+        8,
+        8,
+        8 + MediaQuery.of(context).padding.bottom,
+      ),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.06),
+            blurRadius: 8,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (!canChat)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: Text(
+                context.t(
+                  vi: 'Bạn đã hết lượt chat hôm nay. Hãy quay lại vào ngày mai nhé!',
+                  en: 'You\'ve used all chat turns for today. Come back tomorrow!',
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colors.error,
+                  fontWeight: FontWeight.w600,
+                ),
+                textAlign: TextAlign.center,
+              ),
+            ),
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.end,
+            children: [
+              Expanded(
+                child: Container(
+                  constraints: const BoxConstraints(maxHeight: 120),
+                  decoration: BoxDecoration(
+                    color: colors.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(24),
+                  ),
+                  child: TextField(
+                    controller: _textController,
+                    focusNode: _focusNode,
+                    enabled: isEnabled,
+                    textInputAction: TextInputAction.send,
+                    maxLines: 5,
+                    minLines: 1,
+                    maxLength: 1000,
+                    textCapitalization: TextCapitalization.sentences,
+                    decoration: InputDecoration(
+                      hintText: context.t(
+                        vi: 'Hỏi GrowMate AI...',
+                        en: 'Ask GrowMate AI...',
+                      ),
+                      border: InputBorder.none,
+                      counterText: '',
+                      contentPadding: const EdgeInsets.symmetric(
+                        horizontal: 16,
+                        vertical: 12,
+                      ),
+                    ),
+                    onSubmitted: (value) => _sendMessage(value),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Container(
+                margin: const EdgeInsets.only(bottom: 2),
+                child: IconButton.filled(
+                  onPressed: isEnabled
+                      ? () => _sendMessage(_textController.text)
+                      : null,
+                  style: IconButton.styleFrom(
+                    backgroundColor: colors.primary,
+                    disabledBackgroundColor: colors.surfaceContainerHighest,
+                  ),
+                  icon: Icon(
+                    Icons.send_rounded,
+                    size: 20,
+                    color: isEnabled
+                        ? colors.onPrimary
+                        : colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 
   void _showClearChatDialog() {
@@ -126,6 +277,7 @@ class _ChatViewState extends State<_ChatView> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final hasQuotaCubit = context.read<QuotaCubit?>() != null;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -171,6 +323,11 @@ class _ChatViewState extends State<_ChatView> {
           ),
         ),
         actions: [
+          if (hasQuotaCubit)
+            const Padding(
+              padding: EdgeInsets.only(right: 6),
+              child: Center(child: QuotaIndicator()),
+            ),
           IconButton(
             onPressed: _showClearChatDialog,
             icon: Icon(Icons.delete_outline_rounded, color: colors.primary),
@@ -275,93 +432,64 @@ class _ChatViewState extends State<_ChatView> {
           BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
               if (state is ChatReady && !state.isAiTyping) {
-                return Padding(
-                  padding: const EdgeInsets.only(bottom: 8),
-                  child: ChatQuickChips(onChipTapped: _sendMessage),
+                if (!hasQuotaCubit) {
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: ChatQuickChips(
+                      onChipTapped: (text) => _sendMessage(text),
+                    ),
+                  );
+                }
+
+                return BlocBuilder<QuotaCubit, QuotaState>(
+                  builder: (context, quotaState) {
+                    if (!_canChatFromQuotaState(quotaState)) {
+                      return const SizedBox.shrink();
+                    }
+
+                    return Padding(
+                      padding: const EdgeInsets.only(bottom: 8),
+                      child: ChatQuickChips(
+                        onChipTapped: (text) => _sendMessage(text),
+                      ),
+                    );
+                  },
                 );
               }
+
               return const SizedBox.shrink();
             },
           ),
 
           // Input bar
-          Container(
-            padding: EdgeInsets.fromLTRB(
-              12,
-              8,
-              8,
-              8 + MediaQuery.of(context).padding.bottom,
-            ),
-            decoration: BoxDecoration(
-              color: colors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 120),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: TextField(
-                      controller: _textController,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.send,
-                      maxLines: 5,
-                      minLines: 1,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: context.t(
-                          vi: 'Hỏi GrowMate AI...',
-                          en: 'Ask GrowMate AI...',
-                        ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
-                        ),
-                      ),
-                      onSubmitted: _sendMessage,
-                    ),
+          BlocBuilder<ChatCubit, ChatState>(
+            builder: (context, state) {
+              final isTyping = state is ChatReady && state.isAiTyping;
+
+              if (!hasQuotaCubit) {
+                return Padding(
+                  padding: EdgeInsets.zero,
+                  child: _buildInputBar(
+                    theme: theme,
+                    colors: colors,
+                    canChat: true,
+                    isTyping: isTyping,
                   ),
-                ),
-                const SizedBox(width: 8),
-                BlocBuilder<ChatCubit, ChatState>(
-                  builder: (context, state) {
-                    final isTyping = state is ChatReady && state.isAiTyping;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 2),
-                      child: IconButton.filled(
-                        onPressed: isTyping
-                            ? null
-                            : () => _sendMessage(_textController.text),
-                        style: IconButton.styleFrom(
-                          backgroundColor: colors.primary,
-                          disabledBackgroundColor:
-                              colors.surfaceContainerHighest,
-                        ),
-                        icon: Icon(
-                          Icons.send_rounded,
-                          size: 20,
-                          color: isTyping
-                              ? colors.onSurfaceVariant
-                              : colors.onPrimary,
-                        ),
-                      ),
-                    );
-                  },
-                ),
-              ],
-            ),
+                );
+              }
+
+              return BlocBuilder<QuotaCubit, QuotaState>(
+                builder: (context, quotaState) {
+                  final canChat = _canChatFromQuotaState(quotaState);
+                  return _buildInputBar(
+                    theme: theme,
+                    colors: colors,
+                    canChat: canChat,
+                    isTyping: isTyping,
+                  );
+                },
+              );
+            },
           ),
         ],
       ),

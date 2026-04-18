@@ -27,7 +27,14 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     emit(const OnboardingLoading());
     try {
       final goals = await _repository.getStudyGoals();
-      emit(OnboardingGoalSelection(goals: goals));
+      final prefs = await SharedPreferences.getInstance();
+      final cachedDailyMinutes = prefs.getInt('daily_minutes') ?? 20;
+      emit(
+        OnboardingGoalSelection(
+          goals: goals,
+          selectedDailyMinutes: cachedDailyMinutes.clamp(5, 180),
+        ),
+      );
     } catch (e) {
       emit(OnboardingError(e.toString()));
     }
@@ -37,6 +44,13 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     final current = state;
     if (current is OnboardingGoalSelection) {
       emit(current.copyWith(selectedGoalId: goalId));
+    }
+  }
+
+  void selectDailyMinutes(int minutes) {
+    final current = state;
+    if (current is OnboardingGoalSelection) {
+      emit(current.copyWith(selectedDailyMinutes: minutes.clamp(5, 180)));
     }
   }
 
@@ -57,6 +71,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
           currentIndex: 0,
           answers: const {},
           selectedGoalId: selectedGoalId,
+          dailyMinutes: current.selectedDailyMinutes,
         ),
       );
       _questionShownAt = DateTime.now();
@@ -115,6 +130,7 @@ class OnboardingCubit extends Cubit<OnboardingState> {
           totalQuestions: state.questions.length,
           elapsedMs: 0,
           selectedGoal: goal,
+          dailyMinutes: state.dailyMinutes,
         ),
       ),
     );
@@ -131,11 +147,15 @@ class OnboardingCubit extends Cubit<OnboardingState> {
     // Submit to backend so `onboarded_at` is stored server-side.
     final current = state;
     if (current is OnboardingComplete) {
+      await prefs.setString('study_goal', current.result.selectedGoal);
+      await prefs.setInt('daily_minutes', current.result.dailyMinutes);
+
       try {
         final response = await _repository.submitOnboarding(
           questions: _lastQuestions,
           answers: _lastAnswers,
           studyGoal: current.result.selectedGoal,
+          dailyMinutes: current.result.dailyMinutes,
           timeTakenByQuestion: _timeTakenByQuestion,
         );
         // Persist backend-determined level and study plan for session creation.
@@ -145,6 +165,13 @@ class OnboardingCubit extends Cubit<OnboardingState> {
             'onboarding_study_plan',
             jsonEncode(response.studyPlan),
           );
+          final planDailyMinutes = response.studyPlan?['daily_minutes'];
+          if (planDailyMinutes is num) {
+            await prefs.setInt(
+              'daily_minutes',
+              planDailyMinutes.toInt().clamp(5, 180),
+            );
+          }
         }
       } catch (e) {
         debugPrint(

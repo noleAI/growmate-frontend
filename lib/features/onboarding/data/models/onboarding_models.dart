@@ -8,6 +8,7 @@ class OnboardingResult {
     required this.totalQuestions,
     required this.elapsedMs,
     required this.selectedGoal,
+    required this.dailyMinutes,
   });
 
   final UserLevel level;
@@ -15,8 +16,10 @@ class OnboardingResult {
   final int totalQuestions;
   final int elapsedMs;
   final String selectedGoal;
+  final int dailyMinutes;
 
-  double get accuracy => correctCount / totalQuestions;
+  double get accuracy =>
+      totalQuestions == 0 ? 0.0 : correctCount / totalQuestions;
 }
 
 /// Một lựa chọn trong câu hỏi onboarding, kèm ID từ backend.

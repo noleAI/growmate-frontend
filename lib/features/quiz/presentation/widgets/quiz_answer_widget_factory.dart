@@ -157,11 +157,12 @@ class QuizAnswerWidgetFactory extends StatelessWidget {
               ),
               borderRadius: BorderRadius.circular(12),
             ),
-            child: Text(
-              payload.generalHint,
+            child: QuizMathText(
+              text: payload.generalHint,
               style: theme.textTheme.bodySmall?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
                 fontWeight: FontWeight.w600,
+                height: 1.35,
               ),
             ),
           ),

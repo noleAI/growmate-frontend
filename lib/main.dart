@@ -13,6 +13,8 @@ import 'app/theme/color_palette_cubit.dart';
 import 'app/theme/theme_mode_cubit.dart';
 import 'core/network/api_service.dart';
 import 'core/network/mock_api_service.dart';
+import 'core/services/behavioral_signal_collector.dart';
+import 'core/services/behavioral_signal_service.dart';
 import 'core/services/real_api_service.dart';
 import 'core/services/supabase_hybrid_api_service.dart';
 import 'core/services/learning_session_manager.dart';
@@ -25,8 +27,10 @@ import 'features/auth/data/repositories/auth_repository.dart';
 import 'features/auth/data/repositories/data_consent_repository.dart';
 import 'features/auth/presentation/bloc/auth_bloc.dart';
 import 'features/auth/presentation/bloc/auth_event.dart';
+import 'features/auth/presentation/bloc/auth_state.dart';
 import 'features/diagnosis/data/repositories/diagnosis_repository.dart';
 import 'features/diagnosis/data/repositories/real_diagnosis_repository.dart';
+import 'features/inspection/data/repositories/inspection_ops_repository.dart';
 import 'features/inspection/presentation/cubit/inspection_cubit.dart';
 import 'features/intervention/data/repositories/intervention_repository.dart';
 import 'features/notification/data/repositories/notification_repository.dart';
@@ -67,6 +71,8 @@ import 'features/ai_companion/presentation/session_companion_bridge.dart';
 import 'features/chat/data/repositories/chat_repository.dart';
 import 'features/chat/data/repositories/mock_chat_repository.dart';
 import 'features/chat/data/repositories/real_chat_repository.dart';
+import 'features/quota/data/repositories/quota_repository.dart';
+import 'features/quota/presentation/cubit/quota_cubit.dart';
 
 import 'features/splash/presentation/pages/splash_page.dart';
 
@@ -178,6 +184,9 @@ class _GrowMateAppState extends State<GrowMateApp> {
   BackendProfileRepository? _backendProfileRepository;
   ConfigRepository? _configRepository;
   RealProgressRepository? _realProgressRepository;
+  QuotaRepository? _quotaRepository;
+  QuotaCubit? _quotaCubit;
+  InspectionOpsRepository? _inspectionOpsRepository;
   late ChatRepository _chatRepository;
 
   // ===== Agentic Backend =====
@@ -199,6 +208,14 @@ class _GrowMateAppState extends State<GrowMateApp> {
   late AppRouter _appRouter;
   bool _didInitializeDependencies = false;
 
+  String? _resolveActiveUserKey() {
+    final state = _authBloc.state;
+    if (state is AuthAuthenticated) {
+      return state.session.email;
+    }
+    return null;
+  }
+
   AppRouter _buildAppRouter() {
     return AppRouter(
       authBloc: _authBloc,
@@ -218,8 +235,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
     );
   }
 
-  InspectionCubit get _resolvedInspectionCubit =>
-      _inspectionCubit ??= InspectionCubit();
+  InspectionCubit get _resolvedInspectionCubit => _inspectionCubit ??=
+      InspectionCubit(inspectionOpsRepository: _inspectionOpsRepository);
 
   ThemeModeCubit get _resolvedThemeModeCubit =>
       _themeModeCubit ??= ThemeModeCubit()..loadThemeMode();
@@ -233,9 +250,12 @@ class _GrowMateAppState extends State<GrowMateApp> {
   StudyModeCubit get _resolvedStudyModeCubit =>
       _studyModeCubit ??= StudyModeCubit()..load();
 
-  LeaderboardCubit get _resolvedLeaderboardCubit =>
-      _leaderboardCubit ??= LeaderboardCubit(repository: _leaderboardRepository)
-        ..loadLeaderboard();
+  LeaderboardCubit get _resolvedLeaderboardCubit => _leaderboardCubit ??=
+      LeaderboardCubit(repository: _leaderboardRepository);
+
+  QuotaCubit get _resolvedQuotaCubit =>
+      _quotaCubit ??= QuotaCubit(repository: _quotaRepository!)
+        ..loadQuota(silent: true);
 
   /// Khởi tạo API service với token injection (cho production REST API)
   ApiService _buildApiService() {
@@ -286,6 +306,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
       _formulaRepository = MockFormulaRepository();
       _onboardingRepository = MockOnboardingRepository();
       _chatRepository = MockChatRepository();
+      _quotaRepository = null;
     } else {
       _restApiClient = _buildRestApiClient();
       _leaderboardRepository = RealLeaderboardRepository(
@@ -302,8 +323,11 @@ class _GrowMateAppState extends State<GrowMateApp> {
         client: _restApiClient!,
       );
       _configRepository = ConfigRepository(client: _restApiClient!);
-      // Chat defaults to mock; overridden after agentic init if available.
-      _chatRepository = MockChatRepository();
+      _quotaRepository = QuotaRepository(client: _restApiClient!);
+      _inspectionOpsRepository = InspectionOpsRepository(
+        client: _restApiClient!,
+      );
+      _chatRepository = RealChatRepository(client: _restApiClient!);
     }
   }
 
@@ -332,11 +356,13 @@ class _GrowMateAppState extends State<GrowMateApp> {
       sessionId: _activeSessionId!,
     );
 
-    // Upgrade chat to real backend when agentic API is available.
-    if (useAgenticBackend && _agenticApiService != null) {
+    // Attach optional legacy fallback for deployments that do not expose
+    // `/chatbot/*` yet.
+    if (!useMockApi && _restApiClient != null) {
       _chatRepository = RealChatRepository(
-        apiService: _agenticApiService!,
-        sessionId: _activeSessionId!,
+        client: _restApiClient!,
+        legacyApiService: _agenticApiService,
+        legacySessionId: _activeSessionId,
       );
     }
 
@@ -396,9 +422,18 @@ class _GrowMateAppState extends State<GrowMateApp> {
       notificationRepository: _notificationRepository,
       sessionHistoryRepository: _sessionHistoryRepository,
     );
-    _inspectionCubit = InspectionCubit();
+    _inspectionCubit = InspectionCubit(
+      inspectionOpsRepository: _inspectionOpsRepository,
+    );
     _authBloc = AuthBloc(authRepository: _authRepository)
       ..add(const AppStarted());
+
+    BehavioralSignalService.instance.setActiveUserKeyResolver(
+      _resolveActiveUserKey,
+    );
+    BehavioralSignalCollector.instance.setActiveUserKeyResolver(
+      _resolveActiveUserKey,
+    );
 
     unawaited(_notificationRepository.bootstrap());
 
@@ -512,6 +547,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
     _appLanguageCubit?.close();
     _studyModeCubit?.close();
     _leaderboardCubit?.close();
+    _quotaCubit?.close();
     super.dispose();
   }
 
@@ -554,6 +590,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
         RepositoryProvider<ChatRepository>.value(value: _chatRepository),
         if (_configRepository != null)
           RepositoryProvider<ConfigRepository>.value(value: _configRepository!),
+        if (_quotaRepository != null)
+          RepositoryProvider<QuotaRepository>.value(value: _quotaRepository!),
         if (_agenticApiService != null)
           RepositoryProvider<AgenticApiService>.value(
             value: _agenticApiService!,
@@ -582,6 +620,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
           BlocProvider<LeaderboardCubit>.value(
             value: _resolvedLeaderboardCubit,
           ),
+          if (_quotaRepository != null)
+            BlocProvider<QuotaCubit>.value(value: _resolvedQuotaCubit),
           if (_agenticSessionCubit != null)
             BlocProvider<AgenticSessionCubit>.value(
               value: _agenticSessionCubit!,

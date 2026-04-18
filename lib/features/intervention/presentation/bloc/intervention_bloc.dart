@@ -17,6 +17,8 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     required List<Map<String, dynamic>> backendInterventionPlan,
     required this.uncertaintyHigh,
     required this.isEnglish,
+    this.nextSuggestedTopic,
+    this.diagnosisConfidenceScore,
     InspectionRuntimeStore? inspectionRuntimeStore,
     NotificationRepository? notificationRepository,
   }) : _interventionRepository = interventionRepository,
@@ -51,6 +53,8 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
   final List<Map<String, dynamic>> _backendInterventionPlan;
   final bool uncertaintyHigh;
   final bool isEnglish;
+  final String? nextSuggestedTopic;
+  final double? diagnosisConfidenceScore;
   final InspectionRuntimeStore _inspectionRuntimeStore;
   final NotificationRepository _notificationRepository;
 
@@ -129,6 +133,32 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
 
       final qValues = feedbackResponse.updatedQValues;
       const String? backendMessage = null;
+      final completionTopic = _firstNonEmpty(<String?>[
+        feedbackResponse.topic,
+        nextSuggestedTopic,
+        _readStringFromMap(event.option.metadata, const <String>['topic']),
+        event.option.label,
+      ]);
+      final completionNextAction = _firstNonEmpty(<String?>[
+        feedbackResponse.nextAction,
+        _readStringFromMap(event.option.metadata, const <String>[
+          'nextAction',
+          'next_action',
+        ]),
+        event.option.label,
+      ]);
+      final completionDurationMinutes =
+          feedbackResponse.durationMinutes ??
+          _readIntFromMap(event.option.metadata, const <String>[
+            'durationMinutes',
+            'duration_minutes',
+          ]);
+      final completionFocusScore =
+          _normalizeFocusScore(feedbackResponse.focusScore) ??
+          _confidenceToFocusScore(diagnosisConfidenceScore);
+      final completionConfidence =
+          _normalizeUnitScore(feedbackResponse.confidenceScore) ??
+          _normalizeUnitScore(diagnosisConfidenceScore);
 
       _inspectionRuntimeStore.updateQValues(qValues);
       _inspectionRuntimeStore.addDecision(
@@ -146,6 +176,11 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
           updatedQValues: qValues,
           selectedOptionLabel: event.option.label,
           selectedOptionId: event.option.id,
+          completionTopic: completionTopic,
+          completionNextAction: completionNextAction,
+          completionDurationMinutes: completionDurationMinutes,
+          completionFocusScore: completionFocusScore,
+          completionConfidenceScore: completionConfidence,
           toastMessage: _selectionToastMessage(
             option: event.option,
             backendMessage: backendMessage,
@@ -254,6 +289,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
   ) {
     final mapped = backendPlan
         .map((item) {
+          final metadata = Map<String, dynamic>.from(item);
           final id = item['id']?.toString() ?? '';
           final title = item['title']?.toString() ?? '';
           final type = item['type']?.toString() ?? 'general';
@@ -266,65 +302,103 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
             label: _resolveOptionLabel(id: id, title: title, type: type),
             type: type,
             fromBackend: true,
+            metadata: metadata,
           );
         })
         .whereType<InterventionOption>()
-        .toList();
+        .toList(growable: false);
 
     if (mapped.isEmpty) {
       _inspectionRuntimeStore.addDecision(
-        action: 'Intervention Fallback Options',
-        reason: 'Using default intervention options — backend plan was empty',
+        action: 'Intervention Options Missing',
+        reason: 'Backend returned no intervention options.',
         source: 'intervention',
       );
 
-      return <InterventionOption>[
-        InterventionOption(
-          id: 'review_theory',
-          label: _resolveOptionLabel(
-            id: 'review_theory',
-            title: 'Ôn lại lý thuyết mượt mà',
-            type: 'academic',
-          ),
-          type: 'academic',
-        ),
-        InterventionOption(
-          id: 'easier_practice',
-          label: _resolveOptionLabel(
-            id: 'easier_practice',
-            title: 'Làm bài dễ hơn chút nè',
-            type: 'academic',
-          ),
-          type: 'academic',
-        ),
-        InterventionOption(
-          id: 'skip_once',
-          label: _resolveOptionLabel(
-            id: 'skip_once',
-            title: 'Bỏ qua lần này cũng không sao',
-            type: 'recovery',
-          ),
-          type: 'recovery',
-        ),
-      ];
+      return const <InterventionOption>[];
     }
 
-    final withSkip = <InterventionOption>[...mapped];
-    if (!withSkip.any((option) => option.id == 'skip_once')) {
-      withSkip.add(
-        InterventionOption(
-          id: 'skip_once',
-          label: _resolveOptionLabel(
-            id: 'skip_once',
-            title: 'Bỏ qua lần này cũng không sao',
-            type: 'recovery',
-          ),
-          type: 'recovery',
-        ),
-      );
-    }
+    return mapped;
+  }
 
-    return withSkip;
+  static String? _firstNonEmpty(Iterable<String?> values) {
+    for (final value in values) {
+      final normalized = value?.trim() ?? '';
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+    return null;
+  }
+
+  static String? _readStringFromMap(
+    Map<String, dynamic> source,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value == null) {
+        continue;
+      }
+      final normalized = value.toString().trim();
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+    return null;
+  }
+
+  static int? _readIntFromMap(Map<String, dynamic> source, List<String> keys) {
+    for (final key in keys) {
+      final value = source[key];
+      if (value is int) {
+        return value;
+      }
+      if (value is num) {
+        return value.toInt();
+      }
+      if (value is String) {
+        final parsed = int.tryParse(value);
+        if (parsed != null) {
+          return parsed;
+        }
+      }
+    }
+    return null;
+  }
+
+  static double? _normalizeUnitScore(double? value) {
+    if (value == null || value.isNaN || value.isInfinite) {
+      return null;
+    }
+    if (value < 0) {
+      return 0;
+    }
+    if (value > 1) {
+      return 1;
+    }
+    return value;
+  }
+
+  static double? _normalizeFocusScore(double? value) {
+    if (value == null || value.isNaN || value.isInfinite) {
+      return null;
+    }
+    if (value < 0) {
+      return 0;
+    }
+    if (value > 4) {
+      return 4;
+    }
+    return value;
+  }
+
+  static double? _confidenceToFocusScore(double? confidence) {
+    final normalized = _normalizeUnitScore(confidence);
+    if (normalized == null) {
+      return null;
+    }
+    return (normalized * 4).clamp(0.0, 4.0).toDouble();
   }
 
   String _resolveOptionLabel({

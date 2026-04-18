@@ -12,6 +12,7 @@ import '../../../achievement/data/models/achievement_badge.dart';
 import '../../../achievement/data/repositories/achievement_repository.dart';
 import '../../../achievement/presentation/achievement_i18n.dart';
 import '../../../notification/data/repositories/notification_repository.dart';
+import '../../../quiz/data/repositories/quiz_api_repository.dart';
 import '../../../review/data/repositories/spaced_repetition_repository.dart';
 import '../../data/models/session_history_entry.dart';
 import '../../data/repositories/session_history_repository.dart';
@@ -22,11 +23,13 @@ class SessionCompletePage extends StatefulWidget {
     required this.queryParameters,
     required this.sessionHistoryRepository,
     required this.notificationRepository,
+    this.quizApiRepository,
   });
 
   final Map<String, String> queryParameters;
   final SessionHistoryRepository sessionHistoryRepository;
   final NotificationRepository notificationRepository;
+  final QuizApiRepository? quizApiRepository;
 
   @override
   State<SessionCompletePage> createState() => _SessionCompletePageState();
@@ -63,27 +66,72 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
     final params = widget.queryParameters;
     final submissionId = params['submissionId']?.trim() ?? '';
     final diagnosisId = params['diagnosisId']?.trim() ?? '';
-    final topic = (params['topic']?.trim().isNotEmpty ?? false)
-        ? params['topic']!.trim()
-        : (isEnglish ? 'Review derivatives' : 'Review đạo hàm');
-    final nextAction = (params['nextAction']?.trim().isNotEmpty ?? false)
-        ? params['nextAction']!.trim()
-        : (isEnglish
-              ? 'Review 3 quick questions before the next session.'
-              : 'Ôn 3 câu nhẹ trước khi vào bài mới');
+    var topic = params['topic']?.trim() ?? '';
+    var nextAction = params['nextAction']?.trim() ?? '';
 
     final sourceKey = (submissionId.isEmpty && diagnosisId.isEmpty)
         ? 'manual_${DateTime.now().millisecondsSinceEpoch}'
         : 'submission:$submissionId|diagnosis:$diagnosisId';
-    final mode = (params['mode'] ?? 'academic').toLowerCase();
+    var mode = (params['mode'] ?? 'academic').toLowerCase();
 
-    final durationMinutes = int.tryParse(params['duration'] ?? '') ?? 12;
-    final focusScore =
-        double.tryParse(params['focus'] ?? '') ??
-        (mode == 'recovery' ? 2.8 : 3.4);
-    final confidenceScore =
-        double.tryParse(params['confidence'] ?? '') ??
-        (mode == 'recovery' ? 0.72 : 0.83);
+    var durationMinutes = int.tryParse(params['duration'] ?? '') ?? 0;
+    var focusScore = double.tryParse(params['focus'] ?? '') ?? 0.0;
+    var confidenceScore = double.tryParse(params['confidence'] ?? '') ?? 0.0;
+
+    final shouldHydrateFromServer =
+        submissionId.isNotEmpty &&
+        (topic.isEmpty ||
+            nextAction.isEmpty ||
+            durationMinutes <= 0 ||
+            focusScore <= 0 ||
+            confidenceScore <= 0);
+
+    if (widget.quizApiRepository != null && shouldHydrateFromServer) {
+      try {
+        final result = await widget.quizApiRepository!.getSessionResult(
+          sessionId: submissionId,
+        );
+        final accuracy = (result.summary.accuracyPercent / 100)
+            .clamp(0.0, 1.0)
+            .toDouble();
+
+        if (topic.isEmpty) {
+          topic = _deriveTopicFromSessionId(
+            sessionId: result.sessionId.isNotEmpty
+                ? result.sessionId
+                : submissionId,
+          );
+        }
+
+        if (nextAction.isEmpty) {
+          nextAction = _deriveNextActionFromConfidence(
+            confidence: accuracy,
+            isEnglish: isEnglish,
+          );
+        }
+
+        if (durationMinutes <= 0) {
+          durationMinutes = _deriveDurationMinutes(
+            answeredCount: result.summary.answeredCount,
+          );
+        }
+
+        if (focusScore <= 0) {
+          focusScore = (accuracy * 4).clamp(0.0, 4.0).toDouble();
+        }
+
+        if (confidenceScore <= 0) {
+          confidenceScore = accuracy;
+        }
+
+        if (mode == 'academic' &&
+            result.sessionStatus.toLowerCase() == 'abandoned') {
+          mode = 'recovery';
+        }
+      } catch (_) {
+        // Keep original query-driven payload as graceful fallback.
+      }
+    }
 
     final entry = await widget.sessionHistoryRepository.upsertCompletedSession(
       sourceKey: sourceKey,
@@ -427,14 +475,14 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
   String _completionTopicText(BuildContext context, String? topic) {
     final trimmed = topic?.trim() ?? '';
     if (context.isEnglish) {
-      if (trimmed.isEmpty || _containsVietnameseChars(trimmed)) {
-        return 'You just completed:\nReview derivatives';
+      if (trimmed.isEmpty) {
+        return 'You just completed this learning session.';
       }
       return 'You just completed:\n$trimmed';
     }
 
-    if (trimmed.isEmpty || !_containsVietnameseChars(trimmed)) {
-      return 'Bạn vừa hoàn thành:\nÔn đạo hàm';
+    if (trimmed.isEmpty) {
+      return 'Bạn vừa hoàn thành phiên học này.';
     }
     return 'Bạn vừa hoàn thành:\n$trimmed';
   }
@@ -442,23 +490,48 @@ class _SessionCompletePageState extends State<SessionCompletePage> {
   String _suggestionText(BuildContext context, String? nextAction) {
     final trimmed = nextAction?.trim() ?? '';
     if (context.isEnglish) {
-      if (trimmed.isEmpty || _containsVietnameseChars(trimmed)) {
-        return 'Suggestion for tomorrow: Review 3 quick questions before the next session.';
+      if (trimmed.isEmpty) {
+        return 'Suggestion for tomorrow: Continue with the next recommended step.';
       }
       return 'Suggestion for tomorrow: $trimmed';
     }
 
-    if (trimmed.isEmpty || !_containsVietnameseChars(trimmed)) {
-      return 'Gợi ý ngày mai: Ôn 3 câu nhẹ trước khi vào bài mới';
+    if (trimmed.isEmpty) {
+      return 'Gợi ý ngày mai: Tiếp tục theo bước được gợi ý tiếp theo';
     }
     return 'Gợi ý ngày mai: $trimmed';
   }
+}
 
-  bool _containsVietnameseChars(String value) {
-    return RegExp(
-      r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
-    ).hasMatch(value);
+String _deriveTopicFromSessionId({required String sessionId}) {
+  final suffix = sessionId.length > 8
+      ? sessionId.substring(sessionId.length - 8)
+      : sessionId;
+  return 'Phiên quiz #$suffix';
+}
+
+String _deriveNextActionFromConfidence({
+  required double confidence,
+  required bool isEnglish,
+}) {
+  if (confidence >= 0.85) {
+    return isEnglish
+        ? 'Increase difficulty slightly in your next session.'
+        : 'Tăng nhẹ độ khó ở phiên kế tiếp.';
   }
+  if (confidence >= 0.6) {
+    return isEnglish
+        ? 'Review incorrect questions and solve 2 similar ones.'
+        : 'Ôn lại nhóm câu sai và làm thêm 2 câu tương tự.';
+  }
+  return isEnglish
+      ? 'Revisit core theory before moving on.'
+      : 'Ôn lại lý thuyết cốt lõi trước khi tiếp tục.';
+}
+
+int _deriveDurationMinutes({required int answeredCount}) {
+  final estimated = answeredCount <= 0 ? 8 : answeredCount * 2;
+  return estimated.clamp(5, 120).toInt();
 }
 
 class _CompletionPayload {

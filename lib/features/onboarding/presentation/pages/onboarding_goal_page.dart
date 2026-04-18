@@ -129,6 +129,11 @@ class _GoalBody extends StatelessWidget {
                 },
               ),
             ),
+            const SizedBox(height: 8),
+            _DailyMinutesCard(
+              dailyMinutes: state.selectedDailyMinutes,
+              onChanged: cubit.selectDailyMinutes,
+            ),
             const SizedBox(height: 16),
             FilledButton(
               onPressed: state.selectedGoalId != null
@@ -218,6 +223,74 @@ class _GoalCard extends StatelessWidget {
             ],
           ),
         ),
+      ),
+    );
+  }
+}
+
+class _DailyMinutesCard extends StatelessWidget {
+  const _DailyMinutesCard({
+    required this.dailyMinutes,
+    required this.onChanged,
+  });
+
+  final int dailyMinutes;
+  final ValueChanged<int> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.t(vi: 'Thời lượng học mỗi ngày', en: 'Daily study time'),
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            context.t(
+              vi: 'GrowMate sẽ dựa vào mốc này để gợi ý lộ trình phù hợp.',
+              en: 'GrowMate uses this target to suggest a suitable study plan.',
+            ),
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 10),
+          Row(
+            children: [
+              Text(
+                '$dailyMinutes ${context.t(vi: 'phút/ngày', en: 'min/day')}',
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ),
+          Slider(
+            value: dailyMinutes.toDouble(),
+            min: 5,
+            max: 180,
+            divisions: 35,
+            label: '$dailyMinutes',
+            onChanged: (value) {
+              final stepped = ((value / 5).round() * 5).clamp(5, 180).toInt();
+              onChanged(stepped);
+            },
+          ),
+        ],
       ),
     );
   }

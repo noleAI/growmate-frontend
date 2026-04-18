@@ -14,6 +14,8 @@ final class FormulaLoading extends FormulaState {
 }
 
 final class FormulaLoaded extends FormulaState {
+  static const Object _unset = Object();
+
   const FormulaLoaded({
     required this.categories,
     this.searchResults,
@@ -28,12 +30,14 @@ final class FormulaLoaded extends FormulaState {
 
   FormulaLoaded copyWith({
     List<FormulaCategory>? categories,
-    List<Formula>? searchResults,
+    Object? searchResults = _unset,
     String? searchQuery,
   }) {
     return FormulaLoaded(
       categories: categories ?? this.categories,
-      searchResults: searchResults ?? this.searchResults,
+      searchResults: identical(searchResults, _unset)
+          ? this.searchResults
+          : searchResults as List<Formula>?,
       searchQuery: searchQuery ?? this.searchQuery,
     );
   }

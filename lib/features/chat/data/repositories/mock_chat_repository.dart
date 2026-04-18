@@ -95,7 +95,10 @@ class MockChatRepository implements ChatRepository {
   ];
 
   @override
-  Future<ChatMessage> sendMessage(String userMessage) async {
+  Future<ChatSendResult> sendMessage(
+    String userMessage, {
+    List<ChatMessage> history = const [],
+  }) async {
     await Future.delayed(Duration(milliseconds: 600 + _random.nextInt(1000)));
 
     _history.add(
@@ -132,7 +135,18 @@ class MockChatRepository implements ChatRepository {
     );
 
     _history.add(aiMessage);
-    return aiMessage;
+    return ChatSendResult(reply: aiMessage);
+  }
+
+  @override
+  Future<List<ChatMessage>> loadHistory({int limit = 40}) async {
+    if (_history.isEmpty) {
+      return const [];
+    }
+    if (_history.length <= limit) {
+      return List<ChatMessage>.from(_history);
+    }
+    return _history.sublist(_history.length - limit);
   }
 
   @override
