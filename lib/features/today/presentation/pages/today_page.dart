@@ -1040,33 +1040,41 @@ class _HomeHeader extends StatelessWidget {
           ),
         ),
         const SizedBox(height: GrowMateLayout.space8),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-          decoration: BoxDecoration(
-            color: statusColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(999),
-            border: Border.all(color: statusColor.withValues(alpha: 0.22)),
-          ),
-          child: Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Container(
-                width: 6,
-                height: 6,
-                decoration: BoxDecoration(
-                  color: statusColor,
-                  shape: BoxShape.circle,
+        FractionallySizedBox(
+          widthFactor: 1,
+          alignment: Alignment.centerLeft,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+            decoration: BoxDecoration(
+              color: statusColor.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(999),
+              border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+            ),
+            child: Row(
+              mainAxisSize: MainAxisSize.max,
+              children: [
+                Container(
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: statusColor,
+                    shape: BoxShape.circle,
+                  ),
                 ),
-              ),
-              const SizedBox(width: 6),
-              Text(
-                statusText,
-                style: theme.textTheme.labelSmall?.copyWith(
-                  color: statusColor,
-                  fontWeight: FontWeight.w700,
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    statusText,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: statusColor,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ),
-              ),
-            ],
+              ],
+            ),
           ),
         ),
       ],

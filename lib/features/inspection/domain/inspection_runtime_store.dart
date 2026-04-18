@@ -108,6 +108,70 @@ class InspectionRuntimeStore {
   Stream<InspectionRuntimeSnapshot> get stream => _controller.stream;
   InspectionRuntimeSnapshot get snapshot => _snapshot;
 
+  void syncFromAgenticDashboard({
+    required String action,
+    required String? content,
+    required Map<String, double> beliefDistribution,
+    required double confidenceScore,
+    required double uncertaintyScore,
+    required Map<String, double> qValues,
+    required String dominantMentalState,
+    required String mentalStateHint,
+    required List<String> planSteps,
+    required String decisionReason,
+  }) {
+    final now = DateTime.now();
+    final beliefs = _normalizeBeliefs(
+      beliefDistribution.entries
+          .map(
+            (entry) => InspectionRuntimeBelief(
+              topic: entry.key,
+              ratio: entry.value,
+            ),
+          )
+          .toList(growable: false),
+    );
+
+    final mergedQValues = Map<String, double>.from(_snapshot.qValues)
+      ..addAll(qValues);
+    final normalizedPlanSteps = planSteps
+        .map((step) => step.trim())
+        .where((step) => step.isNotEmpty)
+        .take(4)
+        .toList(growable: false);
+
+    final nextDecisionLogs = <InspectionRuntimeDecision>[
+      InspectionRuntimeDecision(
+        action: action,
+        reason: decisionReason.trim().isNotEmpty
+            ? decisionReason.trim()
+            : (content?.trim().isNotEmpty == true
+                  ? content!.trim()
+                  : 'Live agentic runtime updated.'),
+        source: 'agentic_runtime',
+        createdAt: now,
+        uncertaintyScore: _clamp01(uncertaintyScore),
+      ),
+      ..._snapshot.decisionLogs,
+    ].take(_maxDecisionLogs).toList(growable: false);
+
+    _emit(
+      _snapshot.copyWith(
+        beliefs: beliefs,
+        planSteps: normalizedPlanSteps.isEmpty
+            ? _snapshot.planSteps
+            : normalizedPlanSteps,
+        mentalStateLabel: dominantMentalState,
+        mentalStateHint: mentalStateHint,
+        confidenceScore: _clamp01(confidenceScore),
+        uncertaintyScore: _clamp01(uncertaintyScore),
+        qValues: mergedQValues,
+        decisionLogs: nextDecisionLogs,
+        updatedAt: now,
+      ),
+    );
+  }
+
   void syncFromDiagnosis({
     required String gapAnalysis,
     required String diagnosisReason,

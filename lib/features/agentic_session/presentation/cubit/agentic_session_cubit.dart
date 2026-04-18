@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../data/models/agentic_models.dart';
+import '../../../inspection/domain/inspection_runtime_store.dart';
 import '../../data/repositories/agentic_session_repository.dart';
 import 'agentic_session_state.dart';
 
@@ -24,11 +25,17 @@ import 'agentic_session_state.dart';
 /// - Dashboard updates (academic, empathy, strategy states)
 /// - Behavior events (intervention_proposed, hitl_triggered)
 class AgenticSessionCubit extends Cubit<AgenticSessionState> {
-  AgenticSessionCubit({required AgenticSessionRepository repository})
+  AgenticSessionCubit({
+    required AgenticSessionRepository repository,
+    InspectionRuntimeStore? inspectionRuntimeStore,
+  })
     : _repo = repository,
+      _inspectionRuntimeStore =
+          inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
       super(AgenticSessionState.initial());
 
   final AgenticSessionRepository _repo;
+  final InspectionRuntimeStore _inspectionRuntimeStore;
 
   StreamSubscription<DashboardUpdate>? _dashboardSub;
   StreamSubscription<BehaviorWsEvent>? _behaviorSub;
@@ -185,6 +192,7 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
           latestReflection: result.reflection ?? state.latestReflection,
         ),
       );
+      _syncInspectionFromStep(result);
     } catch (e) {
       emit(
         state.copyWith(
@@ -242,6 +250,12 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
         stepCount: state.stepCount + 1,
       ),
     );
+    _inspectionRuntimeStore.addDecision(
+      action: response.nextNodeType,
+      reason: response.content,
+      source: 'session_interact',
+      uncertaintyScore: response.beliefEntropy,
+    );
   }
 
   AgenticPhase _phaseFromAction(String action) {
@@ -267,6 +281,7 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
           : state.phase;
 
       emit(state.copyWith(latestDashboard: update, phase: nextPhase));
+      _syncInspectionFromDashboard(update, content: state.currentContent);
     });
   }
 
@@ -290,6 +305,97 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
 
   void _log(String message) {
     if (kDebugMode) debugPrint('🤖 [AgenticCubit] $message');
+  }
+
+  void _syncInspectionFromStep(OrchestratorStepResponse step) {
+    _syncInspectionFromDashboard(
+      step.dashboardUpdate,
+      content: step.payload.text,
+      fallbackAction: step.action,
+      fallbackReason: step.reasoningContent,
+    );
+  }
+
+  void _syncInspectionFromDashboard(
+    DashboardUpdate update, {
+    String? content,
+    String? fallbackAction,
+    String? fallbackReason,
+  }) {
+    final action = (update.orchestrator?.decision.action ??
+            fallbackAction ??
+            update.action)
+        .trim();
+    final rationale = (update.orchestrator?.decision.rationale ??
+            fallbackReason ??
+            content ??
+            '')
+        .trim();
+
+    _inspectionRuntimeStore.syncFromAgenticDashboard(
+      action: action.isEmpty ? 'agentic_update' : action,
+      content: content,
+      beliefDistribution: update.academic.beliefDistribution,
+      confidenceScore: update.academic.confidence,
+      uncertaintyScore: update.empathy.uncertainty > 0
+          ? update.empathy.uncertainty
+          : update.academic.entropy,
+      qValues: update.strategy.qValues,
+      dominantMentalState: _mentalStateLabel(update.empathy),
+      mentalStateHint: _mentalStateHint(update.empathy),
+      planSteps: _planStepsFromDashboard(update, fallbackAction: action),
+      decisionReason: rationale,
+    );
+  }
+
+  List<String> _planStepsFromDashboard(
+    DashboardUpdate update, {
+    required String fallbackAction,
+  }) {
+    final steps = <String>[];
+    final focusTopic = update.academic.topHypothesis.trim();
+    if (focusTopic.isNotEmpty) {
+      steps.add('Academic focus: $focusTopic');
+    }
+
+    final strategy = update.strategy.bestStrategy?.trim();
+    if (strategy != null && strategy.isNotEmpty) {
+      steps.add('Strategy pick: $strategy');
+    }
+
+    final recommendation = update.empathy.recommendedAction.trim();
+    if (recommendation.isNotEmpty) {
+      steps.add('Empathy response: $recommendation');
+    }
+
+    final action = fallbackAction.trim();
+    if (action.isNotEmpty) {
+      steps.add('Orchestrator action: $action');
+    }
+
+    return steps.take(4).toList(growable: false);
+  }
+
+  String _mentalStateLabel(EmpathyState empathy) {
+    return switch (empathy.dominantState) {
+      'exhausted' => 'Hơi mệt',
+      'confused' => 'Đang bối rối',
+      'uncertain' => 'Thiếu chắc chắn',
+      _ => 'Tập trung',
+    };
+  }
+
+  String _mentalStateHint(EmpathyState empathy) {
+    if (empathy.isExhausted) {
+      return 'Fatigue is elevated, so the AI is lowering cognitive load.';
+    }
+    if (empathy.isConfused) {
+      return 'Confusion is rising, so the AI is preparing a more guided step.';
+    }
+    if (empathy.isHighUncertainty) {
+      return 'Uncertainty remains high, so the system is keeping a shorter feedback loop.';
+    }
+    return 'Signals are stable, so the current learning rhythm can continue.';
   }
 
   @override

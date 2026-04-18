@@ -116,7 +116,8 @@ class ChatMessageBubble extends StatelessWidget {
         : theme.colorScheme.onSurface;
 
     final hasImage =
-        message.imageBytes != null && message.imageBytes!.isNotEmpty;
+        (message.imageBytes != null && message.imageBytes!.isNotEmpty) ||
+        (message.imageUrl != null && message.imageUrl!.trim().isNotEmpty);
     final hasText = message.content.trim().isNotEmpty;
 
     if (hasImage) {
@@ -127,13 +128,9 @@ class ChatMessageBubble extends StatelessWidget {
         children: [
           ClipRRect(
             borderRadius: BorderRadius.circular(12),
-            child: Image.memory(
-              message.imageBytes!,
-              fit: BoxFit.cover,
+            child: _buildImagePreview(
               width: imageWidth,
               height: imageHeight,
-              cacheWidth: 660,
-              filterQuality: FilterQuality.low,
             ),
           ),
           if (hasText) ...[
@@ -145,6 +142,58 @@ class ChatMessageBubble extends StatelessWidget {
     }
 
     return _buildTextContent(theme, textColor);
+  }
+
+  Widget _buildImagePreview({
+    required double width,
+    required double height,
+  }) {
+    if (message.imageBytes != null && message.imageBytes!.isNotEmpty) {
+      return Image.memory(
+        message.imageBytes!,
+        fit: BoxFit.cover,
+        width: width,
+        height: height,
+        cacheWidth: 660,
+        filterQuality: FilterQuality.low,
+      );
+    }
+
+    final imageUrl = message.imageUrl?.trim();
+    if (imageUrl == null || imageUrl.isEmpty) {
+      return SizedBox(width: width, height: height);
+    }
+
+    return Image.network(
+      imageUrl,
+      fit: BoxFit.cover,
+      width: width,
+      height: height,
+      loadingBuilder: (context, child, progress) {
+        if (progress == null) {
+          return child;
+        }
+        return Container(
+          width: width,
+          height: height,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: const CircularProgressIndicator(strokeWidth: 2),
+        );
+      },
+      errorBuilder: (context, error, stackTrace) {
+        return Container(
+          width: width,
+          height: height,
+          color: Theme.of(context).colorScheme.surfaceContainerHighest,
+          alignment: Alignment.center,
+          child: Icon(
+            Icons.broken_image_outlined,
+            color: Theme.of(context).colorScheme.onSurfaceVariant,
+          ),
+        );
+      },
+    );
   }
 
   Widget _buildTextContent(ThemeData theme, Color textColor) {

@@ -151,13 +151,6 @@ class _ProgressScreenState extends State<ProgressScreen> {
   UserProgressSnapshot _buildBaseProgressSnapshot(
     List<SessionHistoryEntry> history,
   ) {
-    if (widget.realProgressRepository == null) {
-      return MockUserProgressGenerator.fromUserProfile(
-        widget.profile,
-        forceEmptyState: widget.forceEmptyState,
-      );
-    }
-
     return _buildRealProgressFromHistory(history);
   }
 

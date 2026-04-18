@@ -77,7 +77,7 @@ void main() {
     await cubit.close();
   });
 
-  test('hydrates into error state when remote confirmation fails', () async {
+  test('uses local history when remote confirmation fails but local snapshot exists', () async {
     final pending = PendingSession(
       hasPending: true,
       sessionId: 'pending_1',
@@ -96,8 +96,8 @@ void main() {
 
     await cubit.hydrate();
 
-    expect(cubit.state.status, HomeHydrationStatus.error);
-    expect(cubit.state.history, isEmpty);
+    expect(cubit.state.status, HomeHydrationStatus.ready);
+    expect(cubit.state.history, isNotEmpty);
     expect(cubit.state.pendingSession, pending);
     expect(cubit.state.errorMessage, isNotEmpty);
 

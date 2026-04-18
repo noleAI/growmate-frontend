@@ -129,6 +129,14 @@ class _QuizPageState extends State<QuizPage> {
   DateTime? _quizStartedAt;
   DateTime? _firstAnswerAt;
   DateTime? _lastSubmitClickedAt;
+  DateTime? _questionShownAt;
+  int _questionTypedChars = 0;
+  int _questionCorrectionCount = 0;
+  int _questionInteractionCount = 0;
+  QuizQuestionTemplate? _pendingAgenticQuestion;
+  QuizQuestionUserAnswer? _pendingAgenticAnswer;
+  int? _lastRecoveryPromptStep;
+  bool _isRecoveryPromptVisible = false;
 
   @override
   void initState() {
@@ -346,6 +354,7 @@ class _QuizPageState extends State<QuizPage> {
       _signalService.startQuestion(questionId: _activeQuestion!.id);
       _sessionGuard.onQuestionShown();
       await _restoreLocalDraftBundle(_effectiveSessionId);
+      _resetQuestionInteractionMetrics();
       _quizStartedAt = DateTime.now();
       _firstAnswerAt = null;
       _lastSubmitClickedAt = null;
@@ -369,9 +378,7 @@ class _QuizPageState extends State<QuizPage> {
       });
 
       // Bridge to agentic backend when enabled (no-op when cubit is absent)
-      unawaited(
-        _agenticCubit?.startSession(subject: 'math', topic: 'derivative'),
-      );
+      unawaited(_startAgenticSessionBridge());
     } catch (e) {
       if (!mounted) return;
       setState(() {
@@ -421,6 +428,7 @@ class _QuizPageState extends State<QuizPage> {
       _signalService.startQuestion(questionId: question.id);
       _sessionGuard.onQuestionShown();
       await _restoreLocalDraftBundle(sessionId);
+      _resetQuestionInteractionMetrics();
       _quizStartedAt = DateTime.now();
       _firstAnswerAt = null;
       _lastSubmitClickedAt = null;
@@ -448,9 +456,7 @@ class _QuizPageState extends State<QuizPage> {
         _isQuestionBankEmpty = false;
       });
 
-      unawaited(
-        _agenticCubit?.startSession(subject: 'math', topic: 'derivative'),
-      );
+      unawaited(_startAgenticSessionBridge());
 
       return true;
     } catch (e) {
@@ -516,6 +522,7 @@ class _QuizPageState extends State<QuizPage> {
       _selectedOptionId = null;
       _trueFalseAnswers = {};
       _answerController.clear();
+      _resetQuestionInteractionMetrics();
       _signalService.startQuestion(questionId: question.id);
       _sessionGuard.onQuestionShown();
       unawaited(_persistPendingSession(status: 'in_progress'));
@@ -801,9 +808,14 @@ class _QuizPageState extends State<QuizPage> {
     final currentLength = value.length;
 
     if (currentLength > _previousLength) {
-      _signalService.recordTypingDelta(currentLength - _previousLength);
+      final typedDelta = currentLength - _previousLength;
+      _questionTypedChars += typedDelta;
+      _questionInteractionCount += 1;
+      _signalService.recordTypingDelta(typedDelta);
     } else if (currentLength < _previousLength) {
       final correctionCount = _previousLength - currentLength;
+      _questionCorrectionCount += correctionCount;
+      _questionInteractionCount += 1;
       _signalService.recordCorrectionCount(correctionCount);
     }
 
@@ -840,12 +852,14 @@ class _QuizPageState extends State<QuizPage> {
       _showHint = false;
     });
 
+    _resetQuestionInteractionMetrics();
     _signalService.startQuestion(questionId: question.id);
     unawaited(_persistPendingSession(status: 'in_progress'));
   }
 
   void _onTrueFalseChanged(String statementId, bool value) {
     HapticFeedback.lightImpact();
+    _questionInteractionCount += 1;
     _signalService.registerInteraction();
     setState(() {
       _trueFalseAnswers = <String, bool>{
@@ -905,6 +919,212 @@ class _QuizPageState extends State<QuizPage> {
     _draftPersistDebounce = Timer(const Duration(milliseconds: 350), () {
       unawaited(_persistPendingSession(status: 'in_progress'));
     });
+  }
+
+  Future<void> _startAgenticSessionBridge() async {
+    final cubit = _agenticCubit;
+    final question = _activeQuestion;
+    if (cubit == null || question == null) {
+      return;
+    }
+
+    final resolvedTopic =
+        question.topicName?.trim().isNotEmpty == true
+            ? question.topicName!.trim()
+            : question.topicCode?.trim().isNotEmpty == true
+            ? question.topicCode!.trim()
+            : 'quiz_session';
+
+    await cubit.startSession(
+      subject: question.subject.trim().isEmpty ? 'math' : question.subject,
+      topic: resolvedTopic,
+    );
+  }
+
+  void _queuePendingAgenticSubmission({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) {
+    _pendingAgenticQuestion = question;
+    _pendingAgenticAnswer = answer;
+  }
+
+  void _clearPendingAgenticSubmission() {
+    _pendingAgenticQuestion = null;
+    _pendingAgenticAnswer = null;
+  }
+
+  void _flushPendingAgenticSubmission() {
+    final question = _pendingAgenticQuestion;
+    final answer = _pendingAgenticAnswer;
+    _clearPendingAgenticSubmission();
+
+    if (question == null || answer == null) {
+      return;
+    }
+
+    unawaited(_runAgenticPipelineForAnswer(question: question, answer: answer));
+  }
+
+  Future<void> _runAgenticPipelineForAnswer({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) async {
+    final cubit = _agenticCubit;
+    if (cubit == null) {
+      return;
+    }
+
+    final behaviorSignals = _buildAgenticBehaviorSignals();
+    final responsePayload = _buildAgenticResponsePayload(
+      question: question,
+      answer: answer,
+    );
+
+    cubit.sendBehaviorSignal(
+      typingSpeed: (behaviorSignals['typing_speed'] as num?)?.toDouble() ?? 0.0,
+      idleTime: (behaviorSignals['idle_time'] as num?)?.toDouble() ?? 0.0,
+      correctionRate:
+          (behaviorSignals['correction_rate'] as num?)?.toDouble() ?? 0.0,
+      responseTime: (behaviorSignals['response_time'] as num?)?.toDouble(),
+    );
+
+    await cubit.runFullStep(
+      questionId: question.id,
+      response: responsePayload,
+      behaviorSignals: behaviorSignals,
+    );
+  }
+
+  Map<String, dynamic> _buildAgenticResponsePayload({
+    required QuizQuestionTemplate question,
+    required QuizQuestionUserAnswer answer,
+  }) {
+    final evaluation = ThptMath2026Scoring.evaluate(
+      question: question,
+      answer: answer,
+    );
+
+    return <String, dynamic>{
+      'question_id': question.id,
+      'question_type': question.questionType.storageValue,
+      'question_text': question.content,
+      'user_answer': answer.toJson(),
+      'answer_text': _serializeAnswerForSubmission(answer),
+      'question_index': _currentQuestionIndex,
+      'total_questions': _displayTotalQuestions,
+      'part_no': question.partNo,
+      'difficulty_level': question.difficultyLevel,
+      'study_mode': _studyMode.name,
+      'local_evaluation': evaluation.toJson(),
+      if (question.topicCode?.trim().isNotEmpty == true)
+        'topic_code': question.topicCode,
+      if (question.topicName?.trim().isNotEmpty == true)
+        'topic_name': question.topicName,
+      if (question.metadata.isNotEmpty) 'metadata': question.metadata,
+    };
+  }
+
+  Map<String, dynamic> _buildAgenticBehaviorSignals() {
+    final elapsedMs = _elapsedMsSince(_questionShownAt);
+    final responseTimeSec = elapsedMs == null ? null : elapsedMs / 1000;
+    final typingSpeed =
+        responseTimeSec == null || responseTimeSec <= 0
+            ? 0.0
+            : _questionTypedChars / responseTimeSec;
+    final correctionRate = _questionTypedChars <= 0
+        ? 0.0
+        : (_questionCorrectionCount / _questionTypedChars).clamp(0.0, 1.0);
+    final idleTime = _signalService.hasHighIdleTime()
+        ? math.max(9.0, (responseTimeSec ?? 0) * 0.35)
+        : 0.0;
+
+    return <String, dynamic>{
+      'typing_speed': typingSpeed,
+      'idle_time': idleTime,
+      'correction_rate': correctionRate,
+      'response_time': responseTimeSec,
+      'interaction_count': _questionInteractionCount,
+      'study_mode': _studyMode.name,
+    };
+  }
+
+  Future<void> _showRecoverySuggestionSheet({
+    required String message,
+    int? stepCount,
+  }) async {
+    if (!mounted || _isRecoveryPromptVisible) {
+      return;
+    }
+    if (stepCount != null && _lastRecoveryPromptStep == stepCount) {
+      return;
+    }
+
+    _lastRecoveryPromptStep = stepCount;
+    _isRecoveryPromptVisible = true;
+
+    final shouldOpenRecovery = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      showDragHandle: true,
+      builder: (sheetContext) {
+        final theme = Theme.of(sheetContext);
+        return SafeArea(
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 24),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.t(
+                    vi: 'AI đề xuất giảm tải tạm thời',
+                    en: 'AI suggests a lighter recovery step',
+                  ),
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    height: 1.45,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(false),
+                        child: Text(context.t(vi: 'Tiếp tục làm bài', en: 'Stay here')),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: FilledButton(
+                        onPressed: () => Navigator.of(sheetContext).pop(true),
+                        child: Text(
+                          context.t(vi: 'Mở recovery mode', en: 'Open recovery'),
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        );
+      },
+    );
+
+    _isRecoveryPromptVisible = false;
+    if (shouldOpenRecovery == true && mounted) {
+      final reason = Uri.encodeQueryComponent(message);
+      context.go('${AppRoutes.recovery}?reason=$reason');
+    }
   }
 
   Future<void> _loadClientFlags() async {
@@ -1132,6 +1352,14 @@ class _QuizPageState extends State<QuizPage> {
     _previousLength = shortAnswer.length;
   }
 
+  void _resetQuestionInteractionMetrics() {
+    _questionShownAt = DateTime.now();
+    _questionTypedChars = 0;
+    _questionCorrectionCount = 0;
+    _questionInteractionCount = 0;
+    _previousLength = _answerController.text.length;
+  }
+
   void _toggleHint() {
     _signalService.registerInteraction();
     setState(() {
@@ -1285,6 +1513,11 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
+    final activeQuestion = _activeQuestion;
+    if (activeQuestion == null) {
+      return;
+    }
+
     _lastSubmitClickedAt = DateTime.now();
     _trackQuizEvent(
       'submit_clicked',
@@ -1307,24 +1540,27 @@ class _QuizPageState extends State<QuizPage> {
 
     HapticFeedback.mediumImpact();
     _signalService.markSubmitted();
-    _syncDraftForQuestion(_activeQuestion!.id, userAnswer);
+    _syncDraftForQuestion(activeQuestion.id, userAnswer);
     unawaited(_persistPendingSession(status: 'in_progress'));
 
     if (_isApiDrivenMode) {
-      if (_apiQuestionIndex >= _submissionTargetCount - 1) {
-        _showInputWarning(
-          context,
-          context.t(
-            vi: 'Đã lưu câu cuối. Nhấn "Nộp toàn bộ bài" để AI chấm cả bài.',
-            en: 'Final answer saved. Tap "Submit all" for AI grading.',
-          ),
-        );
-        return;
+      _queuePendingAgenticSubmission(
+        question: activeQuestion,
+        answer: userAnswer,
+      );
+      final submitFuture = _quizCubit?.submitTypedAnswer(
+        question: activeQuestion,
+        userAnswer: userAnswer,
+      );
+      if (submitFuture != null) {
+        unawaited(submitFuture);
       }
-
-      unawaited(_loadNextApiQuestion());
       return;
     }
+
+    unawaited(
+      _runAgenticPipelineForAnswer(question: activeQuestion, answer: userAnswer),
+    );
 
     final currentIndex = _currentQuestionIndex;
 
@@ -1395,10 +1631,19 @@ class _QuizPageState extends State<QuizPage> {
   void _onAgenticStateChanged(AgenticSessionState state) {
     if (!mounted) return;
     if (state.isRecovery) {
-      final reason = Uri.encodeQueryComponent(
-        'Hệ thống AI phát hiện bạn cần nghỉ ngơi.',
+      final message =
+          state.currentContent?.trim().isNotEmpty == true
+              ? state.currentContent!.trim()
+              : context.t(
+                  vi: 'Hệ thống AI phát hiện bạn đang cần một nhịp nghỉ ngắn để giảm tải nhận thức.',
+                  en: 'The AI detected that a short recovery step may help lower your cognitive load.',
+                );
+      unawaited(
+        _showRecoverySuggestionSheet(
+          message: message,
+          stepCount: state.stepCount,
+        ),
       );
-      context.go('${AppRoutes.recovery}?reason=$reason');
     }
   }
 
@@ -2001,6 +2246,7 @@ class _QuizPageState extends State<QuizPage> {
                     child: BlocConsumer<QuizCubit, QuizCubitState>(
                       listener: (context, state) {
                         if (state is QuizSubmitFailureState) {
+                          _clearPendingAgenticSubmission();
                           _trackQuizEvent(
                             'submit_failed',
                             data: <String, Object?>{
@@ -2049,6 +2295,7 @@ class _QuizPageState extends State<QuizPage> {
                         }
 
                         if (state is QuizSubmitSuccessState) {
+                          _flushPendingAgenticSubmission();
                           _trackQuizEvent(
                             'submit_succeeded',
                             data: <String, Object?>{
@@ -2143,6 +2390,7 @@ class _QuizPageState extends State<QuizPage> {
                         }
 
                         if (state is QuizBatchSubmitSuccessState) {
+                          _clearPendingAgenticSubmission();
                           _trackQuizEvent(
                             'submit_succeeded',
                             data: <String, Object?>{
@@ -2189,16 +2437,35 @@ class _QuizPageState extends State<QuizPage> {
                         }
 
                         if (state is QuizRecoveryTriggeredState) {
+                          _flushPendingAgenticSubmission();
                           setState(() {
                             _isNavigatingToDiagnosis = false;
                           });
 
-                          context.go(
-                            '${AppRoutes.recovery}?reason=${Uri.encodeQueryComponent(state.reason)}',
+                          final recoveryMessage = switch (state.reason) {
+                            'idle_time_high' => context.t(
+                              vi: 'AI thấy bạn đang chững nhịp khá lâu, nên gợi ý chuyển sang một bước recovery ngắn trước khi tiếp tục.',
+                              en: 'The AI noticed a long idle period and suggests a short recovery step before continuing.',
+                            ),
+                            'three_wrong_answers' => context.t(
+                              vi: 'AI thấy bạn vừa mắc lỗi liên tiếp, nên gợi ý giảm độ khó hoặc nghỉ ngắn để lấy lại nhịp.',
+                              en: 'The AI detected a wrong-answer streak and suggests a lighter step or a short break.',
+                            ),
+                            _ => context.t(
+                              vi: 'AI đề xuất chuyển sang recovery mode để ổn định lại nhịp học.',
+                              en: 'The AI suggests switching to recovery mode to stabilize the learning rhythm.',
+                            ),
+                          };
+
+                          unawaited(
+                            _showRecoverySuggestionSheet(
+                              message: recoveryMessage,
+                            ),
                           );
                         }
 
                         if (state is QuizRateLimitedState) {
+                          _clearPendingAgenticSubmission();
                           setState(() {
                             _isNavigatingToDiagnosis = false;
                             _submitErrorMessage = null;
@@ -2220,6 +2487,7 @@ class _QuizPageState extends State<QuizPage> {
                         }
 
                         if (state is QuizNoLivesState) {
+                          _clearPendingAgenticSubmission();
                           final nextRegenInSeconds =
                               state.nextRegenInSeconds ??
                               _nextRegenInSecondsOverride;
@@ -2298,6 +2566,7 @@ class _QuizPageState extends State<QuizPage> {
                             .where(_questionHasAnswer)
                             .length;
                         final showSubmitAllButton =
+                            !_isApiDrivenMode &&
                             answeredCount >= submissionTargetCount &&
                             _hasSavedAnswersForSubmissionTarget;
                         final totalQuizSeconds = _quizDuration.inSeconds > 0
@@ -2686,6 +2955,7 @@ class _QuizPageState extends State<QuizPage> {
                                       selectedOptionId: _selectedOptionId,
                                       onOptionSelected: (optionId) {
                                         HapticFeedback.selectionClick();
+                                        _questionInteractionCount += 1;
                                         _signalService.registerInteraction();
                                         setState(() {
                                           _selectedOptionId = optionId;
@@ -2917,16 +3187,24 @@ class _QuizPageState extends State<QuizPage> {
                                           en: 'No lives - waiting to regen',
                                         )
                                       : context.t(
-                                          vi:
-                                              currentNumber <
-                                                  submissionTargetCount
-                                              ? 'Lưu & sang câu ${currentNumber + 1}'
-                                              : 'Lưu câu $currentNumber',
-                                          en:
-                                              currentNumber <
-                                                  submissionTargetCount
-                                              ? 'Save & go to Q${currentNumber + 1}'
-                                              : 'Save Q$currentNumber',
+                                          vi: _isApiDrivenMode
+                                              ? (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Nộp câu & sang câu ${currentNumber + 1}'
+                                                    : 'Nộp câu cuối & xem chẩn đoán')
+                                              : (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Lưu & sang câu ${currentNumber + 1}'
+                                                    : 'Lưu câu $currentNumber'),
+                                          en: _isApiDrivenMode
+                                              ? (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Submit & go to Q${currentNumber + 1}'
+                                                    : 'Submit final answer')
+                                              : (currentNumber <
+                                                        submissionTargetCount
+                                                    ? 'Save & go to Q${currentNumber + 1}'
+                                                    : 'Save Q$currentNumber'),
                                         ),
                                   onPressed: disableSubmit
                                       ? null
@@ -3262,6 +3540,14 @@ class _AgenticProcessCardState extends State<_AgenticProcessCard>
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              IconButton(
+                tooltip: context.t(
+                  vi: 'Mở dashboard reasoning',
+                  en: 'Open reasoning dashboard',
+                ),
+                onPressed: () => context.push(AppRoutes.devReasoning),
+                icon: const Icon(Icons.open_in_new_rounded, size: 18),
               ),
               IconButton(
                 tooltip: context.t(
@@ -3612,6 +3898,11 @@ class _AgenticProcessCompactCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
+              ),
+              TextButton.icon(
+                onPressed: () => context.push(AppRoutes.devReasoning),
+                icon: const Icon(Icons.analytics_outlined, size: 16),
+                label: Text(context.t(vi: 'Chi tiết', en: 'Inspect')),
               ),
               TextButton.icon(
                 onPressed: onEnableAdvanced,

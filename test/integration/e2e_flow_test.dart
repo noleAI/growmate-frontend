@@ -1,30 +1,36 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:integration_test/integration_test.dart';
 import 'package:growmate_frontend/app/router/app_router.dart';
+import 'package:growmate_frontend/app/router/app_routes.dart';
+import 'package:growmate_frontend/core/network/mock_api_service.dart';
 import 'package:growmate_frontend/data/repositories/profile_repository.dart';
 import 'package:growmate_frontend/features/auth/data/repositories/auth_repository.dart';
 import 'package:growmate_frontend/features/auth/data/repositories/data_consent_repository.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_bloc.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_event.dart';
 import 'package:growmate_frontend/features/auth/presentation/bloc/auth_state.dart';
-import 'package:growmate_frontend/core/network/mock_api_service.dart';
 import 'package:growmate_frontend/features/diagnosis/data/repositories/diagnosis_repository.dart';
 import 'package:growmate_frontend/features/intervention/data/repositories/intervention_repository.dart';
+import 'package:growmate_frontend/features/leaderboard/data/repositories/mock_leaderboard_repository.dart';
+import 'package:growmate_frontend/features/leaderboard/presentation/cubit/leaderboard_cubit.dart';
 import 'package:growmate_frontend/features/notification/data/repositories/notification_repository.dart';
+import 'package:growmate_frontend/features/onboarding/data/repositories/mock_onboarding_repository.dart';
 import 'package:growmate_frontend/features/privacy/data/repositories/privacy_repository.dart';
 import 'package:growmate_frontend/features/quiz/data/repositories/quiz_repository.dart';
+import 'package:growmate_frontend/features/quiz/presentation/cubit/study_mode_cubit.dart';
 import 'package:growmate_frontend/features/quiz/presentation/widgets/quiz_answer_widget_factory.dart';
 import 'package:growmate_frontend/features/session/data/repositories/session_history_repository.dart';
-import 'package:growmate_frontend/features/onboarding/data/repositories/mock_onboarding_repository.dart';
+import 'package:growmate_frontend/shared/widgets/ai_components.dart';
+import 'package:growmate_frontend/shared/widgets/zen_button.dart';
+import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 void main() {
   IntegrationTestWidgetsFlutterBinding.ensureInitialized();
 
   testWidgets(
-    'Quiz -> Result flow handles plan acceptance and navigates to intervention',
+    'Quiz flow reaches diagnosis and intervention with current multi-step UX',
     (tester) async {
       SharedPreferences.setMockInitialValues(<String, Object>{
         'auth_token': 'mock_token_e2e',
@@ -88,8 +94,18 @@ void main() {
       );
 
       await tester.pumpWidget(
-        BlocProvider<AuthBloc>.value(
-          value: authBloc,
+        MultiBlocProvider(
+          providers: [
+            BlocProvider<AuthBloc>.value(value: authBloc),
+            BlocProvider<StudyModeCubit>(
+              create: (_) => StudyModeCubit()..load(),
+            ),
+            BlocProvider<LeaderboardCubit>(
+              create: (_) => LeaderboardCubit(
+                repository: MockLeaderboardRepository(),
+              ),
+            ),
+          ],
           child: MaterialApp.router(
             debugShowCheckedModeBanner: false,
             theme: ThemeData(useMaterial3: true),
@@ -99,102 +115,150 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      for (var attempt = 0; attempt < 20; attempt++) {
-        if (authBloc.state is AuthAuthenticated) {
-          break;
+      Future<void> waitFor(
+        bool Function() predicate, {
+        int attempts = 24,
+        Duration step = const Duration(milliseconds: 250),
+      }) async {
+        for (var attempt = 0; attempt < attempts; attempt++) {
+          if (predicate()) {
+            return;
+          }
+          await tester.pump(step);
         }
-        await tester.pump(const Duration(milliseconds: 250));
       }
-      expect(authBloc.state, isA<AuthAuthenticated>());
 
-      appRouter.router.go('/quiz');
-      await tester.pumpAndSettle();
-
-      for (var attempt = 0; attempt < 24; attempt++) {
-        if (find.byType(QuizAnswerWidgetFactory).evaluate().isNotEmpty) {
-          break;
+      Future<void> answerCurrentQuestion() async {
+        final textFieldFinder = find.byType(TextField);
+        if (textFieldFinder.evaluate().isNotEmpty) {
+          await tester.enterText(textFieldFinder.first, '12x^2 + 4x');
+          return;
         }
-        await tester.pump(const Duration(milliseconds: 250));
-      }
-      expect(find.byType(QuizAnswerWidgetFactory), findsOneWidget);
 
-      final textFieldFinder = find.byType(TextField);
-      if (textFieldFinder.evaluate().isNotEmpty) {
-        await tester.enterText(textFieldFinder.first, '12x^2 + 4x');
-      } else {
         final optionTapTargets = find.descendant(
           of: find.byType(QuizAnswerWidgetFactory),
           matching: find.byWidgetPredicate(
             (widget) => widget is InkWell && widget.onTap != null,
           ),
         );
-
         if (optionTapTargets.evaluate().isNotEmpty) {
-          await tester.tap(optionTapTargets.first, warnIfMissed: false);
-        } else {
-          final trueButton = find.text('Đúng').evaluate().isNotEmpty
-              ? find.text('Đúng')
-              : find.text('True');
-          expect(trueButton, findsWidgets);
-          await tester.tap(trueButton.first, warnIfMissed: false);
+          final tapTargets = optionTapTargets.evaluate().length >= 6
+              ? List<int>.generate(
+                  optionTapTargets.evaluate().length ~/ 2,
+                  (index) => index * 2,
+                )
+              : const <int>[0];
+
+          for (final index in tapTargets) {
+            await tester.ensureVisible(optionTapTargets.at(index));
+            await tester.tap(
+              optionTapTargets.at(index),
+              warnIfMissed: false,
+            );
+            await tester.pump();
+          }
+          return;
         }
+
+        fail('No answer interaction was available for the current question.');
       }
 
-      final submitButtonVi = find.text('Gửi bài');
-      final submitButtonEn = find.text('Submit');
-      final submitButton = submitButtonVi.evaluate().isNotEmpty
-          ? submitButtonVi
-          : submitButtonEn;
-      expect(submitButton, findsOneWidget);
-      await tester.ensureVisible(submitButton);
-      await tester.tap(submitButton, warnIfMissed: false);
-      await tester.pump();
-      await tester.pump(const Duration(seconds: 3));
-      await tester.pump(const Duration(seconds: 2));
+      String currentLocation() => appRouter.router.state.matchedLocation;
 
-      final resultTitleVi = find.text('Phân tích AI hoàn tất');
-      final resultTitleEn = find.text('AI analysis complete');
-      for (var attempt = 0; attempt < 12; attempt++) {
-        if (resultTitleVi.evaluate().isNotEmpty ||
-            resultTitleEn.evaluate().isNotEmpty) {
-          break;
-        }
-        await tester.pump(const Duration(milliseconds: 250));
-      }
-      expect(
-        resultTitleVi.evaluate().isNotEmpty ||
-            resultTitleEn.evaluate().isNotEmpty,
-        isTrue,
+      await waitFor(() => authBloc.state is AuthAuthenticated, attempts: 20);
+      expect(authBloc.state, isA<AuthAuthenticated>());
+
+      appRouter.router.go(AppRoutes.quiz);
+      await tester.pumpAndSettle();
+
+      await waitFor(
+        () => find.byType(QuizAnswerWidgetFactory).evaluate().isNotEmpty,
       );
-      final approveButtonVi = find.text('Áp dụng lộ trình mới');
-      final approveButtonEn = find.text('Apply new roadmap');
-      for (var attempt = 0; attempt < 12; attempt++) {
-        if (approveButtonVi.evaluate().isNotEmpty ||
-            approveButtonEn.evaluate().isNotEmpty) {
+      expect(find.byType(QuizAnswerWidgetFactory), findsOneWidget);
+
+      for (var questionIndex = 0; questionIndex < 24; questionIndex++) {
+        if (currentLocation() == AppRoutes.diagnosis) {
           break;
         }
-        await tester.pump(const Duration(milliseconds: 250));
+
+        await waitFor(
+          () =>
+              find.byType(QuizAnswerWidgetFactory).evaluate().isNotEmpty ||
+              currentLocation() == AppRoutes.diagnosis,
+        );
+        if (currentLocation() == AppRoutes.diagnosis) {
+          break;
+        }
+
+        expect(find.byType(QuizAnswerWidgetFactory), findsOneWidget);
+        await answerCurrentQuestion();
+
+        expect(find.byType(ZenButton), findsWidgets);
+        final primaryButton = find.byType(ZenButton).first;
+        await tester.ensureVisible(primaryButton);
+        await tester.tap(primaryButton, warnIfMissed: false);
+        await tester.pump();
+
+        final submitDialog = find.byType(AlertDialog);
+        if (submitDialog.evaluate().isNotEmpty) {
+          final confirmButtons = find.descendant(
+            of: submitDialog,
+            matching: find.byType(FilledButton),
+          );
+          expect(confirmButtons, findsWidgets);
+          await tester.tap(confirmButtons.first, warnIfMissed: false);
+          await tester.pump();
+        }
+
+        final quizButtons = find.byType(ZenButton);
+        if (currentLocation() == AppRoutes.quiz &&
+            quizButtons.evaluate().length > 1) {
+          final submitAllButton = quizButtons.last;
+          await tester.ensureVisible(submitAllButton);
+          await tester.tap(submitAllButton, warnIfMissed: false);
+          await tester.pump();
+
+          final submitAllDialog = find.byType(AlertDialog);
+          if (submitAllDialog.evaluate().isNotEmpty) {
+            final confirmButtons = find.descendant(
+              of: submitAllDialog,
+              matching: find.byType(FilledButton),
+            );
+            expect(confirmButtons, findsWidgets);
+            await tester.tap(confirmButtons.first, warnIfMissed: false);
+            await tester.pump();
+          }
+        }
+
+        await tester.pump(const Duration(seconds: 2));
+        await tester.pump(const Duration(seconds: 2));
       }
-      final approveButton = approveButtonVi.evaluate().isNotEmpty
-          ? approveButtonVi
-          : approveButtonEn;
-      expect(approveButton, findsOneWidget);
-      await tester.tap(approveButton.first, warnIfMissed: false);
+
+      await waitFor(
+        () => currentLocation() == AppRoutes.diagnosis,
+        attempts: 40,
+      );
+      expect(currentLocation(), AppRoutes.diagnosis);
+
+      await waitFor(
+        () => find.byType(AiResultModal).evaluate().isNotEmpty,
+        attempts: 24,
+      );
+      expect(find.byType(AiResultModal), findsOneWidget);
+
+      final modalButtons = find.descendant(
+        of: find.byType(AiResultModal),
+        matching: find.byType(ZenButton),
+      );
+      expect(modalButtons, findsWidgets);
+      await tester.tap(modalButtons.last, warnIfMissed: false);
       await tester.pump();
-      await tester.pump(const Duration(seconds: 2));
-      await tester.pump(const Duration(seconds: 2));
-      for (var attempt = 0; attempt < 12; attempt++) {
-        if (approveButtonVi.evaluate().isEmpty &&
-            approveButtonEn.evaluate().isEmpty) {
-          break;
-        }
-        await tester.pump(const Duration(milliseconds: 250));
-      }
-      expect(
-        approveButtonVi.evaluate().isEmpty &&
-            approveButtonEn.evaluate().isEmpty,
-        isTrue,
+
+      await waitFor(
+        () => currentLocation() == AppRoutes.intervention,
+        attempts: 40,
       );
+      expect(currentLocation(), AppRoutes.intervention);
     },
   );
 }

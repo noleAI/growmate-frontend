@@ -99,33 +99,38 @@ class _NavItem extends StatelessWidget {
       child: Semantics(
         label: label,
         selected: selected,
-        child: InkWell(
-          borderRadius: BorderRadius.circular(14),
-          onTap: onTap,
-          child: Padding(
-            padding: const EdgeInsets.symmetric(vertical: 4),
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Icon(
-                  icon,
-                  color: selected ? selectedColor : baseColor,
-                  size: 18,
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  style: TextStyle(
+          child: InkWell(
+            borderRadius: BorderRadius.circular(14),
+            onTap: onTap,
+            child: Padding(
+              padding: const EdgeInsets.symmetric(vertical: 2),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    icon,
                     color: selected ? selectedColor : baseColor,
-                    fontSize: 12,
-                    letterSpacing: 0,
-                    fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                    size: 17,
                   ),
-                  textAlign: TextAlign.center,
-                ),
-              ],
+                  const SizedBox(height: 2),
+                  Flexible(
+                    child: Text(
+                      label,
+                      style: TextStyle(
+                        color: selected ? selectedColor : baseColor,
+                        fontSize: 11,
+                        letterSpacing: 0,
+                        fontWeight:
+                            selected ? FontWeight.w700 : FontWeight.w600,
+                      ),
+                      textAlign: TextAlign.center,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ),
+                ],
+              ),
             ),
-          ),
         ),
       ),
     );

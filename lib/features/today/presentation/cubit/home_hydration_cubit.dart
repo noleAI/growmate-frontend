@@ -46,8 +46,11 @@ class HomeHydrationCubit extends Cubit<HomeHydrationState> {
 
     final hasRemoteConfigured = historyResult.hasRemoteSourceConfigured;
     final hasRemoteConfirmation = historyResult.isRemoteConfirmed;
+    final history = historyResult.entries;
 
-    if (hasRemoteConfigured && !historyResult.remoteFetchSucceeded) {
+    if (hasRemoteConfigured &&
+        !historyResult.remoteFetchSucceeded &&
+        history.isEmpty) {
       emit(
         HomeHydrationState(
           status: HomeHydrationStatus.error,
@@ -65,7 +68,6 @@ class HomeHydrationCubit extends Cubit<HomeHydrationState> {
       return;
     }
 
-    final history = historyResult.entries;
     final latestSession = history.isEmpty ? null : history.first;
     final confidence = diagnosisSnapshot?.confidenceScore.clamp(0.0, 1.0) ?? 0.0;
     final status = latestSession == null
@@ -80,6 +82,9 @@ class HomeHydrationCubit extends Cubit<HomeHydrationState> {
         emotion: _resolveEmotion(latestSession),
         pendingSession: pendingSession,
         diagnosisSnapshot: diagnosisSnapshot,
+        errorMessage: hasRemoteConfigured && !historyResult.remoteFetchSucceeded
+            ? 'Server history is temporarily unavailable. Showing your latest local snapshot.'
+            : null,
         hasRemoteHistoryConfigured: hasRemoteConfigured,
         hasRemoteHistoryConfirmation: hasRemoteConfirmation,
       ),

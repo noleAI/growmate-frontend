@@ -197,7 +197,9 @@ class RealChatRepository implements ChatRepository {
         if (role == null) continue;
 
         final content = map['content']?.toString().trim() ?? '';
-        if (content.isEmpty) continue;
+        final attachment = _parseImageAttachment(map['attachment']);
+        final hasImage = attachment?.url != null && attachment!.url!.isNotEmpty;
+        if (content.isEmpty && !hasImage) continue;
 
         final createdAt = DateTime.tryParse(
           map['created_at']?.toString() ?? '',
@@ -209,6 +211,9 @@ class RealChatRepository implements ChatRepository {
             role: role,
             content: content,
             timestamp: (createdAt ?? DateTime.now()).toLocal(),
+            imageUrl: attachment?.url,
+            imageMimeType: attachment?.mimeType,
+            imageName: attachment?.fileName,
           ),
         );
       }
@@ -312,6 +317,25 @@ class RealChatRepository implements ChatRepository {
     return null;
   }
 
+  _ParsedImageAttachment? _parseImageAttachment(Object? raw) {
+    if (raw is! Map) {
+      return null;
+    }
+
+    final attachment = Map<String, dynamic>.from(raw);
+    final type = attachment['type']?.toString().trim().toLowerCase();
+    if (type != 'image') {
+      return null;
+    }
+
+    final url = attachment['url']?.toString().trim();
+    return _ParsedImageAttachment(
+      url: (url == null || url.isEmpty) ? null : url,
+      mimeType: attachment['mime_type']?.toString(),
+      fileName: attachment['file_name']?.toString(),
+    );
+  }
+
   List<Map<String, dynamic>> _toHistoryPayload(List<ChatMessage> history) {
     return history
         .map(
@@ -322,4 +346,16 @@ class RealChatRepository implements ChatRepository {
         )
         .toList();
   }
+}
+
+class _ParsedImageAttachment {
+  const _ParsedImageAttachment({
+    required this.url,
+    required this.mimeType,
+    required this.fileName,
+  });
+
+  final String? url;
+  final String? mimeType;
+  final String? fileName;
 }
