@@ -401,6 +401,11 @@ class _GrowMateAppState extends State<GrowMateApp> {
       return;
     }
 
+    final hasToken = await _hasAccessToken();
+    if (!hasToken) {
+      return;
+    }
+
     try {
       await repository
           .getConfig('feature_flags')
@@ -410,6 +415,11 @@ class _GrowMateAppState extends State<GrowMateApp> {
     } catch (e) {
       debugPrint('⚠️ Không tải được remote config: $e');
     }
+  }
+
+  Future<bool> _hasAccessToken() async {
+    final token = await GlobalTokenStorage.instance.getAccessToken();
+    return token != null && token.trim().isNotEmpty;
   }
 
   @override
@@ -509,6 +519,12 @@ class _GrowMateAppState extends State<GrowMateApp> {
                   String? classificationLevel,
                   Map<String, dynamic>? onboardingResults,
                 }) async {
+                  final token =
+                      await GlobalTokenStorage.instance.getAccessToken();
+                  if (token == null || token.trim().isEmpty) {
+                    throw StateError('Missing access token for REST session creation');
+                  }
+
                   final response = await _agenticApiService!.createSession(
                     subject: subject,
                     topic: topic,
