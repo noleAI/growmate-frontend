@@ -820,7 +820,7 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   void _selectQuestion(QuizQuestionTemplate question) {
-    if (_activeQuestion?.id == question.id) {
+    if (identical(_activeQuestion, question)) {
       return;
     }
 
@@ -830,6 +830,12 @@ class _QuizPageState extends State<QuizPage> {
     setState(() {
       _persistDraftForActiveQuestion();
       _activeQuestion = question;
+      if (_isApiDrivenMode) {
+        final selectedIndex = _questionPool.indexOf(question);
+        if (selectedIndex >= 0) {
+          _apiQuestionIndex = selectedIndex;
+        }
+      }
       _restoreDraftForActiveQuestion();
       _showHint = false;
     });
@@ -1320,9 +1326,7 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
-    final currentIndex = _questionPool.indexWhere(
-      (item) => item.id == _activeQuestion!.id,
-    );
+    final currentIndex = _currentQuestionIndex;
 
     if (currentIndex >= 0 && currentIndex < _submissionTargetCount - 1) {
       _moveToAdjacentQuestion(1);
@@ -1348,6 +1352,14 @@ class _QuizPageState extends State<QuizPage> {
       case ShortAnswerUserAnswer(:final answerText):
         _shortAnswerDraftByQuestion[questionId] = answerText;
     }
+  }
+
+  String _serializeAnswerForSubmission(QuizQuestionUserAnswer answer) {
+    return switch (answer) {
+      MultipleChoiceUserAnswer(:final selectedOptionId) => selectedOptionId,
+      TrueFalseClusterUserAnswer(:final subAnswers) => jsonEncode(subAnswers),
+      ShortAnswerUserAnswer(:final answerText) => answerText,
+    };
   }
 
   QuizQuestionUserAnswer? _buildAnswerFromDraft(QuizQuestionTemplate question) {
@@ -1420,14 +1432,31 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   int get _activeQuestionIndexForPending {
-    if (_isApiDrivenMode) {
-      return _apiQuestionIndex;
+    return _currentQuestionIndex;
+  }
+
+  int get _currentQuestionIndex {
+    if (_questionPool.isEmpty) {
+      return 0;
     }
+
+    if (_isApiDrivenMode) {
+      return _apiQuestionIndex.clamp(0, _questionPool.length - 1).toInt();
+    }
+
     if (_activeQuestion == null) {
       return 0;
     }
-    final index = _questionPool.indexWhere((q) => q.id == _activeQuestion!.id);
-    return index < 0 ? 0 : index;
+
+    final indexByIdentity = _questionPool.indexOf(_activeQuestion!);
+    if (indexByIdentity >= 0) {
+      return indexByIdentity;
+    }
+
+    final indexById = _questionPool.indexWhere(
+      (q) => q.id == _activeQuestion!.id,
+    );
+    return indexById < 0 ? 0 : indexById;
   }
 
   Future<void> _persistPendingSession({required String status}) async {
@@ -1554,7 +1583,7 @@ class _QuizPageState extends State<QuizPage> {
 
       answerEntries.add(<String, dynamic>{
         'question_id': question.id,
-        'answer': jsonEncode(answer.toJson()),
+        'answer': _serializeAnswerForSubmission(answer),
       });
     }
 
@@ -1670,9 +1699,7 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
-    final currentIndex = _questionPool.indexWhere(
-      (item) => item.id == _activeQuestion!.id,
-    );
+    final currentIndex = _currentQuestionIndex;
     if (currentIndex < 0) {
       return;
     }
@@ -1744,7 +1771,7 @@ class _QuizPageState extends State<QuizPage> {
                     ),
                     itemBuilder: (itemContext, index) {
                       final question = _questionPool[index];
-                      final isSelected = question.id == _activeQuestion!.id;
+                      final isSelected = index == _currentQuestionIndex;
                       final isAnswered = _questionHasAnswer(question);
 
                       final backgroundColor = isSelected
@@ -2257,12 +2284,12 @@ class _QuizPageState extends State<QuizPage> {
                         final theme = Theme.of(context);
                         final formulaText = _activeQuestion!.metadata['formula']
                             ?.toString();
-                        final currentIndex = _questionPool.indexWhere(
-                          (item) => item.id == _activeQuestion!.id,
-                        );
-                        final currentNumber = currentIndex >= 0
-                            ? currentIndex + 1
-                            : 1;
+                        final currentIndex = _currentQuestionIndex;
+                        final currentNumber = _displayTotalQuestions <= 0
+                            ? 1
+                            : (currentIndex + 1)
+                                  .clamp(1, _displayTotalQuestions)
+                                  .toInt();
                         final questionText = _activeQuestion!.content.trim();
                         final isLongQuestion = questionText.runes.length >= 140;
                         final submissionTargetCount = _submissionTargetCount;
@@ -2794,66 +2821,6 @@ class _QuizPageState extends State<QuizPage> {
                                     },
                                   ),
                                 ],
-                                if (_agenticCubit != null) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  RepaintBoundary(
-                                    child:
-                                        BlocBuilder<
-                                          AgenticSessionCubit,
-                                          AgenticSessionState
-                                        >(
-                                          bloc: _agenticCubit,
-                                          buildWhen: (previous, current) {
-                                            return previous.phase !=
-                                                    current.phase ||
-                                                previous.stepCount !=
-                                                    current.stepCount ||
-                                                previous.currentContent !=
-                                                    current.currentContent ||
-                                                previous.currentAction !=
-                                                    current.currentAction ||
-                                                previous.reasoningTrace !=
-                                                    current.reasoningTrace ||
-                                                previous.reasoningConfidence !=
-                                                    current
-                                                        .reasoningConfidence ||
-                                                previous.beliefEntropy !=
-                                                    current.beliefEntropy ||
-                                                previous.academicState !=
-                                                    current.academicState ||
-                                                previous.empathyState !=
-                                                    current.empathyState ||
-                                                previous.strategyState !=
-                                                    current.strategyState;
-                                          },
-                                          builder: (context, agenticState) {
-                                            return _isAdvancedAgenticTimelineEnabled
-                                                ? _AgenticProcessCard(
-                                                    state: agenticState,
-                                                    onDisableAdvanced: () {
-                                                      unawaited(
-                                                        _setAdvancedTimelineEnabled(
-                                                          false,
-                                                        ),
-                                                      );
-                                                    },
-                                                  )
-                                                : _AgenticProcessCompactCard(
-                                                    state: agenticState,
-                                                    onEnableAdvanced: () {
-                                                      unawaited(
-                                                        _setAdvancedTimelineEnabled(
-                                                          true,
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
-                                          },
-                                        ),
-                                  ),
-                                ],
                                 if (_isTimerExpired &&
                                     _studyMode == StudyMode.examPrep) ...[
                                   const SizedBox(
@@ -2983,6 +2950,66 @@ class _QuizPageState extends State<QuizPage> {
                                     onPressed: disableSubmit
                                         ? null
                                         : _submitEntireQuiz,
+                                  ),
+                                ],
+                                if (_agenticCubit != null) ...[
+                                  const SizedBox(
+                                    height: GrowMateLayout.space12,
+                                  ),
+                                  RepaintBoundary(
+                                    child:
+                                        BlocBuilder<
+                                          AgenticSessionCubit,
+                                          AgenticSessionState
+                                        >(
+                                          bloc: _agenticCubit,
+                                          buildWhen: (previous, current) {
+                                            return previous.phase !=
+                                                    current.phase ||
+                                                previous.stepCount !=
+                                                    current.stepCount ||
+                                                previous.currentContent !=
+                                                    current.currentContent ||
+                                                previous.currentAction !=
+                                                    current.currentAction ||
+                                                previous.reasoningTrace !=
+                                                    current.reasoningTrace ||
+                                                previous.reasoningConfidence !=
+                                                    current
+                                                        .reasoningConfidence ||
+                                                previous.beliefEntropy !=
+                                                    current.beliefEntropy ||
+                                                previous.academicState !=
+                                                    current.academicState ||
+                                                previous.empathyState !=
+                                                    current.empathyState ||
+                                                previous.strategyState !=
+                                                    current.strategyState;
+                                          },
+                                          builder: (context, agenticState) {
+                                            return _isAdvancedAgenticTimelineEnabled
+                                                ? _AgenticProcessCard(
+                                                    state: agenticState,
+                                                    onDisableAdvanced: () {
+                                                      unawaited(
+                                                        _setAdvancedTimelineEnabled(
+                                                          false,
+                                                        ),
+                                                      );
+                                                    },
+                                                  )
+                                                : _AgenticProcessCompactCard(
+                                                    state: agenticState,
+                                                    onEnableAdvanced: () {
+                                                      unawaited(
+                                                        _setAdvancedTimelineEnabled(
+                                                          true,
+                                                        ),
+                                                      );
+                                                    },
+                                                  );
+                                          },
+                                        ),
                                   ),
                                 ],
                                 const SizedBox(

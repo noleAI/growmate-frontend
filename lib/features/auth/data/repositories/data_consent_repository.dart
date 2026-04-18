@@ -19,6 +19,18 @@ class DataConsentRepository {
 
   final Set<String> _migrationCache = <String>{};
 
+  String? _normalizeUserKey(String? userKey) {
+    if (userKey == null) {
+      return null;
+    }
+
+    final normalized = userKey.trim().toLowerCase();
+    if (normalized.isEmpty) {
+      return null;
+    }
+    return normalized;
+  }
+
   String _consentKey(String? userKey) => userKey != null && userKey.isNotEmpty
       ? '${_consentAcceptedKey}_$userKey'
       : _consentAcceptedKey;
@@ -33,8 +45,8 @@ class DataConsentRepository {
   Future<void> migrateLegacyConsentToUserScope({
     required String userKey,
   }) async {
-    final normalizedUserKey = userKey.trim();
-    if (normalizedUserKey.isEmpty) {
+    final normalizedUserKey = _normalizeUserKey(userKey);
+    if (normalizedUserKey == null) {
       return;
     }
 
@@ -86,27 +98,61 @@ class DataConsentRepository {
 
   Future<bool> isAccepted({String? userKey}) async {
     final prefs = await SharedPreferences.getInstance();
-    return prefs.getBool(_consentKey(userKey)) == true;
+    final normalizedUserKey = _normalizeUserKey(userKey);
+
+    final accepted = prefs.getBool(_consentKey(normalizedUserKey)) == true;
+    if (accepted) {
+      return true;
+    }
+
+    if (normalizedUserKey == null) {
+      return false;
+    }
+
+    // Self-heal legacy global consent for the same user scope.
+    final legacyAccepted = prefs.getBool(_consentAcceptedKey) == true;
+    final legacyMigratedToUser = prefs.getString(_legacyMigratedToUserKey);
+    final canMigrateLegacy =
+        legacyAccepted &&
+        (legacyMigratedToUser == null ||
+            legacyMigratedToUser == normalizedUserKey);
+
+    if (!canMigrateLegacy) {
+      return false;
+    }
+
+    await prefs.setBool(_consentKey(normalizedUserKey), true);
+
+    final legacyAcceptedAt = prefs.getString(_consentAcceptedAtKey);
+    if (legacyAcceptedAt != null && legacyAcceptedAt.isNotEmpty) {
+      await prefs.setString(_consentAtKey(normalizedUserKey), legacyAcceptedAt);
+    }
+
+    await prefs.setString(_legacyMigratedToUserKey, normalizedUserKey);
+    await prefs.setBool(_migrationDoneKey(normalizedUserKey), true);
+    _migrationCache.add(normalizedUserKey);
+    return true;
   }
 
   Future<void> saveConsent({required bool accepted, String? userKey}) async {
     final prefs = await SharedPreferences.getInstance();
-    await prefs.setBool(_consentKey(userKey), accepted);
+    final normalizedUserKey = _normalizeUserKey(userKey);
+    await prefs.setBool(_consentKey(normalizedUserKey), accepted);
 
     if (accepted) {
       await prefs.setString(
-        _consentAtKey(userKey),
+        _consentAtKey(normalizedUserKey),
         DateTime.now().toUtc().toIso8601String(),
       );
       return;
     }
 
-    await prefs.remove(_consentAtKey(userKey));
+    await prefs.remove(_consentAtKey(normalizedUserKey));
   }
 
   Future<DateTime?> acceptedAt({String? userKey}) async {
     final prefs = await SharedPreferences.getInstance();
-    final raw = prefs.getString(_consentAtKey(userKey));
+    final raw = prefs.getString(_consentAtKey(_normalizeUserKey(userKey)));
     if (raw == null || raw.isEmpty) {
       return null;
     }

@@ -437,7 +437,26 @@ class RealApiService implements ApiService {
   }
 
   bool _isBatchSubmitEndpointNotFound(AppException error) {
-    return error.statusCode == 404 || error.code == 'NOT_FOUND';
+    final statusCode = error.statusCode;
+    final code = error.code.toUpperCase();
+    final message = error.message.toLowerCase();
+
+    if (statusCode == 404 || statusCode == 405 || statusCode == 501) {
+      return true;
+    }
+
+    if (code == 'NOT_FOUND' || code == 'METHOD_NOT_ALLOWED') {
+      return true;
+    }
+
+    if ((statusCode == 400 || statusCode == 422) &&
+        (message.contains('submit-batch') ||
+            message.contains('batch endpoint') ||
+            message.contains('not implemented'))) {
+      return true;
+    }
+
+    return false;
   }
 
   Future<Map<String, dynamic>> _submitBatchAnswersSequentially({
