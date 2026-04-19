@@ -1,5 +1,6 @@
-﻿// Leaderboard entry model.
 import 'package:characters/characters.dart';
+
+import '../../../../shared/utils/backend_text.dart';
 
 class LeaderboardEntry {
   const LeaderboardEntry({
@@ -27,17 +28,20 @@ class LeaderboardEntry {
   final int longestStreak;
 
   String get safeDisplayName {
-    final trimmed = displayName.trim();
+    final trimmed = repairAndCollapseText(displayName);
     if (trimmed.isNotEmpty) {
       return trimmed;
     }
 
     final fallbackFromId = userId.trim();
     if (fallbackFromId.isNotEmpty) {
-      return 'NgÆ°á»i chÆ¡i ${fallbackFromId.length > 6 ? fallbackFromId.substring(0, 6) : fallbackFromId}';
+      final shortId = fallbackFromId.length > 6
+          ? fallbackFromId.substring(0, 6)
+          : fallbackFromId;
+      return 'Người chơi $shortId';
     }
 
-    return rank > 0 ? 'NgÆ°á»i chÆ¡i #$rank' : 'NgÆ°á»i chÆ¡i';
+    return rank > 0 ? 'Người chơi #$rank' : 'Người chơi';
   }
 
   String get shortDisplayName {

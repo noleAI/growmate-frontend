@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/leaderboard_entry.dart';
 
-/// Một row trong bảng xếp hạng.
 class LeaderboardCard extends StatelessWidget {
   const LeaderboardCard({super.key, required this.entry, this.isMe = false});
 
@@ -57,7 +56,7 @@ class LeaderboardCard extends StatelessWidget {
               radius: 20,
               backgroundColor: accentColor.withValues(alpha: 0.14),
               child: Text(
-                isMe ? entry.initials : entry.initials,
+                entry.initials,
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: accentColor,
                   fontWeight: FontWeight.w800,

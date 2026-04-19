@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/utils/backend_text.dart';
+
 class AppStrings {
   const AppStrings._({required bool isEnglish}) : _isEnglish = isEnglish;
 
@@ -15,7 +17,7 @@ class AppStrings {
   bool get isEnglish => _isEnglish;
 
   String pick({required String vi, required String en}) {
-    return _isEnglish ? en : vi;
+    return _isEnglish ? en : repairAndCollapseText(vi);
   }
 
   String get tabHome => pick(vi: 'Trang chủ', en: 'Home');

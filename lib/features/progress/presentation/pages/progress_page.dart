@@ -80,7 +80,7 @@ class ProgressScreen extends StatefulWidget {
 }
 
 class _ProgressScreenState extends State<ProgressScreen> {
-  // Key Ä‘á»ƒ force rebuild khi user tap retry
+  // Key để force rebuild khi user tap retry
   UniqueKey _streamKey = UniqueKey();
   late Stream<List<SessionHistoryEntry>> _historyStream;
   Future<List<TopicMastery>>? _realMasteryFuture;
@@ -241,7 +241,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
         .entries
         .map(
           (entry) => MoodTrendPoint(
-            sessionLabel: 'PhiÃªn ${entry.key + 1}',
+            sessionLabel: 'Phiên ${entry.key + 1}',
             focusScore: entry.value.focusScore.clamp(0.0, 4.0).toDouble(),
           ),
         )
@@ -249,9 +249,9 @@ class _ProgressScreenState extends State<ProgressScreen> {
 
     return UserProgressSnapshot(
       learningRhythm:
-          'Trung bÃ¬nh ${avgDuration.round()} phÃºt má»—i phiÃªn trong dá»¯ liá»‡u gáº§n Ä‘Ã¢y.',
+          'Trung bình ${avgDuration.round()} phút mỗi phiên trong dữ liệu gần đây.',
       weeklyConsistency:
-          '$uniqueStudyDays/7 ngÃ y cÃ³ hoáº¡t Ä‘á»™ng há»c táº­p tuáº§n nÃ y',
+          '$uniqueStudyDays/7 ngày có hoạt động học tập tuần này',
       fixedConcepts: fixedConcepts
           .take(3)
           .map((e) => e.key)
@@ -278,15 +278,15 @@ class _ProgressScreenState extends State<ProgressScreen> {
             children: [
               ZenScreenHeader(
                 eyebrow: context.t(
-                  vi: 'Theo dÃµi nhá»‹p há»c',
+                  vi: 'Theo dõi nhịp học',
                   en: 'Track your study pulse',
                 ),
                 title: context.t(
-                  vi: 'Tiáº¿n trÃ¬nh tuáº§n nÃ y',
+                  vi: 'Tiến trình tuần này',
                   en: 'This week\'s progress',
                 ),
                 subtitle: context.t(
-                  vi: 'Theo dÃµi nhá»‹p há»c, phiÃªn gáº§n Ä‘Ã¢y vÃ  cÃ´ng thá»©c trá»ng tÃ¢m Ä‘á»ƒ Ã´n táº­p Ä‘Ãºng lÃºc.',
+                  vi: 'Theo dõi nhịp học, phiên gần đây và công thức trọng tâm để ôn tập đúng lúc.',
                   en: 'Track learning rhythm, recent sessions, and key formulas for timely revision.',
                 ),
                 icon: Icons.insights_rounded,
@@ -294,11 +294,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ZenHeaderChipData(
                     label: widget.realProgressRepository != null
                         ? context.t(
-                            vi: 'Dá»¯ liá»‡u tá»« server',
+                            vi: 'Dữ liệu từ server',
                             en: 'Server-backed data',
                           )
                         : context.t(
-                            vi: 'CÃ³ local fallback',
+                            vi: 'Có local fallback',
                             en: 'Local fallback ready',
                           ),
                     icon: widget.realProgressRepository != null
@@ -307,7 +307,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                   ),
                   ZenHeaderChipData(
                     label: context.t(
-                      vi: 'Sá»• tay cÃ´ng thá»©c',
+                      vi: 'Sổ tay công thức',
                       en: 'Formula handbook',
                     ),
                     icon: Icons.auto_stories_rounded,
@@ -334,7 +334,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                           if (snapshot.hasError) {
                             return ZenErrorCard(
                               message: context.t(
-                                vi: 'KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u. Báº¡n thá»­ láº¡i nhÃ©.',
+                                vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
                                 en: 'Unable to load data. Please try again.',
                               ),
                               onRetry: () => unawaited(_refreshProgress()),
@@ -366,7 +366,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                   baseProgress.isEmpty) {
                                 return ZenErrorCard(
                                   message: context.t(
-                                    vi: 'KhÃ´ng táº£i Ä‘Æ°á»£c dá»¯ liá»‡u tiáº¿n trÃ¬nh tá»« server.',
+                                    vi: 'Không tải được dữ liệu tiến trình từ server.',
                                     en: 'Unable to load progress data from server.',
                                   ),
                                   onRetry: () => unawaited(_refreshProgress()),
@@ -511,21 +511,21 @@ class _WeeklyMomentumSection extends StatelessWidget {
     final weakestTopic = _resolveWeakestTopic(context, progress);
     final tomorrowAction = history.isEmpty
         ? context.t(
-            vi: 'Báº¯t Ä‘áº§u 1 phiÃªn 10 phÃºt Ä‘á»ƒ láº¥y láº¡i nhá»‹p.',
+            vi: 'Bắt đầu 1 phiên 10 phút để lấy lại nhịp.',
             en: 'Start one 10-min session to regain rhythm.',
           )
         : context.t(
-            vi: 'Ã”n $weakestTopic 12 phÃºt, rá»“i 2 cÃ¢u tá»± kiá»ƒm tra.',
+            vi: 'Ôn $weakestTopic 12 phút, rồi 2 câu tự kiểm tra.',
             en: '$weakestTopic for 12 min, then 2 self-check Qs.',
           );
 
     return Section(
       title: context.t(
-        vi: 'Káº¿ hoáº¡ch tuáº§n & ngÃ y mai',
+        vi: 'Kế hoạch tuần & ngày mai',
         en: 'Weekly plan & tomorrow',
       ),
       subtitle: context.t(
-        vi: 'Biá»ƒu Ä‘á»“ vÃ  gá»£i Ã½ phiÃªn káº¿ tiáº¿p',
+        vi: 'Biểu đồ và gợi ý phiên kế tiếp',
         en: 'Chart and next session suggestions',
       ),
       child: Column(
@@ -560,7 +560,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
                     ),
                     _MiniMetricChip(
                       label: context.t(
-                        vi: 'Chá»§ Ä‘á» Æ°u tiÃªn $weakestTopic',
+                        vi: 'Chủ đề ưu tiên $weakestTopic',
                         en: 'Priority topic $weakestTopic',
                       ),
                     ),
@@ -653,7 +653,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
               children: [
                 Text(
                   context.t(
-                    vi: 'TB táº­p trung 7 ngÃ y: ${avgFocus.toStringAsFixed(1)}/4',
+                    vi: 'TB tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
                     en: '7-day focus avg: ${avgFocus.toStringAsFixed(1)}/4',
                   ),
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -682,7 +682,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
                     Expanded(
                       child: Text(
                         context.t(
-                          vi: 'HÃ nh Ä‘á»™ng ngÃ y mai: $tomorrowAction',
+                          vi: 'Hành động ngày mai: $tomorrowAction',
                           en: 'Tomorrow action: $tomorrowAction',
                         ),
                         style: Theme.of(context).textTheme.bodyLarge?.copyWith(
@@ -720,7 +720,7 @@ class _ProgressTabHeader extends StatelessWidget {
     Widget refreshButton() {
       return Tooltip(
         message: context.t(
-          vi: 'Táº£i láº¡i dá»¯ liá»‡u tiáº¿n trÃ¬nh',
+          vi: 'Tải lại dữ liệu tiến trình',
           en: 'Refresh progress data',
         ),
         child: Material(
@@ -757,7 +757,7 @@ class _ProgressTabHeader extends StatelessWidget {
                           ),
                         const SizedBox(width: 8),
                         Text(
-                          context.t(vi: 'LÃ m má»›i', en: 'Refresh'),
+                          context.t(vi: 'Làm mới', en: 'Refresh'),
                           style: theme.textTheme.labelLarge?.copyWith(
                             color: theme.colorScheme.primary,
                             fontWeight: FontWeight.w700,
@@ -833,7 +833,7 @@ class _ProgressTabHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    context.t(vi: 'Tiáº¿n trÃ¬nh', en: 'Progress'),
+                    context.t(vi: 'Tiến trình', en: 'Progress'),
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 16),
                   ),
@@ -851,7 +851,7 @@ class _ProgressTabHeader extends StatelessWidget {
                 const SizedBox(width: 8),
                 Flexible(
                   child: Text(
-                    context.t(vi: 'Sá»• tay', en: 'Handbook'),
+                    context.t(vi: 'Sổ tay', en: 'Handbook'),
                     overflow: TextOverflow.ellipsis,
                     style: const TextStyle(fontSize: 16),
                   ),
@@ -909,29 +909,29 @@ class _ProgressSnapshotStrip extends StatelessWidget {
           )
         : history.isNotEmpty
         ? history.first.topic
-        : context.t(vi: 'Äá»£i cáº­p nháº­t', en: 'Awaiting update');
+        : context.t(vi: 'Đợi cập nhật', en: 'Awaiting update');
 
     final items = <({IconData icon, String label, String value, Color accent})>[
       (
         icon: Icons.calendar_view_week_rounded,
-        label: context.t(vi: 'Nhá»‹p tuáº§n', en: 'Weekly rhythm'),
+        label: context.t(vi: 'Nhịp tuần', en: 'Weekly rhythm'),
         value: progress.weeklyConsistency.isEmpty
-            ? context.t(vi: 'ChÆ°a cÃ³ dá»¯ liá»‡u', en: 'No data yet')
+            ? context.t(vi: 'Chưa có dữ liệu', en: 'No data yet')
             : progress.weeklyConsistency,
         accent: colors.primary,
       ),
       (
         icon: Icons.history_rounded,
-        label: context.t(vi: 'PhiÃªn gáº§n Ä‘Ã¢y', en: 'Recent sessions'),
+        label: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
         value: context.t(
-          vi: '$sessionCount phiÃªn',
+          vi: '$sessionCount phiên',
           en: '$sessionCount sessions',
         ),
         accent: colors.tertiary,
       ),
       (
         icon: Icons.flag_circle_rounded,
-        label: context.t(vi: 'Æ¯u tiÃªn tiáº¿p theo', en: 'Next priority'),
+        label: context.t(vi: 'Ưu tiên tiếp theo', en: 'Next priority'),
         value: primaryTopic,
         accent: colors.secondary,
       ),
@@ -1029,7 +1029,7 @@ String _resolveWeakestTopic(
 
   if (gaps.isEmpty) {
     return context.t(
-      vi: 'má»™t chá»§ Ä‘á» nÃ¢ng cao',
+      vi: 'một chủ đề nâng cao',
       en: 'an advanced topic',
     );
   }
@@ -1080,22 +1080,22 @@ class _RecentSessionsSection extends StatelessWidget {
 
     if (history.isEmpty) {
       return Section(
-        title: context.t(vi: 'PhiÃªn gáº§n Ä‘Ã¢y', en: 'Recent sessions'),
+        title: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
         subtitle: context.t(
-          vi: 'Lá»‹ch sá»­ phiÃªn há»c theo session_id',
+          vi: 'Lịch sử phiên học theo session_id',
           en: 'Session history keyed by session_id',
         ),
         child: ZenEmptyState(
           icon: Icons.history_toggle_off_rounded,
           title: context.t(
-            vi: 'Báº¡n chÆ°a cÃ³ phiÃªn há»c nÃ o gáº§n Ä‘Ã¢y',
+            vi: 'Bạn chưa có phiên học nào gần đây',
             en: 'No recent sessions yet',
           ),
           subtitle: context.t(
-            vi: 'Báº¯t Ä‘áº§u má»™t phiÃªn quiz ngáº¯n Ä‘á»ƒ há»‡ thá»‘ng ghi nháº­n tiáº¿n trÃ¬nh vÃ  táº¡o gá»£i Ã½ cÃ¡ nhÃ¢n hÃ³a.',
+            vi: 'Bắt đầu một phiên quiz ngắn để hệ thống ghi nhận tiến trình và tạo gợi ý cá nhân hóa.',
             en: 'Start a short quiz session so the system can track progress and generate personalized suggestions.',
           ),
-          primaryLabel: context.t(vi: 'LÃ m quiz ngay', en: 'Start a quiz'),
+          primaryLabel: context.t(vi: 'Làm quiz ngay', en: 'Start a quiz'),
           onPrimaryPressed: () => context.push(AppRoutes.quiz),
           centered: false,
         ),
@@ -1104,16 +1104,16 @@ class _RecentSessionsSection extends StatelessWidget {
 
     final latest = history.take(5).toList(growable: false);
     final sourceLabel = fromServer
-        ? context.t(vi: 'Nguá»“n: Server history', en: 'Source: Server history')
+        ? context.t(vi: 'Nguồn: Server history', en: 'Source: Server history')
         : context.t(
-            vi: 'Nguá»“n: Local fallback',
+            vi: 'Nguồn: Local fallback',
             en: 'Source: Local fallback',
           );
 
     return Section(
-      title: context.t(vi: 'PhiÃªn gáº§n Ä‘Ã¢y', en: 'Recent sessions'),
+      title: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
       subtitle: context.t(
-        vi: 'Má»Ÿ nhanh chi tiáº¿t káº¿t quáº£ theo session',
+        vi: 'Mở nhanh chi tiết kết quả theo session',
         en: 'Open result details by session',
       ),
       child: Column(
@@ -1139,8 +1139,8 @@ class _RecentSessionsSection extends StatelessWidget {
           ...latest.map((entry) {
             final sessionId = _extractSessionId(entry.sourceKey);
             final statusLabel = entry.mode.toLowerCase() == 'recovery'
-                ? context.t(vi: 'Phá»¥c há»“i', en: 'Recovery')
-                : context.t(vi: 'Há»c táº­p', en: 'Academic');
+                ? context.t(vi: 'Phục hồi', en: 'Recovery')
+                : context.t(vi: 'Học tập', en: 'Academic');
             final dateLabel = _formatLocalDateTime(entry.completedAt.toLocal());
 
             return Padding(
@@ -1210,7 +1210,7 @@ class _RecentSessionsSection extends StatelessWidget {
                                 size: 16,
                               ),
                               label: Text(
-                                context.t(vi: 'Xem phiÃªn', en: 'Open'),
+                                context.t(vi: 'Xem phiên', en: 'Open'),
                               ),
                             ),
                           ),
@@ -1300,21 +1300,21 @@ String _topicLabel(BuildContext context, String topic) {
   }
 
   switch (topic.trim()) {
-    case 'Äáº¡o hÃ m':
+    case 'Đạo hàm':
       return 'Derivatives';
-    case 'Giá»›i háº¡n':
+    case 'Giới hạn':
       return 'Limits';
-    case 'TÃ­ch phÃ¢n':
+    case 'Tích phân':
       return 'Integrals';
-    case 'HÃ m há»£p':
+    case 'Hàm hợp':
       return 'Composite functions';
-    case 'á»¨ng dá»¥ng':
+    case 'Ứng dụng':
       return 'Applications';
-    case 'Äáº¡o hÃ m Ä‘a thá»©c':
+    case 'Đạo hàm đa thức':
       return 'Polynomial derivatives';
-    case 'Quy táº¯c tÃ­ch':
+    case 'Quy tắc tích':
       return 'Product rule';
-    case 'Giá»›i háº¡n cÆ¡ báº£n':
+    case 'Giới hạn cơ bản':
       return 'Basic limits';
     default:
       return topic;
