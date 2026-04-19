@@ -442,6 +442,64 @@ class QuizCubit extends Cubit<QuizCubitState> {
     emit(const QuizBatchSubmittingState(answer: ''));
 
     try {
+      if (_quizApiRepository != null && _sessionId != null) {
+        final apiSessionId = _sessionId;
+        var totalSubmitted = 0;
+
+        for (final entry in answerEntries) {
+          final questionId = (entry['question_id'] ?? '').toString().trim();
+          final questionType = (entry['question_type'] ?? '')
+              .toString()
+              .trim()
+              .toUpperCase();
+          final rawAnswer = (entry['answer'] ?? '').toString();
+
+          if (questionId.isEmpty) {
+            throw const FormatException(
+              'Missing question_id in batch payload.',
+            );
+          }
+
+          String? selectedOption;
+          String? answerField;
+          Map<String, dynamic>? answersField;
+
+          switch (questionType) {
+            case 'MULTIPLE_CHOICE':
+              selectedOption = rawAnswer.trim().toUpperCase();
+              break;
+            case 'SHORT_ANSWER':
+              answerField = rawAnswer.trim();
+              break;
+            case 'TRUE_FALSE_CLUSTER':
+              answersField = _decodeClusterAnswerPayload(rawAnswer);
+              break;
+            default:
+              answerField = rawAnswer.trim();
+              break;
+          }
+
+          await _quizApiRepository.submitAnswer(
+            sessionId: apiSessionId,
+            questionId: questionId,
+            selectedOption: selectedOption,
+            answer: answerField,
+            answers: answersField,
+            questionIndex: _tryParseEntryInt(entry['question_index']),
+            totalQuestions: _tryParseEntryInt(entry['total_questions']),
+          );
+          totalSubmitted += 1;
+        }
+
+        emit(
+          QuizBatchSubmitSuccessState(
+            totalSubmitted: totalSubmitted,
+            answer: '',
+          ),
+        );
+        return;
+      }
+
       final response = await _quizRepository.submitBatchAnswers(
         answers: answerEntries,
       );
@@ -452,7 +510,29 @@ class QuizCubit extends Cubit<QuizCubitState> {
       final total = data['totalSubmitted'] as int? ?? answerEntries.length;
 
       emit(QuizBatchSubmitSuccessState(totalSubmitted: total, answer: ''));
-    } catch (_) {
+    } catch (e) {
+      if (e is RateLimitException) {
+        emit(
+          const QuizRateLimitedState(
+            message:
+                'Bạn đã vượt giới hạn phiên học hôm nay. Hãy nghỉ ngơi và quay lại ngày mai nhé!',
+            answer: '',
+          ),
+        );
+        return;
+      }
+      if (e is ForbiddenException) {
+        emit(
+          QuizNoLivesState(
+            message: e.message.isNotEmpty
+                ? e.message
+                : 'Bạn đã hết tim! Hãy chờ hồi sinh hoặc xem lại bài cũ nhé.',
+            answer: '',
+            nextRegenInSeconds: _extractNextRegenInSeconds(e.details),
+          ),
+        );
+        return;
+      }
       emit(
         const QuizSubmitFailureState(
           message: 'Không thể gửi toàn bộ bài. Vui lòng thử lại.',
@@ -460,6 +540,27 @@ class QuizCubit extends Cubit<QuizCubitState> {
         ),
       );
     }
+  }
+
+  static int? _tryParseEntryInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    return int.tryParse(value?.toString() ?? '');
+  }
+
+  static Map<String, dynamic> _decodeClusterAnswerPayload(String rawAnswer) {
+    final decoded = jsonDecode(rawAnswer);
+    if (decoded is! Map) {
+      throw const FormatException('Invalid true/false cluster payload.');
+    }
+
+    return decoded.map<String, dynamic>(
+      (key, value) => MapEntry(key.toString(), value),
+    );
   }
 
   static bool _resolveIsCorrect(

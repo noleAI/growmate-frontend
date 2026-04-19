@@ -431,7 +431,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     const SizedBox(
                                       height: GrowMateLayout.sectionGap,
                                     ),
-                                    // ÄÃ£ loáº¡i bá» cÃ¡c section: Ã”n táº­p ngáº¯t quÃ£ng, Huy hiá»‡u thÃ nh tá»±u, Lá»‹ch há»c thÃ´ng minh, Timeline phiÃªn há»c
+                                    // Đã loại bỏ các section: Ôn tập ngắt quãng, Huy hiệu thành tựu, Lịch học thông minh, Timeline phiên học
                                     _WeeklyMomentumSection(
                                       history: history,
                                       progress: progress,
@@ -1028,10 +1028,7 @@ String _resolveWeakestTopic(
         ..sort((a, b) => a.score.compareTo(b.score));
 
   if (gaps.isEmpty) {
-    return context.t(
-      vi: 'một chủ đề nâng cao',
-      en: 'an advanced topic',
-    );
+    return context.t(vi: 'một chủ đề nâng cao', en: 'an advanced topic');
   }
 
   return _topicLabel(context, gaps.first.topic);
@@ -1105,10 +1102,7 @@ class _RecentSessionsSection extends StatelessWidget {
     final latest = history.take(5).toList(growable: false);
     final sourceLabel = fromServer
         ? context.t(vi: 'Nguồn: Server history', en: 'Source: Server history')
-        : context.t(
-            vi: 'Nguồn: Local fallback',
-            en: 'Source: Local fallback',
-          );
+        : context.t(vi: 'Nguồn: Local fallback', en: 'Source: Local fallback');
 
     return Section(
       title: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
@@ -1233,8 +1227,8 @@ class _RecentSessionsSection extends StatelessWidget {
                                 const SizedBox(height: 2),
                                 Text(
                                   context.t(
-                                    vi: '$statusLabel â€¢ Focus ${entry.focusScore.toStringAsFixed(1)}/4 â€¢ $dateLabel',
-                                    en: '$statusLabel â€¢ Focus ${entry.focusScore.toStringAsFixed(1)}/4 â€¢ $dateLabel',
+                                    vi: '$statusLabel - Focus ${entry.focusScore.toStringAsFixed(1)}/4 - $dateLabel',
+                                    en: '$statusLabel - Focus ${entry.focusScore.toStringAsFixed(1)}/4 - $dateLabel',
                                   ),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colors.onSurfaceVariant,
@@ -1291,7 +1285,7 @@ String _formatLocalDateTime(DateTime value) {
       '${value.day.toString().padLeft(2, '0')}/${value.month.toString().padLeft(2, '0')}';
   final time =
       '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
-  return '$date â€¢ $time';
+  return '$date - $time';
 }
 
 String _topicLabel(BuildContext context, String topic) {

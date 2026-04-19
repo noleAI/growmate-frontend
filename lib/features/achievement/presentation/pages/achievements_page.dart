@@ -63,7 +63,7 @@ class AchievementsPage extends StatelessWidget {
             FeatureAvailabilityBanner(
               availability: FeatureAvailability.beta,
               message: context.t(
-                vi: 'Achievements hien duoc tinh local. Hay de man nay ngoai luong demo backend chinh.',
+                vi: 'Achievements hiện được tính local. Hãy để màn này ngoài luồng demo backend chính.',
                 en: 'Achievements are currently computed locally. Keep this screen outside the main backend demo flow.',
               ),
             ),

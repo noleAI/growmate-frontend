@@ -168,7 +168,7 @@ class ThptRoadmapPage extends StatelessWidget {
               FeatureAvailabilityBanner(
                 availability: FeatureAvailability.beta,
                 message: context.t(
-                  vi: 'Roadmap nay van la local beta/hardcoded. Khong nen trinh bay nhu backend roadmap dong bo that.',
+                  vi: 'Roadmap này vẫn là local beta/hardcoded. Không nên trình bày như backend roadmap đồng bộ thật.',
                   en: 'This roadmap is still a local beta/hardcoded view. Do not present it as a fully synced backend roadmap.',
                 ),
               ),

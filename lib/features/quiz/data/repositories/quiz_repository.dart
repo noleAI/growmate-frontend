@@ -46,33 +46,7 @@ class QuizRepository {
           .order('difficulty_level', ascending: true)
           .limit(limit);
 
-      final templates = rows
-          .whereType<Map>()
-          .map((item) {
-            final json = Map<String, dynamic>.from(item);
-            final rawContent = json['content']?.toString() ?? '';
-            final rawType = json['question_type']?.toString() ?? '';
-            final questionType = _tryParseQuestionType(rawType);
-            final sanitizedContent = _sanitizeContentByQuestionType(
-              rawContent,
-              rawType,
-            );
-
-            final normalizedPayload = _normalizeQuestionPayload(
-              payload: json['payload'],
-              questionType: questionType,
-              rawContent: rawContent,
-            );
-
-            json['content'] = _normalizeQuestionContent(
-              content: sanitizedContent,
-              questionType: questionType,
-            );
-            json['payload'] = normalizedPayload;
-
-            return QuizQuestionTemplate.fromJson(json);
-          })
-          .toList(growable: false);
+      final templates = _loadTemplatesFromRows(rows);
 
       if (templates.isEmpty) {
         return _fallbackQuestionTemplates(
@@ -90,6 +64,93 @@ class QuizRepository {
         limit: limit,
       );
     }
+  }
+
+  Future<List<QuizQuestionTemplate>> fetchQuestionTemplatesByTemplateIds(
+    List<String> templateIds, {
+    String subject = 'math',
+    int examYear = 2026,
+  }) async {
+    final normalizedIds = templateIds
+        .map((id) => id.trim())
+        .where((id) => id.isNotEmpty)
+        .toSet()
+        .toList(growable: false);
+
+    if (normalizedIds.isEmpty) {
+      return const <QuizQuestionTemplate>[];
+    }
+
+    final fallbackLimit = normalizedIds.length < 80 ? 80 : normalizedIds.length;
+    final client = _supabaseClient;
+    if (client == null) {
+      return _fallbackQuestionTemplates(
+            subject: subject,
+            examYear: examYear,
+            limit: fallbackLimit,
+          )
+          .where((template) => normalizedIds.contains(template.id))
+          .toList(growable: false);
+    }
+
+    try {
+      final rows = await client
+          .from('quiz_question_template')
+          .select()
+          .eq('subject', subject)
+          .eq('exam_year', examYear)
+          .eq('is_active', true)
+          .inFilter('id', normalizedIds);
+
+      final templates = _loadTemplatesFromRows(rows);
+      if (templates.isNotEmpty) {
+        return templates;
+      }
+    } catch (_) {
+      // Fall through to local fallback below.
+    }
+
+    return _fallbackQuestionTemplates(
+          subject: subject,
+          examYear: examYear,
+          limit: fallbackLimit,
+        )
+        .where((template) => normalizedIds.contains(template.id))
+        .toList(growable: false);
+  }
+
+  static List<QuizQuestionTemplate> _loadTemplatesFromRows(dynamic rows) {
+    if (rows is! List) {
+      return const <QuizQuestionTemplate>[];
+    }
+
+    return rows
+        .whereType<Map>()
+        .map((item) {
+          final json = Map<String, dynamic>.from(item);
+          final rawContent = json['content']?.toString() ?? '';
+          final rawType = json['question_type']?.toString() ?? '';
+          final questionType = _tryParseQuestionType(rawType);
+          final sanitizedContent = _sanitizeContentByQuestionType(
+            rawContent,
+            rawType,
+          );
+
+          final normalizedPayload = _normalizeQuestionPayload(
+            payload: json['payload'],
+            questionType: questionType,
+            rawContent: rawContent,
+          );
+
+          json['content'] = _normalizeQuestionContent(
+            content: sanitizedContent,
+            questionType: questionType,
+          );
+          json['payload'] = normalizedPayload;
+
+          return QuizQuestionTemplate.fromJson(json);
+        })
+        .toList(growable: false);
   }
 
   static List<QuizQuestionTemplate> _fallbackQuestionTemplates({

@@ -40,6 +40,7 @@ import '../../data/models/study_mode.dart';
 import '../widgets/quiz_answer_widget_factory.dart';
 import '../widgets/quiz_math_text.dart';
 import '../widgets/afk_overlay.dart';
+import 'quiz_review_page.dart';
 import '../widgets/spam_warning_dialog.dart';
 
 bool _isAgenticSystemFallbackMessage(String? message) {
@@ -563,9 +564,7 @@ class _QuizPageState extends State<QuizPage> {
         unawaited(_clearLocalDraftBundle());
         unawaited(_agenticCubit?.endSession(status: 'completed'));
         if (mounted) {
-          context.go(
-            '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(sessionId)}',
-          );
+          _navigateToQuizReview(sessionId: sessionId);
         }
         return;
       }
@@ -2027,7 +2026,8 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     final answerEntries = <Map<String, dynamic>>[];
-    for (final question in submissionQuestions) {
+    for (var index = 0; index < submissionQuestions.length; index++) {
+      final question = submissionQuestions[index];
       final answer = _buildAnswerFromDraft(question);
       if (answer == null) {
         _selectQuestion(question);
@@ -2043,6 +2043,9 @@ class _QuizPageState extends State<QuizPage> {
 
       answerEntries.add(<String, dynamic>{
         'question_id': question.id,
+        'question_type': question.questionType.storageValue,
+        'question_index': index,
+        'total_questions': total,
         'answer': _serializeAnswerForSubmission(answer),
       });
     }
@@ -2642,18 +2645,18 @@ class _QuizPageState extends State<QuizPage> {
                                 _agenticCubit?.endSession(status: 'completed'),
                               );
 
-                              final router = GoRouter.of(context);
-                              Future<
-                                void
-                              >.delayed(const Duration(milliseconds: 900), () {
-                                if (!mounted) {
-                                  return;
-                                }
+                              Future<void>.delayed(
+                                const Duration(milliseconds: 900),
+                                () {
+                                  if (!mounted) {
+                                    return;
+                                  }
 
-                                router.go(
-                                  '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
-                                );
-                              });
+                                  _navigateToQuizReview(
+                                    sessionId: state.submissionId,
+                                  );
+                                },
+                              );
                               return;
                             }
 
@@ -2691,18 +2694,18 @@ class _QuizPageState extends State<QuizPage> {
                                 _agenticCubit?.endSession(status: 'completed'),
                               );
 
-                              final router = GoRouter.of(context);
-                              Future<
-                                void
-                              >.delayed(const Duration(milliseconds: 900), () {
-                                if (!mounted) {
-                                  return;
-                                }
+                              Future<void>.delayed(
+                                const Duration(milliseconds: 900),
+                                () {
+                                  if (!mounted) {
+                                    return;
+                                  }
 
-                                router.go(
-                                  '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(_effectiveSessionId)}',
-                                );
-                              });
+                                  _navigateToQuizReview(
+                                    sessionId: _effectiveSessionId,
+                                  );
+                                },
+                              );
                               return;
                             }
 
@@ -3852,6 +3855,65 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     return true;
+  }
+
+  QuizReviewPageArgs _buildQuizReviewPageArgs(String sessionId) {
+    final entries = <QuizReviewSeedEntry>[];
+    final submissionQuestions = _questionPool
+        .take(_submissionTargetCount)
+        .toList(growable: false);
+
+    for (final question in submissionQuestions) {
+      final answer = _buildAnswerFromDraft(question);
+      if (answer == null) {
+        continue;
+      }
+
+      final evaluation = ThptMath2026Scoring.evaluate(
+        question: question,
+        answer: answer,
+      );
+
+      entries.add(
+        QuizReviewSeedEntry(
+          question: question,
+          userAnswer: answer,
+          isCorrect: evaluation.isCorrect,
+          score: evaluation.score,
+          maxScore: evaluation.maxScore,
+          explanation: _buildQuizReviewExplanation(question),
+        ),
+      );
+    }
+
+    return QuizReviewPageArgs(sessionId: sessionId, seededEntries: entries);
+  }
+
+  String _buildQuizReviewExplanation(QuizQuestionTemplate question) {
+    final payload = question.payload;
+    return switch (payload) {
+      MultipleChoicePayload(:final explanation) => explanation,
+      TrueFalseClusterPayload(:final subQuestions) =>
+        subQuestions
+            .map((item) => item.explanation.trim())
+            .where((value) => value.isNotEmpty)
+            .join('\n'),
+      ShortAnswerPayload(:final explanation) => explanation,
+    };
+  }
+
+  void _navigateToQuizReview({required String sessionId}) {
+    if (!mounted) {
+      return;
+    }
+
+    final normalizedSessionId = sessionId.trim();
+    final args = _buildQuizReviewPageArgs(normalizedSessionId);
+    final encodedSessionId = Uri.encodeQueryComponent(normalizedSessionId);
+
+    GoRouter.of(
+      context,
+    ).go('${AppRoutes.quizReview}?session_id=$encodedSessionId', extra: args);
   }
 
   int? _safeDecodedInt(Object? value) {

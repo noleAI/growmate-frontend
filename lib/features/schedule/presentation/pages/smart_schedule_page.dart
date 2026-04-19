@@ -77,7 +77,7 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
                 FeatureAvailabilityBanner(
                   availability: FeatureAvailability.beta,
                   message: context.t(
-                    vi: 'Smart Schedule hien dang la local beta va deep-link Google Calendar, chua co backend scheduling service.',
+                    vi: 'Smart Schedule hiện đang là local beta và deep-link Google Calendar, chưa có backend scheduling service.',
                     en: 'Smart Schedule is currently a local beta with Google Calendar deep-links, not a backend scheduling service yet.',
                   ),
                 ),

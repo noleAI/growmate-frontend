@@ -22,6 +22,7 @@ class AppRoutes {
   static const String mindfulBreak = '/mindful-break';
 
   static const String quiz = '/quiz';
+  static const String quizReview = '/quiz/review';
   static const String modeSelection = '/mode-selection';
   static const String spacedReview = '/review';
   static const String achievements = '/achievements';

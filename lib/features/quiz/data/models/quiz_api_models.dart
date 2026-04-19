@@ -240,6 +240,9 @@ class QuizAttemptRecord {
     required this.maxScore,
     this.questionTemplateId,
     this.questionType,
+    this.questionContent,
+    this.mediaUrl,
+    this.answerKey,
     this.explanation,
     this.userAnswer,
     this.submittedAt,
@@ -252,6 +255,9 @@ class QuizAttemptRecord {
   final double maxScore;
   final String? questionTemplateId;
   final String? questionType;
+  final String? questionContent;
+  final String? mediaUrl;
+  final Map<String, dynamic>? answerKey;
   final String? explanation;
   final Map<String, dynamic>? userAnswer;
   final DateTime? submittedAt;
@@ -265,6 +271,11 @@ class QuizAttemptRecord {
       maxScore: _toDouble(json['max_score']) ?? 0,
       questionTemplateId: json['question_template_id']?.toString(),
       questionType: json['question_type']?.toString(),
+      questionContent: json['question_content']?.toString(),
+      mediaUrl: json['media_url']?.toString(),
+      answerKey: json['answer_key'] is Map
+          ? Map<String, dynamic>.from(json['answer_key'] as Map)
+          : null,
       explanation: json['explanation']?.toString(),
       userAnswer: json['user_answer'] is Map
           ? Map<String, dynamic>.from(json['user_answer'] as Map)

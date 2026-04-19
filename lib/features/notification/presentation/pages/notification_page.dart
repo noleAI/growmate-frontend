@@ -150,7 +150,7 @@ class _NotificationPageState extends State<NotificationPage> {
             FeatureAvailabilityBanner(
               availability: FeatureAvailability.beta,
               message: context.t(
-                vi: 'Notifications hien dang duoc quan ly local. Khong nen xem day la backend proof trong ban demo.',
+                vi: 'Notifications hiện đang được quản lý local. Không nên xem đây là backend proof trong bản demo.',
                 en: 'Notifications are currently managed locally. Do not treat this screen as backend proof in the demo.',
               ),
             ),

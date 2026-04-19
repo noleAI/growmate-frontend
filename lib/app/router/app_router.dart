@@ -48,6 +48,7 @@ import '../../features/quiz/data/repositories/quiz_repository.dart';
 import '../../features/quiz/data/repositories/quiz_api_repository.dart';
 import '../../features/quiz/presentation/pages/mode_selection_page.dart';
 import '../../features/quiz/presentation/pages/quiz_page.dart';
+import '../../features/quiz/presentation/pages/quiz_review_page.dart';
 import '../../features/recovery/presentation/pages/recovery_screen.dart';
 import '../../features/review/presentation/pages/spaced_review_page.dart';
 import '../../features/roadmap/presentation/pages/thpt_roadmap_page.dart';
@@ -109,6 +110,7 @@ class AppRouter {
   static const String mindfulBreakPath = AppRoutes.mindfulBreak;
 
   static const String quizPath = AppRoutes.quiz;
+  static const String quizReviewPath = AppRoutes.quizReview;
   static const String spacedReviewPath = AppRoutes.spacedReview;
   static const String achievementsPath = AppRoutes.achievements;
   static const String recoveryPath = AppRoutes.recovery;
@@ -384,6 +386,23 @@ class AppRouter {
           return QuizPage(
             quizRepository: _quizRepository,
             quizApiRepository: _quizApiRepository,
+          );
+        },
+      ),
+      GoRoute(
+        path: quizReviewPath,
+        builder: (context, state) {
+          final extra = state.extra;
+          final args = extra is QuizReviewPageArgs
+              ? extra
+              : QuizReviewPageArgs(
+                  sessionId:
+                      state.uri.queryParameters['session_id']?.trim() ?? '',
+                );
+          return QuizReviewPage(
+            quizRepository: _quizRepository,
+            quizApiRepository: _quizApiRepository,
+            args: args,
           );
         },
       ),
