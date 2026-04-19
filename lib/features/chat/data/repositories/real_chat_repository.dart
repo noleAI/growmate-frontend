@@ -253,13 +253,16 @@ class RealChatRepository implements ChatRepository {
       id: 'greeting_0',
       role: ChatRole.assistant,
       content:
-          'Xin chào! Mình là GrowMate AI 🤖\n\n'
-          'Mình có thể giúp bạn với bất kỳ môn học THPT nào:\n'
-          '• 📐 Toán, Lý, Hóa, Sinh\n'
-          '• 📖 Văn, Sử, Địa, GDCD\n'
-          '• 🌍 Tiếng Anh, Tin học\n'
-          '• 💡 Phương pháp ôn thi THPT Quốc gia\n\n'
-          'Hỏi mình bất cứ điều gì về kiến thức học thuật nhé! 📚',
+          'Chào bạn, mình là GrowMate AI.\n\n'
+          'Mình hỗ trợ nổi bật ở các việc sau:\n'
+          '1. Giải bài từng bước cho các môn THPT với cách trình bày rõ ràng.\n'
+          '2. Tóm tắt công thức, khái niệm và lỗi sai dễ gặp để bạn ôn nhanh hơn.\n'
+          '3. Phân tích ảnh đề, rồi gợi ý nên bắt đầu từ đâu nếu bạn chưa biết hướng làm.\n\n'
+          'Bạn có thể nhắn như sau:\n'
+          '- Giải thích bài này từng bước giúp mình.\n'
+          '- Tóm tắt nhanh phần kiến thức trọng tâm.\n'
+          '- Cho mình một ví dụ tương tự nhưng dễ hơn trước.\n\n'
+          'Bắt đầu bằng câu hỏi hoặc ảnh đề đầu tiên của bạn nhé.',
       timestamp: DateTime.now(),
     );
   }

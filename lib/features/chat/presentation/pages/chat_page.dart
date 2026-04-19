@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:speech_to_text/speech_to_text.dart' as stt;
 
 import '../../../../app/i18n/build_context_i18n.dart';
+import '../../../../shared/widgets/zen_card.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
@@ -472,10 +473,12 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     final hasQuotaCubit = context.read<ChatQuotaCubit?>() != null;
 
     return Scaffold(
-      backgroundColor: theme.scaffoldBackgroundColor,
+      backgroundColor: const Color(0xFFF4F7FB),
       appBar: AppBar(
         elevation: 0,
-        scrolledUnderElevation: 1,
+        scrolledUnderElevation: 0,
+        backgroundColor: Colors.transparent,
+        surfaceTintColor: Colors.transparent,
         leading: IconButton(
           icon: const Icon(Icons.arrow_back_ios_new_rounded),
           onPressed: () => Navigator.of(context).pop(),
@@ -484,40 +487,63 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
         titleSpacing: 0,
         title: Row(
           children: [
-            if (_selectedMascot != null)
-              Padding(
-                padding: const EdgeInsets.only(right: 8),
-                child: Text(
-                  Mascot.all.firstWhere((m) => m.id == _selectedMascot!).emoji,
-                  style: const TextStyle(fontSize: 22),
+            Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(14),
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.10),
                 ),
               ),
-            Text(
-              context.t(vi: 'Chat AI', en: 'Chat AI'),
-              style: theme.textTheme.titleMedium?.copyWith(
-                color: colors.primary,
-                fontWeight: FontWeight.w700,
+              alignment: Alignment.center,
+              child: _selectedMascot != null
+                  ? Text(
+                      Mascot.all
+                          .firstWhere((m) => m.id == _selectedMascot!)
+                          .emoji,
+                      style: const TextStyle(fontSize: 20),
+                    )
+                  : Icon(
+                      Icons.auto_awesome_rounded,
+                      color: colors.onPrimaryContainer,
+                    ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    context.t(vi: 'GrowMate AI', en: 'GrowMate AI'),
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  Text(
+                    context.t(
+                      vi: 'Gia sư THPT cho Android',
+                      en: 'Study coach for Android',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontWeight: FontWeight.w600,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],
         ),
-        bottom: PreferredSize(
-          preferredSize: const Size.fromHeight(12),
-          child: Padding(
-            padding: const EdgeInsets.fromLTRB(20, 0, 20, 6),
-            child: Container(
-              height: 6,
-              decoration: BoxDecoration(
-                color: colors.primary.withValues(alpha: 0.9),
-                borderRadius: BorderRadius.circular(999),
-              ),
-            ),
-          ),
-        ),
         actions: [
           if (hasQuotaCubit)
             const Padding(
-              padding: EdgeInsets.only(right: 6),
+              padding: EdgeInsets.only(right: 4),
               child: Center(child: QuotaIndicator()),
             ),
           IconButton(
@@ -529,143 +555,155 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
       ),
       body: Column(
         children: [
-          // Messages list
           Expanded(
-            child: Container(
-              decoration: BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [
-                    colors.surface.withValues(alpha: 0.96),
-                    colors.surfaceContainerLowest.withValues(alpha: 0.94),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(12, 4, 12, 0),
+              child: Container(
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(26),
+                  border: Border.all(
+                    color: colors.outlineVariant.withValues(alpha: 0.42),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow.withValues(alpha: 0.03),
+                      blurRadius: 12,
+                      offset: const Offset(0, 4),
+                    ),
                   ],
                 ),
-              ),
-              child: BlocConsumer<ChatCubit, ChatState>(
-                listener: (context, state) {
-                  if (state is ChatReady) {
-                    _scrollToBottom();
-                  }
-                },
-                builder: (context, state) {
-                  if (state is ChatInitial) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
+                child: ClipRRect(
+                  borderRadius: BorderRadius.circular(26),
+                  child: BlocConsumer<ChatCubit, ChatState>(
+                    listener: (context, state) {
+                      if (state is ChatReady) {
+                        _scrollToBottom();
+                      }
+                    },
+                    builder: (context, state) {
+                      if (state is ChatInitial) {
+                        return const Center(child: CircularProgressIndicator());
+                      }
 
-                  if (state is ChatError) {
-                    return Center(
-                      child: Padding(
-                        padding: const EdgeInsets.all(32),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Icon(
-                              Icons.error_outline_rounded,
-                              size: 48,
-                              color: colors.error,
-                            ),
-                            const SizedBox(height: 16),
-                            Text(
-                              state.message,
-                              style: theme.textTheme.bodyLarge,
-                              textAlign: TextAlign.center,
-                            ),
-                          ],
-                        ),
-                      ),
-                    );
-                  }
-
-                  if (state is ChatReady) {
-                    if (state.messages.isEmpty) {
-                      return Center(
-                        child: Text(
-                          context.t(
-                            vi: 'Bắt đầu cuộc trò chuyện!',
-                            en: 'Start a conversation!',
-                          ),
-                          style: theme.textTheme.bodyLarge?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      );
-                    }
-
-                    final showWelcomeCard = _isGreetingOnly(state);
-
-                    return ListView(
-                      controller: _scrollController,
-                      cacheExtent: 600,
-                      keyboardDismissBehavior:
-                          ScrollViewKeyboardDismissBehavior.onDrag,
-                      padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
-                      children: [
-                        if (showWelcomeCard)
-                          Padding(
-                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
-                            child: _ChatWelcomeCard(
-                              onSuggestionSelected: (value) {
-                                _sendMessage(value);
-                              },
-                            ),
-                          ),
-                        ...state.messages.map((message) {
-                          final isBot = message.role == ChatRole.assistant;
-                          return ChatMessageBubble(
-                            message: message,
-                            onCopy: () {
-                              Clipboard.setData(
-                                ClipboardData(text: message.content),
-                              );
-                              ScaffoldMessenger.of(context)
-                                ..hideCurrentSnackBar()
-                                ..showSnackBar(
-                                  SnackBar(
-                                    content: Text(
-                                      context.t(
-                                        vi: 'Đã sao chép',
-                                        en: 'Copied',
-                                      ),
-                                    ),
-                                    duration: const Duration(seconds: 1),
+                      if (state is ChatError) {
+                        return Center(
+                          child: Padding(
+                            padding: const EdgeInsets.all(28),
+                            child: ZenCard(
+                              radius: 24,
+                              padding: const EdgeInsets.all(22),
+                              color: colors.surface,
+                              border: Border.all(
+                                color: colors.error.withValues(alpha: 0.18),
+                              ),
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  Icon(
+                                    Icons.error_outline_rounded,
+                                    size: 48,
+                                    color: colors.error,
                                   ),
-                                );
-                            },
-                            botMascot: isBot ? _selectedMascot : null,
-                          );
-                        }),
-                        if (state.isAiTyping) const ChatTypingIndicator(),
-                      ],
-                    );
-                  }
+                                  const SizedBox(height: 16),
+                                  Text(
+                                    state.message,
+                                    style: theme.textTheme.bodyLarge,
+                                    textAlign: TextAlign.center,
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ),
+                        );
+                      }
 
-                  return const SizedBox.shrink();
-                },
+                      if (state is ChatReady) {
+                        if (state.messages.isEmpty) {
+                          return Center(
+                            child: Text(
+                              context.t(
+                                vi: 'Bắt đầu cuộc trò chuyện!',
+                                en: 'Start a conversation!',
+                              ),
+                              style: theme.textTheme.bodyLarge?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          );
+                        }
+
+                        final showWelcomeCard = _isGreetingOnly(state);
+
+                        return Scrollbar(
+                          controller: _scrollController,
+                          thumbVisibility: false,
+                          child: ListView(
+                            controller: _scrollController,
+                            cacheExtent: 700,
+                            keyboardDismissBehavior:
+                                ScrollViewKeyboardDismissBehavior.onDrag,
+                            padding: const EdgeInsets.fromLTRB(0, 10, 0, 10),
+                            children: [
+                              if (showWelcomeCard)
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    12,
+                                    0,
+                                    12,
+                                    10,
+                                  ),
+                                  child: _ChatWelcomeCard(
+                                    onSuggestionSelected: (value) {
+                                      _sendMessage(value);
+                                    },
+                                  ),
+                                ),
+                              ...state.messages.map((message) {
+                                final isBot =
+                                    message.role == ChatRole.assistant;
+                                return ChatMessageBubble(
+                                  message: message,
+                                  onCopy: () {
+                                    Clipboard.setData(
+                                      ClipboardData(text: message.content),
+                                    );
+                                    ScaffoldMessenger.of(context)
+                                      ..hideCurrentSnackBar()
+                                      ..showSnackBar(
+                                        SnackBar(
+                                          content: Text(
+                                            context.t(
+                                              vi: 'Đã sao chép',
+                                              en: 'Copied',
+                                            ),
+                                          ),
+                                          duration: const Duration(seconds: 1),
+                                        ),
+                                      );
+                                  },
+                                  botMascot: isBot ? _selectedMascot : null,
+                                );
+                              }),
+                              if (state.isAiTyping) const ChatTypingIndicator(),
+                            ],
+                          ),
+                        );
+                      }
+
+                      return const SizedBox.shrink();
+                    },
+                  ),
+                ),
               ),
             ),
           ),
-
-          BlocBuilder<ChatCubit, ChatState>(
-            builder: (context, state) {
-              if (state is ChatReady && state.isAiTyping) {
-                return const Padding(
-                  padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
-                  child: _ChatProcessingBanner(),
-                );
-              }
-
-              return const SizedBox.shrink();
-            },
-          ),
-
-          // Quick chips
           BlocBuilder<ChatCubit, ChatState>(
             builder: (context, state) {
               if (state is ChatReady && !state.isAiTyping) {
                 if (!hasQuotaCubit) {
                   return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
+                    padding: const EdgeInsets.only(top: 8, bottom: 6),
                     child: ChatQuickChips(
                       onChipTapped: (text) => _sendMessage(text),
                     ),
@@ -679,7 +717,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                     }
 
                     return Padding(
-                      padding: const EdgeInsets.only(bottom: 8),
+                      padding: const EdgeInsets.only(top: 8, bottom: 6),
                       child: ChatQuickChips(
                         onChipTapped: (text) => _sendMessage(text),
                       ),
@@ -691,145 +729,61 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
               return const SizedBox.shrink();
             },
           ),
-
           if (_isListening)
-            Container(
-              width: double.infinity,
-              padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 16),
-              color: colors.primaryContainer,
-              child: Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  ScaleTransition(
-                    scale: _pulseAnimation,
-                    child: Icon(
-                      Icons.mic_rounded,
-                      color: colors.primary,
-                      size: 18,
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  Text(
-                    context.t(
-                      vi: 'Đang nghe... nói câu hỏi của bạn',
-                      en: 'Listening... speak your question',
-                    ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onPrimaryContainer,
-                      fontWeight: FontWeight.w600,
-                    ),
-                  ),
-                ],
-              ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
+              child: _ListeningStatusBanner(pulseAnimation: _pulseAnimation),
             ),
-
           if (_selectedImageBytes != null)
             Padding(
               padding: const EdgeInsets.fromLTRB(12, 0, 12, 8),
-              child: Container(
-                padding: const EdgeInsets.all(8),
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainer,
-                  borderRadius: BorderRadius.circular(14),
-                  border: Border.all(
-                    color: colors.outlineVariant.withValues(alpha: 0.5),
-                  ),
-                ),
-                child: Row(
-                  children: [
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(10),
-                      child: Image.memory(
-                        _selectedImageBytes!,
-                        width: 64,
-                        height: 64,
-                        fit: BoxFit.cover,
-                        cacheWidth: 128,
-                        filterQuality: FilterQuality.low,
-                      ),
-                    ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Text(
-                        _selectedImageName ??
-                            context.t(vi: 'Ảnh đã chọn', en: 'Selected image'),
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall,
-                      ),
-                    ),
-                    IconButton(
-                      onPressed: _clearSelectedImage,
-                      icon: const Icon(Icons.close_rounded),
-                      tooltip: context.t(vi: 'Bỏ ảnh', en: 'Remove image'),
-                    ),
-                  ],
-                ),
+              child: _SelectedImagePreviewCard(
+                imageBytes: _selectedImageBytes!,
+                imageName:
+                    _selectedImageName ??
+                    context.t(vi: 'Ảnh đã chọn', en: 'Selected image'),
+                onRemove: _clearSelectedImage,
               ),
             ),
-
-          // Input bar
-          Container(
+          Padding(
             padding: EdgeInsets.fromLTRB(
               12,
-              8,
-              8,
-              8 + MediaQuery.of(context).padding.bottom,
+              0,
+              12,
+              12 + MediaQuery.of(context).padding.bottom,
             ),
-            decoration: BoxDecoration(
+            child: ZenCard(
+              radius: 24,
+              padding: const EdgeInsets.fromLTRB(10, 10, 10, 10),
               color: colors.surface,
-              boxShadow: [
-                BoxShadow(
-                  color: colors.shadow.withValues(alpha: 0.06),
-                  blurRadius: 8,
-                  offset: const Offset(0, -2),
-                ),
-              ],
-            ),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.end,
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(right: 2, bottom: 2),
-                  child: IconButton(
+              border: Border.all(
+                color: colors.outlineVariant.withValues(alpha: 0.40),
+              ),
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.end,
+                children: [
+                  _ComposerToolButton(
+                    icon: Icons.add_photo_alternate_outlined,
                     onPressed: _showImageSourceSheet,
-                    icon: Icon(
-                      Icons.add_photo_alternate_outlined,
-                      size: 22,
-                      color: colors.onSurfaceVariant,
-                    ),
                     tooltip: context.t(vi: 'Thêm ảnh', en: 'Attach image'),
                   ),
-                ),
-                Padding(
-                  padding: const EdgeInsets.only(right: 4, bottom: 2),
-                  child: _isListening
+                  const SizedBox(width: 6),
+                  _isListening
                       ? ScaleTransition(
                           scale: _pulseAnimation,
-                          child: IconButton.filled(
+                          child: _ComposerToolButton(
+                            icon: Icons.stop_rounded,
                             onPressed: _stopListening,
-                            style: IconButton.styleFrom(
-                              backgroundColor: colors.error,
-                            ),
-                            icon: Icon(
-                              Icons.stop_rounded,
-                              size: 20,
-                              color: colors.onError,
-                            ),
                             tooltip: context.t(vi: 'Dừng ghi âm', en: 'Stop'),
+                            backgroundColor: colors.errorContainer,
+                            foregroundColor: colors.onErrorContainer,
                           ),
                         )
-                      : IconButton(
+                      : _ComposerToolButton(
+                          icon: Icons.mic_none_rounded,
                           onPressed: _speechAvailable
                               ? _toggleListening
                               : _showSpeechUnavailableHint,
-                          icon: Icon(
-                            Icons.mic_none_rounded,
-                            size: 22,
-                            color: _speechAvailable
-                                ? colors.onSurfaceVariant
-                                : colors.outline,
-                          ),
                           tooltip: context.t(
                             vi: _speechAvailable
                                 ? 'Nhập bằng giọng nói'
@@ -838,57 +792,66 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                                 ? 'Voice input'
                                 : 'Speech unavailable on this device',
                           ),
+                          foregroundColor: _speechAvailable
+                              ? colors.onSurfaceVariant
+                              : colors.outline,
                         ),
-                ),
-                Expanded(
-                  child: Container(
-                    constraints: const BoxConstraints(maxHeight: 120),
-                    decoration: BoxDecoration(
-                      border: _isListening
-                          ? Border.all(color: colors.primary, width: 1.5)
-                          : null,
-                      color: colors.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(24),
-                    ),
-                    child: TextField(
-                      controller: _textController,
-                      focusNode: _focusNode,
-                      textInputAction: TextInputAction.send,
-                      maxLines: 5,
-                      minLines: 1,
-                      textCapitalization: TextCapitalization.sentences,
-                      decoration: InputDecoration(
-                        hintText: _isListening
-                            ? context.t(
-                                vi: 'Đang nhận giọng nói...',
-                                en: 'Listening...',
-                              )
-                            : context.t(
-                                vi: 'Hỏi GrowMate AI...',
-                                en: 'Ask GrowMate AI...',
-                              ),
-                        border: InputBorder.none,
-                        contentPadding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 12,
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Container(
+                      constraints: const BoxConstraints(maxHeight: 120),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerLowest,
+                        borderRadius: BorderRadius.circular(22),
+                        border: Border.all(
+                          color: _isListening
+                              ? colors.primary.withValues(alpha: 0.40)
+                              : colors.outlineVariant.withValues(alpha: 0.38),
                         ),
                       ),
-                      onSubmitted: (_) => _handleSendPressed(),
+                      child: TextField(
+                        controller: _textController,
+                        focusNode: _focusNode,
+                        textInputAction: TextInputAction.send,
+                        maxLines: 5,
+                        minLines: 1,
+                        textCapitalization: TextCapitalization.sentences,
+                        decoration: InputDecoration(
+                          hintText: _isListening
+                              ? context.t(
+                                  vi: 'Đang nhận giọng nói...',
+                                  en: 'Listening...',
+                                )
+                              : context.t(
+                                  vi: 'Hỏi bài hoặc gửi ảnh đề...',
+                                  en: 'Ask a question or attach an image...',
+                                ),
+                          hintStyle: theme.textTheme.bodyMedium?.copyWith(
+                            color: colors.onSurfaceVariant.withValues(
+                              alpha: 0.82,
+                            ),
+                          ),
+                          border: InputBorder.none,
+                          contentPadding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 14,
+                          ),
+                        ),
+                        onSubmitted: (_) => _handleSendPressed(),
+                      ),
                     ),
                   ),
-                ),
-                const SizedBox(width: 8),
-                BlocBuilder<ChatCubit, ChatState>(
-                  builder: (context, state) {
-                    final isTyping = state is ChatReady && state.isAiTyping;
-                    return Container(
-                      margin: const EdgeInsets.only(bottom: 2),
-                      child: IconButton.filled(
+                  const SizedBox(width: 8),
+                  BlocBuilder<ChatCubit, ChatState>(
+                    builder: (context, state) {
+                      final isTyping = state is ChatReady && state.isAiTyping;
+                      return IconButton.filled(
                         onPressed: isTyping ? null : _handleSendPressed,
                         style: IconButton.styleFrom(
                           backgroundColor: colors.primary,
                           disabledBackgroundColor:
                               colors.surfaceContainerHighest,
+                          padding: const EdgeInsets.all(16),
                         ),
                         icon: Icon(
                           Icons.send_rounded,
@@ -897,11 +860,11 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                               ? colors.onSurfaceVariant
                               : colors.onPrimary,
                         ),
-                      ),
-                    );
-                  },
-                ),
-              ],
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -910,38 +873,42 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
   }
 }
 
-class _ChatProcessingBanner extends StatelessWidget {
-  const _ChatProcessingBanner();
+class _ListeningStatusBanner extends StatelessWidget {
+  const _ListeningStatusBanner({required this.pulseAnimation});
+
+  final Animation<double> pulseAnimation;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
 
-    return Container(
-      width: double.infinity,
+    return ZenCard(
+      radius: 18,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.centerLeft,
-          end: Alignment.centerRight,
-          colors: [
-            colors.primary.withValues(alpha: 0.10),
-            colors.tertiary.withValues(alpha: 0.08),
-          ],
-        ),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
-      ),
+      color: colors.surfaceContainerLowest,
+      border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.35)),
       child: Row(
         children: [
-          Icon(Icons.hourglass_top_rounded, color: colors.primary, size: 18),
+          ScaleTransition(
+            scale: pulseAnimation,
+            child: Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: colors.primaryContainer,
+                borderRadius: BorderRadius.circular(10),
+              ),
+              alignment: Alignment.center,
+              child: Icon(Icons.mic_rounded, color: colors.primary, size: 18),
+            ),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Text(
               context.t(
-                vi: 'AI đang phân tích câu hỏi và chuẩn bị câu trả lời rõ ràng hơn cho bạn.',
-                en: 'AI is analyzing your question and preparing a clearer answer.',
+                vi: 'Đang nghe giọng nói của bạn. Hãy nói tự nhiên, GrowMate sẽ tự chèn vào khung chat.',
+                en: 'Listening to your voice. Speak naturally and GrowMate will fill the composer.',
               ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.onSurface,
@@ -956,6 +923,109 @@ class _ChatProcessingBanner extends StatelessWidget {
   }
 }
 
+class _SelectedImagePreviewCard extends StatelessWidget {
+  const _SelectedImagePreviewCard({
+    required this.imageBytes,
+    required this.imageName,
+    required this.onRemove,
+  });
+
+  final Uint8List imageBytes;
+  final String imageName;
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return ZenCard(
+      radius: 18,
+      padding: const EdgeInsets.all(10),
+      color: colors.surface,
+      border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.4)),
+      child: Row(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(14),
+            child: Image.memory(
+              imageBytes,
+              width: 68,
+              height: 68,
+              fit: BoxFit.cover,
+              cacheWidth: 136,
+              filterQuality: FilterQuality.low,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Ảnh đã chọn',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  imageName,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          IconButton(
+            onPressed: onRemove,
+            icon: const Icon(Icons.close_rounded),
+            tooltip: context.t(vi: 'Bỏ ảnh', en: 'Remove image'),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ComposerToolButton extends StatelessWidget {
+  const _ComposerToolButton({
+    required this.icon,
+    required this.onPressed,
+    required this.tooltip,
+    this.backgroundColor,
+    this.foregroundColor,
+  });
+
+  final IconData icon;
+  final VoidCallback onPressed;
+  final String tooltip;
+  final Color? backgroundColor;
+  final Color? foregroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return IconButton.filledTonal(
+      onPressed: onPressed,
+      tooltip: tooltip,
+      style: IconButton.styleFrom(
+        backgroundColor: backgroundColor ?? colors.surfaceContainerLow,
+        foregroundColor: foregroundColor ?? colors.primary,
+        padding: const EdgeInsets.all(14),
+      ),
+      icon: Icon(icon, size: 20),
+    );
+  }
+}
+
 class _ChatWelcomeCard extends StatelessWidget {
   const _ChatWelcomeCard({required this.onSuggestionSelected});
 
@@ -965,45 +1035,49 @@ class _ChatWelcomeCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final suggestions = <String>[
-      'Giải thích lại bài này từng bước giúp mình',
-      'Tóm tắt nhanh công thức đạo hàm quan trọng',
-      'Cho mình một ví dụ dễ hơn rồi nâng dần',
+    final suggestions = <({IconData icon, String title, String prompt})>[
+      (
+        icon: Icons.fact_check_rounded,
+        title: 'Giải từng bước dễ hiểu',
+        prompt: 'Giải thích lại bài này từng bước giúp mình',
+      ),
+      (
+        icon: Icons.functions_rounded,
+        title: 'Tóm tắt công thức trọng tâm',
+        prompt: 'Tóm tắt nhanh công thức đạo hàm quan trọng',
+      ),
+      (
+        icon: Icons.school_rounded,
+        title: 'Cho ví dụ từ dễ đến khó',
+        prompt: 'Cho mình một ví dụ dễ hơn rồi nâng dần',
+      ),
     ];
 
-    return Container(
-      padding: const EdgeInsets.all(18),
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.primaryContainer.withValues(alpha: 0.82),
-            colors.surface,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(28),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.12)),
-      ),
+    return ZenCard(
+      radius: 22,
+      padding: const EdgeInsets.all(16),
+      color: colors.surfaceContainerLowest,
+      border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.40)),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               Container(
-                width: 42,
-                height: 42,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: colors.primary,
+                  color: colors.primaryContainer,
                   borderRadius: BorderRadius.circular(14),
                 ),
                 alignment: Alignment.center,
                 child: Icon(
                   Icons.auto_awesome_rounded,
-                  color: colors.onPrimary,
+                  color: colors.onPrimaryContainer,
+                  size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              const SizedBox(width: 10),
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1018,20 +1092,38 @@ class _ChatWelcomeCard extends StatelessWidget {
                     const SizedBox(height: 2),
                     Text(
                       context.t(
-                        vi: 'Hỏi bằng chữ, giọng nói hoặc gửi ảnh để được hỗ trợ học nhanh hơn.',
-                        en: 'Ask by text, voice, or image for faster study help.',
+                        vi: 'Hỏi bằng chữ, giọng nói hoặc ảnh để nhận lời giải gọn, rõ và đúng trọng tâm.',
+                        en: 'Ask by text, voice, or image for sharper and clearer help.',
                       ),
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         height: 1.35,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                   ],
                 ),
               ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
+                decoration: BoxDecoration(
+                  color: colors.surface,
+                  borderRadius: BorderRadius.circular(999),
+                  border: Border.all(
+                    color: colors.outlineVariant.withValues(alpha: 0.35),
+                  ),
+                ),
+                child: Text(
+                  'Gợi ý',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
             ],
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           _WelcomeFeatureRow(
             icon: Icons.rule_folder_outlined,
             label: context.t(
@@ -1055,26 +1147,48 @@ class _ChatWelcomeCard extends StatelessWidget {
               en: 'Suggest the next learning step when you get stuck',
             ),
           ),
-          const SizedBox(height: 16),
+          const SizedBox(height: 14),
           Wrap(
             spacing: 8,
             runSpacing: 8,
             children: suggestions
-                .map(
-                  (suggestion) => ActionChip(
-                    onPressed: () => onSuggestionSelected(suggestion),
-                    backgroundColor: colors.surface,
-                    side: BorderSide(
-                      color: colors.outlineVariant.withValues(alpha: 0.6),
-                    ),
-                    label: Text(
-                      suggestion,
-                      style: theme.textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
+                .map((suggestion) {
+                  return InkWell(
+                    borderRadius: BorderRadius.circular(16),
+                    onTap: () => onSuggestionSelected(suggestion.prompt),
+                    child: Ink(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 10,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surface,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(
+                          color: colors.outlineVariant.withValues(alpha: 0.35),
+                        ),
+                      ),
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Icon(
+                            suggestion.icon,
+                            size: 16,
+                            color: colors.primary,
+                          ),
+                          const SizedBox(width: 8),
+                          Text(
+                            suggestion.title,
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                        ],
                       ),
                     ),
-                  ),
-                )
+                  );
+                })
                 .toList(growable: false),
           ),
         ],
@@ -1097,7 +1211,16 @@ class _WelcomeFeatureRow extends StatelessWidget {
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Icon(icon, size: 18, color: colors.primary),
+        Container(
+          width: 30,
+          height: 30,
+          decoration: BoxDecoration(
+            color: colors.primary.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(10),
+          ),
+          alignment: Alignment.center,
+          child: Icon(icon, size: 16, color: colors.primary),
+        ),
         const SizedBox(width: 10),
         Expanded(
           child: Text(
@@ -1105,7 +1228,7 @@ class _WelcomeFeatureRow extends StatelessWidget {
             style: theme.textTheme.bodyMedium?.copyWith(
               color: colors.onSurface,
               height: 1.35,
-              fontWeight: FontWeight.w600,
+              fontWeight: FontWeight.w500,
             ),
           ),
         ),

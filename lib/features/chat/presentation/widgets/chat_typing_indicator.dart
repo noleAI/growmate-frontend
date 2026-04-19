@@ -42,33 +42,37 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
         .toInt();
 
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          CircleAvatar(
-            radius: 16,
-            backgroundColor: theme.colorScheme.primaryContainer,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.primaryContainer,
+              shape: BoxShape.circle,
+            ),
             child: Icon(
-              Icons.smart_toy_rounded,
-              size: 18,
-              color: theme.colorScheme.onPrimaryContainer,
+              Icons.auto_awesome_rounded,
+              size: 16,
+              color: colors.onPrimaryContainer,
             ),
           ),
           const SizedBox(width: 8),
           Container(
             constraints: const BoxConstraints(maxWidth: 280),
-            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
             decoration: BoxDecoration(
-              color: colors.surfaceContainerLow,
+              color: colors.surface,
               borderRadius: const BorderRadius.only(
-                topLeft: Radius.circular(16),
-                topRight: Radius.circular(16),
-                bottomLeft: Radius.circular(4),
-                bottomRight: Radius.circular(16),
+                topLeft: Radius.circular(20),
+                topRight: Radius.circular(20),
+                bottomLeft: Radius.circular(8),
+                bottomRight: Radius.circular(20),
               ),
               border: Border.all(
-                color: colors.outlineVariant.withValues(alpha: 0.45),
+                color: colors.outlineVariant.withValues(alpha: 0.35),
               ),
             ),
             child: AnimatedBuilder(
@@ -78,7 +82,7 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(
-                      'GrowMate đang xử lý',
+                      'GrowMate đang trả lời',
                       style: theme.textTheme.labelLarge?.copyWith(
                         color: colors.onSurface,
                         fontWeight: FontWeight.w700,
@@ -90,6 +94,7 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: colors.onSurfaceVariant,
                         height: 1.35,
+                        fontWeight: FontWeight.w500,
                       ),
                     ),
                     const SizedBox(height: 10),
@@ -109,7 +114,7 @@ class _ChatTypingIndicatorState extends State<ChatTypingIndicator>
                               height: 8,
                               decoration: BoxDecoration(
                                 shape: BoxShape.circle,
-                                color: colors.primary.withValues(alpha: 0.58),
+                                color: colors.primary.withValues(alpha: 0.65),
                               ),
                             ),
                           ),

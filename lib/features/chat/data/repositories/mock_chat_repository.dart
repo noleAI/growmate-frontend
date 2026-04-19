@@ -202,13 +202,16 @@ class MockChatRepository implements ChatRepository {
       id: 'greeting_0',
       role: ChatRole.assistant,
       content:
-          'Xin chào! Mình là GrowMate AI 🤖\n\n'
-          'Mình có thể giúp bạn:\n'
-          '• Giải thích bài tập Toán (đạo hàm, tích phân, logarit...)\n'
-          '• Ôn tập kiến thức THPT 2026\n'
-          '• Gợi ý phương pháp học hiệu quả\n'
-          '• Giải đề thi thử\n\n'
-          'Hỏi mình bất cứ điều gì nhé! 📚',
+          'Chào bạn, mình là GrowMate AI.\n\n'
+          'Mình hỗ trợ tốt nhất ở 3 việc:\n'
+          '1. Giải bài theo từng bước với cách diễn giải dễ hiểu.\n'
+          '2. Tóm tắt công thức, mẹo nhớ và lỗi sai thường gặp.\n'
+          '3. Gợi ý hướng học tiếp theo khi bạn đang bí.\n\n'
+          'Bạn có thể thử ngay:\n'
+          '- Giải thích lại bài này theo cách đơn giản hơn.\n'
+          '- Tóm tắt 5 công thức cần nhớ của chương này.\n'
+          '- Cho mình một ví dụ tương tự từ dễ đến khó.\n\n'
+          'Mock mode vẫn đủ để bạn kiểm tra trải nghiệm UI của chatbot.',
       timestamp: DateTime.now(),
     );
   }
