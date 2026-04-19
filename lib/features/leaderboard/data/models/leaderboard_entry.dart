@@ -1,4 +1,6 @@
-/// Một entry trên bảng xếp hạng.
+﻿// Leaderboard entry model.
+import 'package:characters/characters.dart';
+
 class LeaderboardEntry {
   const LeaderboardEntry({
     required this.userId,
@@ -32,10 +34,10 @@ class LeaderboardEntry {
 
     final fallbackFromId = userId.trim();
     if (fallbackFromId.isNotEmpty) {
-      return 'Người chơi ${fallbackFromId.length > 6 ? fallbackFromId.substring(0, 6) : fallbackFromId}';
+      return 'NgÆ°á»i chÆ¡i ${fallbackFromId.length > 6 ? fallbackFromId.substring(0, 6) : fallbackFromId}';
     }
 
-    return rank > 0 ? 'Người chơi #$rank' : 'Người chơi';
+    return rank > 0 ? 'NgÆ°á»i chÆ¡i #$rank' : 'NgÆ°á»i chÆ¡i';
   }
 
   String get shortDisplayName {

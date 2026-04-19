@@ -72,7 +72,7 @@ class PeriodTabBar extends StatelessWidget {
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       Icon(
-                        tab.$3 as IconData,
+                        tab.$3,
                         size: 18,
                         color: isSelected
                             ? theme.colorScheme.onPrimary

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../data/models/leaderboard_entry.dart';
 
-/// Banner sticky ở bottom hiển thị rank của user hiện tại.
 class MyRankBanner extends StatelessWidget {
   const MyRankBanner({super.key, required this.myEntry});
 
@@ -18,6 +17,7 @@ class MyRankBanner extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
         child: Container(
+          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           decoration: BoxDecoration(
             gradient: LinearGradient(
               colors: [
@@ -36,7 +36,6 @@ class MyRankBanner extends StatelessWidget {
               ),
             ],
           ),
-          padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
           child: Row(
             children: [
               Container(
@@ -93,15 +92,15 @@ class MyRankBanner extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                ),
-                Text(
-                  'nhịp học',
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onPrimary.withValues(alpha: 0.82),
+                  Text(
+                    'nhịp học',
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onPrimary.withValues(alpha: 0.82),
+                    ),
                   ),
-                ),
-              ],
-            ),
+                ],
+              ),
+            ],
           ),
         ),
       ),

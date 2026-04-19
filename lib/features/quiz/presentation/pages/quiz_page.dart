@@ -70,18 +70,10 @@ String _agenticContentPreviewLabel(
   if (action == 'de_stress' ||
       action == 'show_break' ||
       action == 'suggest_break') {
-    return context.t(
-      vi: 'Khuyến nghị nghỉ ngắn',
-      en: 'Recovery suggestion',
-    );
+    return context.t(vi: 'Khuyến nghị nghỉ ngắn', en: 'Recovery suggestion');
   }
-  if (action == 'hitl' ||
-      action == 'hitl_pending' ||
-      action == 'hitl_brief') {
-    return context.t(
-      vi: 'Cần bạn quyết định',
-      en: 'Decision needed',
-    );
+  if (action == 'hitl' || action == 'hitl_pending' || action == 'hitl_brief') {
+    return context.t(vi: 'Cần bạn quyết định', en: 'Decision needed');
   }
 
   return context.t(vi: 'Cập nhật từ AI', en: 'AI update');
@@ -2434,1172 +2426,1243 @@ class _QuizPageState extends State<QuizPage> {
         child: Builder(
           builder: (context) {
             final pageContent = GestureDetector(
-          behavior: HitTestBehavior.translucent,
-          onTap: () {
-            _signalService.registerInteraction();
-            _sessionGuard.onUserActivity();
-            FocusScope.of(context).unfocus();
-          },
-          child: Stack(
-            children: [
-              PopScope(
-                canPop: false,
-                onPopInvokedWithResult: (didPop, result) async {
-                  if (didPop) return;
-                  final navigator = Navigator.of(context);
-                  final canPopRoute = context.canPop();
-                  final shouldLeave = await _confirmLeaveQuiz();
-                  if (shouldLeave && mounted && canPopRoute) {
-                    navigator.pop();
-                  }
-                },
-                child: Scaffold(
-                  backgroundColor: Theme.of(context).scaffoldBackgroundColor,
-                  appBar: AppBar(
-                    leading: IconButton(
-                      icon: const Icon(Icons.arrow_back_rounded),
-                      tooltip: context.t(
-                        vi: 'Quay về Trang chủ',
-                        en: 'Back to Home',
+              behavior: HitTestBehavior.translucent,
+              onTap: () {
+                _signalService.registerInteraction();
+                _sessionGuard.onUserActivity();
+                FocusScope.of(context).unfocus();
+              },
+              child: Stack(
+                children: [
+                  PopScope(
+                    canPop: false,
+                    onPopInvokedWithResult: (didPop, result) async {
+                      if (didPop) return;
+                      final navigator = Navigator.of(context);
+                      final canPopRoute = context.canPop();
+                      final shouldLeave = await _confirmLeaveQuiz();
+                      if (shouldLeave && mounted && canPopRoute) {
+                        navigator.pop();
+                      }
+                    },
+                    child: Scaffold(
+                      backgroundColor: Theme.of(
+                        context,
+                      ).scaffoldBackgroundColor,
+                      appBar: AppBar(
+                        leading: IconButton(
+                          icon: const Icon(Icons.arrow_back_rounded),
+                          tooltip: context.t(
+                            vi: 'Quay về Trang chủ',
+                            en: 'Back to Home',
+                          ),
+                          onPressed: () async {
+                            final shouldLeave = await _confirmLeaveQuiz();
+                            if (!mounted) return;
+                            if (shouldLeave) {
+                              // Schedule navigation after current frame to avoid context async gap
+                              WidgetsBinding.instance.addPostFrameCallback((_) {
+                                if (mounted) context.go(AppRoutes.home);
+                              });
+                            }
+                          },
+                        ),
+                        title: Text(
+                          context.t(vi: 'Làm bài', en: 'Quiz'),
+                          style: Theme.of(context).textTheme.titleMedium,
+                        ),
+                        centerTitle: true,
+                        elevation: 0,
                       ),
-                      onPressed: () async {
-                        final shouldLeave = await _confirmLeaveQuiz();
-                        if (!mounted) return;
-                        if (shouldLeave) {
-                          // Schedule navigation after current frame to avoid context async gap
-                          WidgetsBinding.instance.addPostFrameCallback((_) {
-                            if (mounted) context.go(AppRoutes.home);
-                          });
-                        }
-                      },
-                    ),
-                    title: Text(
-                      context.t(vi: 'Làm bài', en: 'Quiz'),
-                      style: Theme.of(context).textTheme.titleMedium,
-                    ),
-                    centerTitle: true,
-                    elevation: 0,
-                  ),
-                  body: SelectionContainer.disabled(
-                    child: BlocConsumer<QuizCubit, QuizCubitState>(
-                      listener: (context, state) {
-                        if (state is QuizSubmitFailureState) {
-                          _clearPendingAgenticSubmission();
-                          _trackQuizEvent(
-                            'submit_failed',
-                            data: <String, Object?>{
-                              'scope': _isSubmittingEntireQuiz
-                                  ? 'batch'
-                                  : 'single',
-                              'error': state.message,
-                              'submit_latency_client': _elapsedMsSince(
-                                _lastSubmitClickedAt,
-                              ),
-                            },
-                          );
-                          final localizedMessage = _localizedQuizMessage(
-                            context,
-                            state.message,
-                          );
-
-                          if (_isValidationSubmitMessage(localizedMessage)) {
-                            ScaffoldMessenger.of(context)
-                              ..hideCurrentSnackBar()
-                              ..showSnackBar(
-                                SnackBar(content: Text(localizedMessage)),
+                      body: SelectionContainer.disabled(
+                        child: BlocConsumer<QuizCubit, QuizCubitState>(
+                          listener: (context, state) {
+                            if (state is QuizSubmitFailureState) {
+                              _clearPendingAgenticSubmission();
+                              _trackQuizEvent(
+                                'submit_failed',
+                                data: <String, Object?>{
+                                  'scope': _isSubmittingEntireQuiz
+                                      ? 'batch'
+                                      : 'single',
+                                  'error': state.message,
+                                  'submit_latency_client': _elapsedMsSince(
+                                    _lastSubmitClickedAt,
+                                  ),
+                                },
+                              );
+                              final localizedMessage = _localizedQuizMessage(
+                                context,
+                                state.message,
                               );
 
-                            setState(() {
-                              _isNavigatingToDiagnosis = false;
-                              _submitErrorMessage = null;
-                            });
-                          } else {
-                            setState(() {
-                              _isNavigatingToDiagnosis = false;
-                              _submitErrorMessage = localizedMessage;
-                            });
-                          }
-                        }
+                              if (_isValidationSubmitMessage(
+                                localizedMessage,
+                              )) {
+                                ScaffoldMessenger.of(context)
+                                  ..hideCurrentSnackBar()
+                                  ..showSnackBar(
+                                    SnackBar(content: Text(localizedMessage)),
+                                  );
 
-                        if (state is QuizBatchSubmittingState) {
-                          _trackQuizEvent(
-                            'submit_in_flight',
-                            data: <String, Object?>{'scope': 'batch'},
-                          );
-                          setState(() {
-                            _isNavigatingToDiagnosis = true;
-                            _submitErrorMessage = null;
-                          });
-                        }
+                                setState(() {
+                                  _isNavigatingToDiagnosis = false;
+                                  _submitErrorMessage = null;
+                                });
+                              } else {
+                                setState(() {
+                                  _isNavigatingToDiagnosis = false;
+                                  _submitErrorMessage = localizedMessage;
+                                });
+                              }
+                            }
 
-                        if (state is QuizSubmitSuccessState) {
-                          _flushPendingAgenticSubmission();
-                          _trackQuizEvent(
-                            'submit_succeeded',
-                            data: <String, Object?>{
-                              'scope': _isSubmittingEntireQuiz
-                                  ? 'batch'
-                                  : 'single',
-                              'submit_latency_client': _elapsedMsSince(
-                                _lastSubmitClickedAt,
-                              ),
-                              'is_correct': state.isCorrect,
-                              'xp_earned': state.xpEarned,
-                            },
-                          );
-                          if (_isSubmittingEntireQuiz) {
-                            _trackQuizEvent(
-                              'quiz_completed',
-                              data: <String, Object?>{
-                                'total_quiz_duration': _elapsedMsSince(
-                                  _quizStartedAt,
+                            if (state is QuizBatchSubmittingState) {
+                              _trackQuizEvent(
+                                'submit_in_flight',
+                                data: <String, Object?>{'scope': 'batch'},
+                              );
+                              setState(() {
+                                _isNavigatingToDiagnosis = true;
+                                _submitErrorMessage = null;
+                              });
+                            }
+
+                            if (state is QuizSubmitSuccessState) {
+                              _flushPendingAgenticSubmission();
+                              _trackQuizEvent(
+                                'submit_succeeded',
+                                data: <String, Object?>{
+                                  'scope': _isSubmittingEntireQuiz
+                                      ? 'batch'
+                                      : 'single',
+                                  'submit_latency_client': _elapsedMsSince(
+                                    _lastSubmitClickedAt,
+                                  ),
+                                  'is_correct': state.isCorrect,
+                                  'xp_earned': state.xpEarned,
+                                },
+                              );
+                              if (_isSubmittingEntireQuiz) {
+                                _trackQuizEvent(
+                                  'quiz_completed',
+                                  data: <String, Object?>{
+                                    'total_quiz_duration': _elapsedMsSince(
+                                      _quizStartedAt,
+                                    ),
+                                  },
+                                );
+                              }
+                              if (_isNavigatingToDiagnosis) {
+                                return;
+                              }
+
+                              if (state.canPlay != null ||
+                                  state.nextRegenInSeconds != null) {
+                                setState(() {
+                                  _canPlayOverride =
+                                      state.canPlay ?? _canPlayOverride;
+                                  _nextRegenInSecondsOverride =
+                                      state.nextRegenInSeconds ??
+                                      _nextRegenInSecondsOverride;
+                                });
+                              }
+
+                              if (_isApiDrivenMode) {
+                                final backendAnsweredCount =
+                                    state.answeredCount ??
+                                    state.lastQuestionIndex ??
+                                    _apiAnsweredCount;
+                                setState(() {
+                                  _apiAnsweredCount = backendAnsweredCount
+                                      .clamp(
+                                        0,
+                                        math.max(
+                                          state.totalQuestions ??
+                                              _apiTotalQuestions,
+                                          1,
+                                        ),
+                                      );
+                                  if (state.totalQuestions != null &&
+                                      state.totalQuestions! > 0) {
+                                    _apiTotalQuestions = state.totalQuestions!;
+                                  }
+                                });
+                              }
+
+                              // Award XP for correct answers
+                              if (state.isCorrect && state.xpEarned > 0) {
+                                context.read<LeaderboardCubit>().addXp(
+                                  eventType: 'correct_answer',
+                                );
+                              }
+
+                              // Refresh lives indicator when backend reports lives change.
+                              if (state.livesRemaining != null) {
+                                _livesCubit?.loadLives();
+                              }
+
+                              // API-driven mode: fetch next question from backend,
+                              // UNLESS user chose "Nộp toàn bộ bài" or we reached the total.
+                              if (_isApiDrivenMode &&
+                                  !_isSubmittingEntireQuiz) {
+                                // Auto-finish if we've reached the total questions
+                                if (_apiQuestionIndex >=
+                                    _apiTotalQuestions - 1) {
+                                  // Fall through to diagnosis navigation below
+                                } else {
+                                  setState(() => _submitErrorMessage = null);
+                                  unawaited(_loadNextApiQuestion());
+                                  return;
+                                }
+                              }
+
+                              final completedQuiz =
+                                  _isSubmittingEntireQuiz ||
+                                  (_isApiDrivenMode &&
+                                      _apiQuestionIndex >=
+                                          _apiTotalQuestions - 1);
+
+                              // Reset the flag after consuming it
+                              _isSubmittingEntireQuiz = false;
+
+                              if (completedQuiz) {
+                                unawaited(_ensureQuizCompletionXpAwarded());
+                              }
+
+                              setState(() {
+                                _isNavigatingToDiagnosis = true;
+                                _submitErrorMessage = null;
+                              });
+
+                              // Clear pending session on successful submission
+                              unawaited(SessionRecoveryLocal.clear());
+                              unawaited(_clearLocalDraftBundle());
+                              unawaited(
+                                _agenticCubit?.endSession(status: 'completed'),
+                              );
+
+                              final router = GoRouter.of(context);
+                              Future<
+                                void
+                              >.delayed(const Duration(milliseconds: 900), () {
+                                if (!mounted) {
+                                  return;
+                                }
+
+                                router.go(
+                                  '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
+                                );
+                              });
+                              return;
+                            }
+
+                            if (state is QuizBatchSubmitSuccessState) {
+                              _clearPendingAgenticSubmission();
+                              _trackQuizEvent(
+                                'submit_succeeded',
+                                data: <String, Object?>{
+                                  'scope': 'batch',
+                                  'submit_latency_client': _elapsedMsSince(
+                                    _lastSubmitClickedAt,
+                                  ),
+                                },
+                              );
+                              _trackQuizEvent(
+                                'quiz_completed',
+                                data: <String, Object?>{
+                                  'total_quiz_duration': _elapsedMsSince(
+                                    _quizStartedAt,
+                                  ),
+                                },
+                              );
+                              _isSubmittingEntireQuiz = false;
+
+                              unawaited(_ensureQuizCompletionXpAwarded());
+
+                              setState(() {
+                                _isNavigatingToDiagnosis = true;
+                                _submitErrorMessage = null;
+                              });
+
+                              unawaited(SessionRecoveryLocal.clear());
+                              unawaited(_clearLocalDraftBundle());
+                              unawaited(
+                                _agenticCubit?.endSession(status: 'completed'),
+                              );
+
+                              final router = GoRouter.of(context);
+                              Future<
+                                void
+                              >.delayed(const Duration(milliseconds: 900), () {
+                                if (!mounted) {
+                                  return;
+                                }
+
+                                router.go(
+                                  '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(_effectiveSessionId)}',
+                                );
+                              });
+                              return;
+                            }
+
+                            if (state is QuizRecoveryTriggeredState) {
+                              _flushPendingAgenticSubmission();
+                              setState(() {
+                                _isNavigatingToDiagnosis = false;
+                              });
+
+                              final recoveryMessage = switch (state.reason) {
+                                'idle_time_high' => context.t(
+                                  vi: 'AI thấy bạn đang chững nhịp khá lâu, nên gợi ý chuyển sang một bước recovery ngắn trước khi tiếp tục.',
+                                  en: 'The AI noticed a long idle period and suggests a short recovery step before continuing.',
                                 ),
-                              },
-                            );
-                          }
-                          if (_isNavigatingToDiagnosis) {
-                            return;
-                          }
+                                'three_wrong_answers' => context.t(
+                                  vi: 'AI thấy bạn vừa mắc lỗi liên tiếp, nên gợi ý giảm độ khó hoặc nghỉ ngắn để lấy lại nhịp.',
+                                  en: 'The AI detected a wrong-answer streak and suggests a lighter step or a short break.',
+                                ),
+                                _ => context.t(
+                                  vi: 'AI đề xuất chuyển sang recovery mode để ổn định lại nhịp học.',
+                                  en: 'The AI suggests switching to recovery mode to stabilize the learning rhythm.',
+                                ),
+                              };
 
-                          if (state.canPlay != null ||
-                              state.nextRegenInSeconds != null) {
-                            setState(() {
-                              _canPlayOverride =
-                                  state.canPlay ?? _canPlayOverride;
-                              _nextRegenInSecondsOverride =
+                              unawaited(
+                                _showRecoverySuggestionSheet(
+                                  message: recoveryMessage,
+                                ),
+                              );
+                            }
+
+                            if (state is QuizRateLimitedState) {
+                              _clearPendingAgenticSubmission();
+                              setState(() {
+                                _isNavigatingToDiagnosis = false;
+                                _submitErrorMessage = null;
+                              });
+                              _countdownTimer?.cancel();
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(state.message),
+                                    duration: const Duration(seconds: 5),
+                                  ),
+                                );
+                              // Navigate back to home after showing rate limit message
+                              final nav = GoRouter.of(context);
+                              Future<void>.delayed(
+                                const Duration(seconds: 2),
+                                () {
+                                  if (mounted) nav.go(AppRoutes.today);
+                                },
+                              );
+                            }
+
+                            if (state is QuizNoLivesState) {
+                              _clearPendingAgenticSubmission();
+                              final nextRegenInSeconds =
                                   state.nextRegenInSeconds ??
                                   _nextRegenInSecondsOverride;
-                            });
-                          }
-
-                          if (_isApiDrivenMode) {
-                            final backendAnsweredCount =
-                                state.answeredCount ??
-                                state.lastQuestionIndex ??
-                                _apiAnsweredCount;
-                            setState(() {
-                              _apiAnsweredCount = backendAnsweredCount.clamp(
-                                0,
-                                math.max(
-                                  state.totalQuestions ?? _apiTotalQuestions,
-                                  1,
-                                ),
+                              final noLivesMessage = _buildNoLivesMessage(
+                                context,
+                                nextRegenInSeconds,
                               );
-                              if (state.totalQuestions != null &&
-                                  state.totalQuestions! > 0) {
-                                _apiTotalQuestions = state.totalQuestions!;
-                              }
-                            });
-                          }
 
-                          // Award XP for correct answers
-                          if (state.isCorrect && state.xpEarned > 0) {
-                            context.read<LeaderboardCubit>().addXp(
-                              eventType: 'correct_answer',
-                            );
-                          }
+                              setState(() {
+                                _isNavigatingToDiagnosis = false;
+                                _canPlayOverride = false;
+                                _nextRegenInSecondsOverride =
+                                    nextRegenInSeconds;
+                                _submitErrorMessage = noLivesMessage;
+                              });
 
-                          // Refresh lives indicator when backend reports lives change.
-                          if (state.livesRemaining != null) {
-                            _livesCubit?.loadLives();
-                          }
+                              _countdownTimer?.cancel();
+                              unawaited(_livesCubit?.loadLives());
 
-                          // API-driven mode: fetch next question from backend,
-                          // UNLESS user chose "Nộp toàn bộ bài" or we reached the total.
-                          if (_isApiDrivenMode && !_isSubmittingEntireQuiz) {
-                            // Auto-finish if we've reached the total questions
-                            if (_apiQuestionIndex >= _apiTotalQuestions - 1) {
-                              // Fall through to diagnosis navigation below
-                            } else {
-                              setState(() => _submitErrorMessage = null);
-                              unawaited(_loadNextApiQuestion());
-                              return;
-                            }
-                          }
-
-                          final completedQuiz =
-                              _isSubmittingEntireQuiz ||
-                              (_isApiDrivenMode &&
-                                  _apiQuestionIndex >= _apiTotalQuestions - 1);
-
-                          // Reset the flag after consuming it
-                          _isSubmittingEntireQuiz = false;
-
-                          if (completedQuiz) {
-                            unawaited(_ensureQuizCompletionXpAwarded());
-                          }
-
-                          setState(() {
-                            _isNavigatingToDiagnosis = true;
-                            _submitErrorMessage = null;
-                          });
-
-                          // Clear pending session on successful submission
-                          unawaited(SessionRecoveryLocal.clear());
-                          unawaited(_clearLocalDraftBundle());
-                          unawaited(
-                            _agenticCubit?.endSession(status: 'completed'),
-                          );
-
-                          final router = GoRouter.of(context);
-                          Future<
-                            void
-                          >.delayed(const Duration(milliseconds: 900), () {
-                            if (!mounted) {
-                              return;
-                            }
-
-                            router.go(
-                              '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(state.submissionId)}',
-                            );
-                          });
-                          return;
-                        }
-
-                        if (state is QuizBatchSubmitSuccessState) {
-                          _clearPendingAgenticSubmission();
-                          _trackQuizEvent(
-                            'submit_succeeded',
-                            data: <String, Object?>{
-                              'scope': 'batch',
-                              'submit_latency_client': _elapsedMsSince(
-                                _lastSubmitClickedAt,
-                              ),
-                            },
-                          );
-                          _trackQuizEvent(
-                            'quiz_completed',
-                            data: <String, Object?>{
-                              'total_quiz_duration': _elapsedMsSince(
-                                _quizStartedAt,
-                              ),
-                            },
-                          );
-                          _isSubmittingEntireQuiz = false;
-
-                          unawaited(_ensureQuizCompletionXpAwarded());
-
-                          setState(() {
-                            _isNavigatingToDiagnosis = true;
-                            _submitErrorMessage = null;
-                          });
-
-                          unawaited(SessionRecoveryLocal.clear());
-                          unawaited(_clearLocalDraftBundle());
-                          unawaited(
-                            _agenticCubit?.endSession(status: 'completed'),
-                          );
-
-                          final router = GoRouter.of(context);
-                          Future<
-                            void
-                          >.delayed(const Duration(milliseconds: 900), () {
-                            if (!mounted) {
-                              return;
-                            }
-
-                            router.go(
-                              '${AppRoutes.diagnosis}?submissionId=${Uri.encodeQueryComponent(_effectiveSessionId)}',
-                            );
-                          });
-                          return;
-                        }
-
-                        if (state is QuizRecoveryTriggeredState) {
-                          _flushPendingAgenticSubmission();
-                          setState(() {
-                            _isNavigatingToDiagnosis = false;
-                          });
-
-                          final recoveryMessage = switch (state.reason) {
-                            'idle_time_high' => context.t(
-                              vi: 'AI thấy bạn đang chững nhịp khá lâu, nên gợi ý chuyển sang một bước recovery ngắn trước khi tiếp tục.',
-                              en: 'The AI noticed a long idle period and suggests a short recovery step before continuing.',
-                            ),
-                            'three_wrong_answers' => context.t(
-                              vi: 'AI thấy bạn vừa mắc lỗi liên tiếp, nên gợi ý giảm độ khó hoặc nghỉ ngắn để lấy lại nhịp.',
-                              en: 'The AI detected a wrong-answer streak and suggests a lighter step or a short break.',
-                            ),
-                            _ => context.t(
-                              vi: 'AI đề xuất chuyển sang recovery mode để ổn định lại nhịp học.',
-                              en: 'The AI suggests switching to recovery mode to stabilize the learning rhythm.',
-                            ),
-                          };
-
-                          unawaited(
-                            _showRecoverySuggestionSheet(
-                              message: recoveryMessage,
-                            ),
-                          );
-                        }
-
-                        if (state is QuizRateLimitedState) {
-                          _clearPendingAgenticSubmission();
-                          setState(() {
-                            _isNavigatingToDiagnosis = false;
-                            _submitErrorMessage = null;
-                          });
-                          _countdownTimer?.cancel();
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(state.message),
-                                duration: const Duration(seconds: 5),
-                              ),
-                            );
-                          // Navigate back to home after showing rate limit message
-                          final nav = GoRouter.of(context);
-                          Future<void>.delayed(const Duration(seconds: 2), () {
-                            if (mounted) nav.go(AppRoutes.today);
-                          });
-                        }
-
-                        if (state is QuizNoLivesState) {
-                          _clearPendingAgenticSubmission();
-                          final nextRegenInSeconds =
-                              state.nextRegenInSeconds ??
-                              _nextRegenInSecondsOverride;
-                          final noLivesMessage = _buildNoLivesMessage(
-                            context,
-                            nextRegenInSeconds,
-                          );
-
-                          setState(() {
-                            _isNavigatingToDiagnosis = false;
-                            _canPlayOverride = false;
-                            _nextRegenInSecondsOverride = nextRegenInSeconds;
-                            _submitErrorMessage = noLivesMessage;
-                          });
-
-                          _countdownTimer?.cancel();
-                          unawaited(_livesCubit?.loadLives());
-
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(noLivesMessage),
-                                duration: const Duration(seconds: 4),
-                              ),
-                            );
-                        }
-                      },
-                      builder: (context, state) {
-                        final isLoading =
-                            state is QuizSubmittingState ||
-                            state is QuizBatchSubmittingState;
-                        final showSubmitTransition =
-                            state is QuizSubmitSuccessState ||
-                            state is QuizBatchSubmitSuccessState ||
-                            _isNavigatingToDiagnosis;
-                        final isBlockedByLives = _isSubmitBlockedByLives;
-                        final livesState = _livesCubit?.state;
-                        final fallbackRegenSeconds = livesState is LivesLoaded
-                            ? livesState.info.nextRegenIn?.inSeconds
-                            : null;
-                        final nextRegenInSeconds =
-                            _nextRegenInSecondsOverride ?? fallbackRegenSeconds;
-                        final noLivesMessage = _buildNoLivesMessage(
-                          context,
-                          nextRegenInSeconds,
-                        );
-                        final noLivesCountdown = _buildNoLivesCountdownLabel(
-                          context,
-                          nextRegenInSeconds,
-                        );
-                        final noLivesLivesLabel = livesState is LivesLoaded
-                            ? context.t(
-                                vi: 'Tim hiện tại: ${livesState.info.currentLives}/${livesState.info.maxLives}',
-                                en: 'Current lives: ${livesState.info.currentLives}/${livesState.info.maxLives}',
-                              )
-                            : null;
-                        final disableSubmit =
-                            isLoading ||
-                            _isNavigatingToDiagnosis ||
-                            isBlockedByLives;
-                        final theme = Theme.of(context);
-                        final formulaText = _activeQuestion!.metadata['formula']
-                            ?.toString();
-                        final currentIndex = _currentQuestionIndex;
-                        final currentNumber = _displayTotalQuestions <= 0
-                            ? 1
-                            : (currentIndex + 1)
-                                  .clamp(1, _displayTotalQuestions)
-                                  .toInt();
-                        final questionText = _activeQuestion!.content.trim();
-                        final alignQuestionLeft = _shouldLeftAlignQuestion(
-                          questionText,
-                          formulaText: formulaText,
-                        );
-                        final submissionTargetCount = _submissionTargetCount;
-                        final answeredCount = _displayAnsweredCount;
-                        final showSubmitAllButton =
-                            !_isApiDrivenMode &&
-                            answeredCount >= submissionTargetCount &&
-                            _hasSavedAnswersForSubmissionTarget;
-                        final totalQuizSeconds = _quizDuration.inSeconds > 0
-                            ? _quizDuration.inSeconds
-                            : _initialQuizDurationSeconds;
-                        final progress =
-                            (_remainingTime.inSeconds / totalQuizSeconds)
-                                .clamp(0.0, 1.0)
-                                .toDouble();
-                        final screenWidth = MediaQuery.of(context).size.width;
-                        final horizontalPadding = screenWidth < 390
-                            ? 14.0
-                            : 20.0;
-
-                        return ZenPageContainer(
-                          padding: EdgeInsets.fromLTRB(
-                            horizontalPadding,
-                            10,
-                            horizontalPadding,
-                            18,
-                          ),
-                          child: ScrollConfiguration(
-                            behavior: const MaterialScrollBehavior().copyWith(
-                              scrollbars: false,
-                            ),
-                            child: ListView(
-                              children: [
-                                Row(
-                                  children: [
-                                    const SizedBox(width: 12),
-                                    Expanded(
-                                      child: Text(
-                                        _activeQuestion?.topicName ??
-                                            context.t(
-                                              vi: 'Toán học',
-                                              en: 'Mathematics',
-                                            ),
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              color: theme.colorScheme.primary,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                    ),
-                                    if (_studyMode == StudyMode.examPrep) ...[
-                                      Icon(
-                                        Icons.timer_outlined,
-                                        size: 22,
-                                        color: _isTimerExpired
-                                            ? theme.colorScheme.error
-                                            : null,
-                                      ),
-                                      const SizedBox(width: 6),
-                                      Text(
-                                        _formatDuration(_remainingTime),
-                                        style: theme.textTheme.titleMedium
-                                            ?.copyWith(
-                                              color: _isTimerExpired
-                                                  ? theme.colorScheme.error
-                                                  : theme
-                                                        .colorScheme
-                                                        .onSurfaceVariant,
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                    ],
-                                    if (_livesCubit != null) ...[
-                                      const SizedBox(width: 10),
-                                      _LivesIndicator(cubit: _livesCubit!),
-                                    ],
-                                  ],
-                                ),
-                                const SizedBox(height: 10),
-                                ClipRRect(
-                                  borderRadius: BorderRadius.circular(999),
-                                  child: Container(
-                                    height: 6,
-                                    width: double.infinity,
-                                    color:
-                                        theme.colorScheme.surfaceContainerHigh,
-                                    child: FractionallySizedBox(
-                                      widthFactor: progress,
-                                      alignment: Alignment.centerLeft,
-                                      child: Container(
-                                        decoration: BoxDecoration(
-                                          gradient: LinearGradient(
-                                            begin: Alignment.centerLeft,
-                                            end: Alignment.centerRight,
-                                            colors: [
-                                              HSLColor.fromColor(
-                                                    theme.colorScheme.primary,
-                                                  )
-                                                  .withLightness(
-                                                    (HSLColor.fromColor(
-                                                              theme
-                                                                  .colorScheme
-                                                                  .primary,
-                                                            ).lightness -
-                                                            0.06)
-                                                        .clamp(0.0, 1.0)
-                                                        .toDouble(),
-                                                  )
-                                                  .toColor(),
-                                              theme.colorScheme.primary,
-                                            ],
-                                          ),
-                                        ),
-                                      ),
-                                    ),
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(noLivesMessage),
+                                    duration: const Duration(seconds: 4),
                                   ),
-                                ),
-                                const SizedBox(height: 24),
-                                if (_displayTotalQuestions > 0)
-                                  Container(
-                                    margin: const EdgeInsets.only(bottom: 12),
-                                    padding: const EdgeInsets.fromLTRB(
-                                      12,
-                                      12,
-                                      12,
-                                      10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color:
-                                          theme.colorScheme.surfaceContainerLow,
-                                      borderRadius: BorderRadius.circular(18),
-                                      border: Border.all(
-                                        color: theme
-                                            .colorScheme
-                                            .surfaceContainerHigh,
-                                      ),
-                                    ),
-                                    child: Column(
+                                );
+                            }
+                          },
+                          builder: (context, state) {
+                            final isLoading =
+                                state is QuizSubmittingState ||
+                                state is QuizBatchSubmittingState;
+                            final showSubmitTransition =
+                                state is QuizSubmitSuccessState ||
+                                state is QuizBatchSubmitSuccessState ||
+                                _isNavigatingToDiagnosis;
+                            final isBlockedByLives = _isSubmitBlockedByLives;
+                            final livesState = _livesCubit?.state;
+                            final fallbackRegenSeconds =
+                                livesState is LivesLoaded
+                                ? livesState.info.nextRegenIn?.inSeconds
+                                : null;
+                            final nextRegenInSeconds =
+                                _nextRegenInSecondsOverride ??
+                                fallbackRegenSeconds;
+                            final noLivesMessage = _buildNoLivesMessage(
+                              context,
+                              nextRegenInSeconds,
+                            );
+                            final noLivesCountdown =
+                                _buildNoLivesCountdownLabel(
+                                  context,
+                                  nextRegenInSeconds,
+                                );
+                            final noLivesLivesLabel = livesState is LivesLoaded
+                                ? context.t(
+                                    vi: 'Tim hiện tại: ${livesState.info.currentLives}/${livesState.info.maxLives}',
+                                    en: 'Current lives: ${livesState.info.currentLives}/${livesState.info.maxLives}',
+                                  )
+                                : null;
+                            final disableSubmit =
+                                isLoading ||
+                                _isNavigatingToDiagnosis ||
+                                isBlockedByLives;
+                            final theme = Theme.of(context);
+                            final formulaText = _activeQuestion!
+                                .metadata['formula']
+                                ?.toString();
+                            final currentIndex = _currentQuestionIndex;
+                            final currentNumber = _displayTotalQuestions <= 0
+                                ? 1
+                                : (currentIndex + 1)
+                                      .clamp(1, _displayTotalQuestions)
+                                      .toInt();
+                            final questionText = _activeQuestion!.content
+                                .trim();
+                            final alignQuestionLeft = _shouldLeftAlignQuestion(
+                              questionText,
+                              formulaText: formulaText,
+                            );
+                            final submissionTargetCount =
+                                _submissionTargetCount;
+                            final answeredCount = _displayAnsweredCount;
+                            final showSubmitAllButton =
+                                !_isApiDrivenMode &&
+                                answeredCount >= submissionTargetCount &&
+                                _hasSavedAnswersForSubmissionTarget;
+                            final totalQuizSeconds = _quizDuration.inSeconds > 0
+                                ? _quizDuration.inSeconds
+                                : _initialQuizDurationSeconds;
+                            final progress =
+                                (_remainingTime.inSeconds / totalQuizSeconds)
+                                    .clamp(0.0, 1.0)
+                                    .toDouble();
+                            final screenWidth = MediaQuery.of(
+                              context,
+                            ).size.width;
+                            final horizontalPadding = screenWidth < 390
+                                ? 14.0
+                                : 20.0;
+
+                            return ZenPageContainer(
+                              padding: EdgeInsets.fromLTRB(
+                                horizontalPadding,
+                                10,
+                                horizontalPadding,
+                                18,
+                              ),
+                              child: ScrollConfiguration(
+                                behavior: const MaterialScrollBehavior()
+                                    .copyWith(scrollbars: false),
+                                child: ListView(
+                                  children: [
+                                    Row(
                                       children: [
-                                        Row(
-                                          children: [
-                                            Expanded(
-                                              child: Text(
-                                                context.t(
-                                                  vi: 'Câu $currentNumber/$_displayTotalQuestions',
-                                                  en: 'Question $currentNumber/$_displayTotalQuestions',
-                                                ),
-                                                style: theme
-                                                    .textTheme
-                                                    .titleSmall
-                                                    ?.copyWith(
-                                                      color: theme
-                                                          .colorScheme
-                                                          .onSurface,
-                                                      fontWeight:
-                                                          FontWeight.w700,
-                                                    ),
-                                              ),
-                                            ),
-                                            if (_questionPool.length > 1)
-                                              TextButton.icon(
-                                                onPressed: () =>
-                                                    _openQuestionNavigatorSheet(
-                                                      context,
-                                                    ),
-                                                icon: const Icon(
-                                                  Icons.grid_view_rounded,
-                                                  size: 18,
-                                                ),
-                                                label: Text(
-                                                  context.t(
-                                                    vi: 'Danh sách',
-                                                    en: 'All',
-                                                  ),
-                                                ),
-                                              ),
-                                          ],
-                                        ),
-                                        if (_questionPool.length > 1) ...[
-                                          const SizedBox(height: 8),
-                                          Row(
-                                            children: [
-                                              Expanded(
-                                                child: FilledButton.tonalIcon(
-                                                  onPressed: currentIndex > 0
-                                                      ? () =>
-                                                            _moveToAdjacentQuestion(
-                                                              -1,
-                                                            )
-                                                      : null,
-                                                  icon: const Icon(
-                                                    Icons.chevron_left_rounded,
-                                                  ),
-                                                  label: Text(
-                                                    context.t(
-                                                      vi: 'Trước',
-                                                      en: 'Prev',
-                                                    ),
-                                                  ),
-                                                  style: FilledButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 10,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                              const SizedBox(width: 8),
-                                              Expanded(
-                                                child: FilledButton.tonalIcon(
-                                                  onPressed:
-                                                      currentIndex <
-                                                          _questionPool.length -
-                                                              1
-                                                      ? () =>
-                                                            _moveToAdjacentQuestion(
-                                                              1,
-                                                            )
-                                                      : null,
-                                                  icon: const Icon(
-                                                    Icons.chevron_right_rounded,
-                                                  ),
-                                                  label: Text(
-                                                    context.t(
-                                                      vi: 'Sau',
-                                                      en: 'Next',
-                                                    ),
-                                                  ),
-                                                  style: FilledButton.styleFrom(
-                                                    padding:
-                                                        const EdgeInsets.symmetric(
-                                                          vertical: 10,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ),
-                                            ],
-                                          ),
-                                        ],
-                                        const SizedBox(height: 8),
-                                        Align(
-                                          alignment: Alignment.centerLeft,
+                                        const SizedBox(width: 12),
+                                        Expanded(
                                           child: Text(
-                                            context.t(
-                                              vi: 'Đã trả lời: $answeredCount/$submissionTargetCount',
-                                              en: 'Answered: $answeredCount/$submissionTargetCount',
-                                            ),
-                                            style: theme.textTheme.bodySmall
+                                            _activeQuestion?.topicName ??
+                                                context.t(
+                                                  vi: 'Toán học',
+                                                  en: 'Mathematics',
+                                                ),
+                                            style: theme.textTheme.titleMedium
                                                 ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
+                                                  color:
+                                                      theme.colorScheme.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
+                                        if (_studyMode ==
+                                            StudyMode.examPrep) ...[
+                                          Icon(
+                                            Icons.timer_outlined,
+                                            size: 22,
+                                            color: _isTimerExpired
+                                                ? theme.colorScheme.error
+                                                : null,
+                                          ),
+                                          const SizedBox(width: 6),
+                                          Text(
+                                            _formatDuration(_remainingTime),
+                                            style: theme.textTheme.titleMedium
+                                                ?.copyWith(
+                                                  color: _isTimerExpired
+                                                      ? theme.colorScheme.error
+                                                      : theme
+                                                            .colorScheme
+                                                            .onSurfaceVariant,
                                                   fontWeight: FontWeight.w600,
                                                 ),
                                           ),
-                                        ),
-                                        if (_draftRestoredFromLocal ||
-                                            _isDraftSyncing ||
-                                            _lastDraftSavedAt != null)
-                                          Padding(
-                                            padding: const EdgeInsets.only(
-                                              top: 4,
+                                        ],
+                                        if (_livesCubit != null) ...[
+                                          const SizedBox(width: 10),
+                                          _LivesIndicator(cubit: _livesCubit!),
+                                        ],
+                                      ],
+                                    ),
+                                    const SizedBox(height: 10),
+                                    ClipRRect(
+                                      borderRadius: BorderRadius.circular(999),
+                                      child: Container(
+                                        height: 6,
+                                        width: double.infinity,
+                                        color: theme
+                                            .colorScheme
+                                            .surfaceContainerHigh,
+                                        child: FractionallySizedBox(
+                                          widthFactor: progress,
+                                          alignment: Alignment.centerLeft,
+                                          child: Container(
+                                            decoration: BoxDecoration(
+                                              gradient: LinearGradient(
+                                                begin: Alignment.centerLeft,
+                                                end: Alignment.centerRight,
+                                                colors: [
+                                                  HSLColor.fromColor(
+                                                        theme
+                                                            .colorScheme
+                                                            .primary,
+                                                      )
+                                                      .withLightness(
+                                                        (HSLColor.fromColor(
+                                                                  theme
+                                                                      .colorScheme
+                                                                      .primary,
+                                                                ).lightness -
+                                                                0.06)
+                                                            .clamp(0.0, 1.0)
+                                                            .toDouble(),
+                                                      )
+                                                      .toColor(),
+                                                  theme.colorScheme.primary,
+                                                ],
+                                              ),
                                             ),
-                                            child: Align(
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(height: 24),
+                                    if (_displayTotalQuestions > 0)
+                                      Container(
+                                        margin: const EdgeInsets.only(
+                                          bottom: 12,
+                                        ),
+                                        padding: const EdgeInsets.fromLTRB(
+                                          12,
+                                          12,
+                                          12,
+                                          10,
+                                        ),
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme
+                                              .surfaceContainerLow,
+                                          borderRadius: BorderRadius.circular(
+                                            18,
+                                          ),
+                                          border: Border.all(
+                                            color: theme
+                                                .colorScheme
+                                                .surfaceContainerHigh,
+                                          ),
+                                        ),
+                                        child: Column(
+                                          children: [
+                                            Row(
+                                              children: [
+                                                Expanded(
+                                                  child: Text(
+                                                    context.t(
+                                                      vi: 'Câu $currentNumber/$_displayTotalQuestions',
+                                                      en: 'Question $currentNumber/$_displayTotalQuestions',
+                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .titleSmall
+                                                        ?.copyWith(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .onSurface,
+                                                          fontWeight:
+                                                              FontWeight.w700,
+                                                        ),
+                                                  ),
+                                                ),
+                                                if (_questionPool.length > 1)
+                                                  TextButton.icon(
+                                                    onPressed: () =>
+                                                        _openQuestionNavigatorSheet(
+                                                          context,
+                                                        ),
+                                                    icon: const Icon(
+                                                      Icons.grid_view_rounded,
+                                                      size: 18,
+                                                    ),
+                                                    label: Text(
+                                                      context.t(
+                                                        vi: 'Danh sách',
+                                                        en: 'All',
+                                                      ),
+                                                    ),
+                                                  ),
+                                              ],
+                                            ),
+                                            if (_questionPool.length > 1) ...[
+                                              const SizedBox(height: 8),
+                                              Row(
+                                                children: [
+                                                  Expanded(
+                                                    child: FilledButton.tonalIcon(
+                                                      onPressed:
+                                                          currentIndex > 0
+                                                          ? () =>
+                                                                _moveToAdjacentQuestion(
+                                                                  -1,
+                                                                )
+                                                          : null,
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .chevron_left_rounded,
+                                                      ),
+                                                      label: Text(
+                                                        context.t(
+                                                          vi: 'Trước',
+                                                          en: 'Prev',
+                                                        ),
+                                                      ),
+                                                      style: FilledButton.styleFrom(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 10,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                  const SizedBox(width: 8),
+                                                  Expanded(
+                                                    child: FilledButton.tonalIcon(
+                                                      onPressed:
+                                                          currentIndex <
+                                                              _questionPool
+                                                                      .length -
+                                                                  1
+                                                          ? () =>
+                                                                _moveToAdjacentQuestion(
+                                                                  1,
+                                                                )
+                                                          : null,
+                                                      icon: const Icon(
+                                                        Icons
+                                                            .chevron_right_rounded,
+                                                      ),
+                                                      label: Text(
+                                                        context.t(
+                                                          vi: 'Sau',
+                                                          en: 'Next',
+                                                        ),
+                                                      ),
+                                                      style: FilledButton.styleFrom(
+                                                        padding:
+                                                            const EdgeInsets.symmetric(
+                                                              vertical: 10,
+                                                            ),
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ],
+                                              ),
+                                            ],
+                                            const SizedBox(height: 8),
+                                            Align(
                                               alignment: Alignment.centerLeft,
                                               child: Text(
-                                                _isDraftSyncing
-                                                    ? context.t(
-                                                        vi: 'Đang đồng bộ bản nháp cục bộ',
-                                                        en: 'Syncing local draft',
-                                                      )
-                                                    : _draftRestoredFromLocal
-                                                    ? context.t(
-                                                        vi: 'Đã khôi phục bản nháp cục bộ',
-                                                        en: 'Local draft restored',
-                                                      )
-                                                    : context.t(
-                                                        vi: 'Đã lưu bản nháp cục bộ',
-                                                        en: 'Local draft saved',
-                                                      ),
-                                                style: theme
-                                                    .textTheme
-                                                    .labelSmall
+                                                context.t(
+                                                  vi: 'Đã trả lời: $answeredCount/$submissionTargetCount',
+                                                  en: 'Answered: $answeredCount/$submissionTargetCount',
+                                                ),
+                                                style: theme.textTheme.bodySmall
                                                     ?.copyWith(
                                                       color: theme
                                                           .colorScheme
-                                                          .tertiary,
+                                                          .onSurfaceVariant,
                                                       fontWeight:
                                                           FontWeight.w600,
                                                     ),
                                               ),
                                             ),
-                                          ),
-                                      ],
-                                    ),
-                                  ),
-                                ZenCard(
-                                  radius: 28,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    18,
-                                    16,
-                                    18,
-                                    16,
-                                  ),
-                                  gradient: LinearGradient(
-                                    begin: Alignment.topLeft,
-                                    end: Alignment.bottomRight,
-                                    colors: [
-                                      theme.colorScheme.surface,
-                                      theme.colorScheme.surfaceContainerHigh
-                                          .withValues(alpha: 0.5),
-                                    ],
-                                  ),
-                                  child: ConstrainedBox(
-                                    constraints: const BoxConstraints(
-                                      maxWidth: 620,
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        SelectionArea(
-                                          child: QuizMathText(
-                                            text: _activeQuestion!.content,
-                                            preferPlainTextForMixedContent:
-                                                true,
-                                            textAlign: alignQuestionLeft
-                                                ? TextAlign.left
-                                                : TextAlign.center,
-                                            style: _questionContentStyle(
-                                              theme,
-                                              questionText,
+                                            if (_draftRestoredFromLocal ||
+                                                _isDraftSyncing ||
+                                                _lastDraftSavedAt != null)
+                                              Padding(
+                                                padding: const EdgeInsets.only(
+                                                  top: 4,
+                                                ),
+                                                child: Align(
+                                                  alignment:
+                                                      Alignment.centerLeft,
+                                                  child: Text(
+                                                    _isDraftSyncing
+                                                        ? context.t(
+                                                            vi: 'Đang đồng bộ bản nháp cục bộ',
+                                                            en: 'Syncing local draft',
+                                                          )
+                                                        : _draftRestoredFromLocal
+                                                        ? context.t(
+                                                            vi: 'Đã khôi phục bản nháp cục bộ',
+                                                            en: 'Local draft restored',
+                                                          )
+                                                        : context.t(
+                                                            vi: 'Đã lưu bản nháp cục bộ',
+                                                            en: 'Local draft saved',
+                                                          ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .labelSmall
+                                                        ?.copyWith(
+                                                          color: theme
+                                                              .colorScheme
+                                                              .tertiary,
+                                                          fontWeight:
+                                                              FontWeight.w600,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
+                                      ),
+                                    ZenCard(
+                                      radius: 28,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        18,
+                                        16,
+                                        18,
+                                        16,
+                                      ),
+                                      gradient: LinearGradient(
+                                        begin: Alignment.topLeft,
+                                        end: Alignment.bottomRight,
+                                        colors: [
+                                          theme.colorScheme.surface,
+                                          theme.colorScheme.surfaceContainerHigh
+                                              .withValues(alpha: 0.5),
+                                        ],
+                                      ),
+                                      child: ConstrainedBox(
+                                        constraints: const BoxConstraints(
+                                          maxWidth: 620,
+                                        ),
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            SelectionArea(
+                                              child: QuizMathText(
+                                                text: _activeQuestion!.content,
+                                                preferPlainTextForMixedContent:
+                                                    true,
+                                                textAlign: alignQuestionLeft
+                                                    ? TextAlign.left
+                                                    : TextAlign.center,
+                                                style: _questionContentStyle(
+                                                  theme,
+                                                  questionText,
+                                                ),
+                                              ),
                                             ),
+                                            if (formulaText != null &&
+                                                formulaText.isNotEmpty) ...[
+                                              const SizedBox(
+                                                height: GrowMateLayout.space12,
+                                              ),
+                                              Container(
+                                                width: double.infinity,
+                                                padding:
+                                                    const EdgeInsets.symmetric(
+                                                      horizontal: 12,
+                                                      vertical: 10,
+                                                    ),
+                                                decoration: BoxDecoration(
+                                                  color: theme
+                                                      .colorScheme
+                                                      .surface
+                                                      .withValues(alpha: 0.85),
+                                                  borderRadius:
+                                                      BorderRadius.circular(14),
+                                                  border: Border.all(
+                                                    color: theme
+                                                        .colorScheme
+                                                        .primary
+                                                        .withValues(
+                                                          alpha: 0.14,
+                                                        ),
+                                                  ),
+                                                ),
+                                                child: QuizMathText(
+                                                  text: formulaText,
+                                                  renderAsLatex: true,
+                                                  textAlign: TextAlign.center,
+                                                  style: theme
+                                                      .textTheme
+                                                      .titleLarge
+                                                      ?.copyWith(
+                                                        color: theme
+                                                            .colorScheme
+                                                            .primary,
+                                                        fontWeight:
+                                                            FontWeight.w600,
+                                                      ),
+                                                ),
+                                              ),
+                                            ],
+                                          ],
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: GrowMateLayout.space12,
+                                    ),
+                                    ZenCard(
+                                      radius: 24,
+                                      padding: const EdgeInsets.fromLTRB(
+                                        14,
+                                        14,
+                                        14,
+                                        14,
+                                      ),
+                                      color: theme
+                                          .colorScheme
+                                          .surfaceContainerLowest,
+                                      child: RepaintBoundary(
+                                        child: QuizAnswerWidgetFactory(
+                                          question: _activeQuestion!,
+                                          enabled: !disableSubmit,
+                                          showHints: _showHint,
+                                          textController: _answerController,
+                                          textFocusNode: _answerFocusNode,
+                                          onTextChanged: _onAnswerChanged,
+                                          onTextTap: _signalService
+                                              .registerInteraction,
+                                          selectedOptionId: _selectedOptionId,
+                                          onOptionSelected: (optionId) {
+                                            HapticFeedback.selectionClick();
+                                            _questionInteractionCount += 1;
+                                            _signalService
+                                                .registerInteraction();
+                                            setState(() {
+                                              _selectedOptionId = optionId;
+                                              _selectedOptionByQuestion[_activeQuestion!
+                                                      .id] =
+                                                  optionId;
+                                            });
+                                            if (_firstAnswerAt == null) {
+                                              _firstAnswerAt = DateTime.now();
+                                              _trackQuizEvent(
+                                                'time_to_first_answer',
+                                                data: <String, Object?>{
+                                                  'duration_ms':
+                                                      _elapsedMsSince(
+                                                        _quizStartedAt,
+                                                      ),
+                                                  'question_id':
+                                                      _activeQuestion?.id,
+                                                },
+                                              );
+                                            }
+                                            _trackQuizEvent(
+                                              'answer_changed',
+                                              data: <String, Object?>{
+                                                'question_id':
+                                                    _activeQuestion?.id,
+                                                'question_type': _activeQuestion
+                                                    ?.questionType
+                                                    .name,
+                                                'selected_option_id': optionId,
+                                              },
+                                            );
+                                            _scheduleDraftPersist();
+                                          },
+                                          trueFalseAnswers: _trueFalseAnswers,
+                                          onTrueFalseChanged:
+                                              _onTrueFalseChanged,
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(
+                                      height: GrowMateLayout.space12,
+                                    ),
+                                    if (_studyMode == StudyMode.casual) ...[
+                                      Align(
+                                        alignment: Alignment.centerRight,
+                                        child: TextButton.icon(
+                                          onPressed: disableSubmit
+                                              ? null
+                                              : _toggleHint,
+                                          icon: Icon(
+                                            _showHint
+                                                ? Icons.visibility_off_rounded
+                                                : Icons
+                                                      .lightbulb_outline_rounded,
+                                            size: 18,
+                                          ),
+                                          label: Text(
+                                            _showHint
+                                                ? context.t(
+                                                    vi: 'Ẩn gợi ý',
+                                                    en: 'Hide hint',
+                                                  )
+                                                : context.t(
+                                                    vi: 'Hiện gợi ý',
+                                                    en: 'Show hint',
+                                                  ),
                                           ),
                                         ),
-                                        if (formulaText != null &&
-                                            formulaText.isNotEmpty) ...[
-                                          const SizedBox(
-                                            height: GrowMateLayout.space12,
+                                      ),
+                                    ], // end casual mode hint block
+                                    if (_showHint &&
+                                        !_hasInlineGeneralHint() &&
+                                        (_studyMode == StudyMode.casual ||
+                                            _hasAgenticHint))
+                                      AnimatedOpacity(
+                                        opacity: 1,
+                                        duration: const Duration(
+                                          milliseconds: 250,
+                                        ),
+                                        curve: Curves.easeOut,
+                                        child: AnimatedSlide(
+                                          duration: const Duration(
+                                            milliseconds: 250,
                                           ),
-                                          Container(
+                                          curve: Curves.easeOut,
+                                          offset: Offset.zero,
+                                          child: Container(
                                             width: double.infinity,
                                             padding: const EdgeInsets.symmetric(
-                                              horizontal: 12,
+                                              horizontal: 14,
                                               vertical: 10,
                                             ),
                                             decoration: BoxDecoration(
-                                              color: theme.colorScheme.surface
-                                                  .withValues(alpha: 0.85),
+                                              color: theme
+                                                  .colorScheme
+                                                  .secondaryContainer
+                                                  .withValues(alpha: 0.42),
                                               borderRadius:
-                                                  BorderRadius.circular(14),
+                                                  BorderRadius.circular(16),
                                               border: Border.all(
                                                 color: theme.colorScheme.primary
-                                                    .withValues(alpha: 0.14),
+                                                    .withValues(alpha: 0.08),
                                               ),
                                             ),
                                             child: QuizMathText(
-                                              text: formulaText,
-                                              renderAsLatex: true,
+                                              text: _hintText(context),
                                               textAlign: TextAlign.center,
-                                              style: theme.textTheme.titleLarge
+                                              style: theme.textTheme.bodyMedium
                                                   ?.copyWith(
                                                     color: theme
                                                         .colorScheme
-                                                        .primary,
+                                                        .onSurfaceVariant,
                                                     fontWeight: FontWeight.w600,
+                                                    height: 1.42,
                                                   ),
                                             ),
                                           ),
-                                        ],
-                                      ],
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: GrowMateLayout.space12),
-                                ZenCard(
-                                  radius: 24,
-                                  padding: const EdgeInsets.fromLTRB(
-                                    14,
-                                    14,
-                                    14,
-                                    14,
-                                  ),
-                                  color:
-                                      theme.colorScheme.surfaceContainerLowest,
-                                  child: RepaintBoundary(
-                                    child: QuizAnswerWidgetFactory(
-                                      question: _activeQuestion!,
-                                      enabled: !disableSubmit,
-                                      showHints: _showHint,
-                                      textController: _answerController,
-                                      textFocusNode: _answerFocusNode,
-                                      onTextChanged: _onAnswerChanged,
-                                      onTextTap:
-                                          _signalService.registerInteraction,
-                                      selectedOptionId: _selectedOptionId,
-                                      onOptionSelected: (optionId) {
-                                        HapticFeedback.selectionClick();
-                                        _questionInteractionCount += 1;
-                                        _signalService.registerInteraction();
-                                        setState(() {
-                                          _selectedOptionId = optionId;
-                                          _selectedOptionByQuestion[_activeQuestion!
-                                                  .id] =
-                                              optionId;
-                                        });
-                                        if (_firstAnswerAt == null) {
-                                          _firstAnswerAt = DateTime.now();
-                                          _trackQuizEvent(
-                                            'time_to_first_answer',
-                                            data: <String, Object?>{
-                                              'duration_ms': _elapsedMsSince(
-                                                _quizStartedAt,
-                                              ),
-                                              'question_id':
-                                                  _activeQuestion?.id,
-                                            },
+                                        ),
+                                      ),
+                                    // Knowledge cards from agentic RAG
+                                    if (_showHint) ...[
+                                      Builder(
+                                        builder: (context) {
+                                          final agenticState = context
+                                              .select<
+                                                AgenticSessionCubit,
+                                                AgenticSessionState
+                                              >((c) => c.state);
+                                          if (!agenticState.hasKnowledge) {
+                                            return const SizedBox.shrink();
+                                          }
+                                          return Padding(
+                                            padding: const EdgeInsets.only(
+                                              top: GrowMateLayout.space8,
+                                            ),
+                                            child: AiKnowledgeCardWidget(
+                                              chunks:
+                                                  agenticState.knowledgeChunks,
+                                            ),
                                           );
-                                        }
-                                        _trackQuizEvent(
-                                          'answer_changed',
-                                          data: <String, Object?>{
-                                            'question_id': _activeQuestion?.id,
-                                            'question_type': _activeQuestion
-                                                ?.questionType
-                                                .name,
-                                            'selected_option_id': optionId,
-                                          },
-                                        );
-                                        _scheduleDraftPersist();
-                                      },
-                                      trueFalseAnswers: _trueFalseAnswers,
-                                      onTrueFalseChanged: _onTrueFalseChanged,
+                                        },
+                                      ),
+                                    ],
+                                    if (_isTimerExpired &&
+                                        _studyMode == StudyMode.examPrep) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
+                                      ),
+                                      ZenCard(
+                                        radius: 16,
+                                        color: theme.colorScheme.errorContainer
+                                            .withValues(alpha: 0.3),
+                                        child: Row(
+                                          children: [
+                                            Icon(
+                                              Icons.timer_off_rounded,
+                                              color: theme.colorScheme.error,
+                                              size: 22,
+                                            ),
+                                            const SizedBox(width: 10),
+                                            Expanded(
+                                              child: Text(
+                                                context.t(
+                                                  vi: '⏰ Hết giờ! Nộp hoặc làm tiếp.',
+                                                  en: '⏰ Time\'s up! Submit or continue.',
+                                                ),
+                                                style: theme
+                                                    .textTheme
+                                                    .bodyMedium
+                                                    ?.copyWith(
+                                                      color: theme
+                                                          .colorScheme
+                                                          .onErrorContainer,
+                                                      fontWeight:
+                                                          FontWeight.w600,
+                                                      height: 1.35,
+                                                    ),
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                    ],
+                                    if (_submitErrorMessage != null) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
+                                      ),
+                                      ZenErrorCard(
+                                        message: _submitErrorMessage!,
+                                        onRetry:
+                                            isLoading ||
+                                                _isNavigatingToDiagnosis
+                                            ? null
+                                            : isBlockedByLives
+                                            ? () => _livesCubit?.loadLives()
+                                            : _submitCurrentAnswer,
+                                        onDismiss: () {
+                                          setState(() {
+                                            _submitErrorMessage = null;
+                                          });
+                                        },
+                                      ),
+                                    ],
+                                    if (isBlockedByLives) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
+                                      ),
+                                      _NoLivesActionCard(
+                                        message: noLivesMessage,
+                                        countdownLabel: noLivesCountdown,
+                                        livesLabel: noLivesLivesLabel,
+                                        onRefreshLives: () =>
+                                            _livesCubit?.loadLives(),
+                                        onGoProgress: () =>
+                                            context.go(AppRoutes.progress),
+                                        onGoReview: () =>
+                                            context.go(AppRoutes.spacedReview),
+                                      ),
+                                    ],
+                                    if (showSubmitTransition) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
+                                      ),
+                                      _buildSubmitTransitionCard(context),
+                                    ],
+                                    const SizedBox(
+                                      height: GrowMateLayout.space16,
                                     ),
-                                  ),
-                                ),
-                                const SizedBox(height: GrowMateLayout.space12),
-                                if (_studyMode == StudyMode.casual) ...[
-                                  Align(
-                                    alignment: Alignment.centerRight,
-                                    child: TextButton.icon(
+                                    ZenButton(
+                                      label: showSubmitTransition
+                                          ? context.t(
+                                              vi: 'AI đang phân tích...',
+                                              en: 'AI is analyzing...',
+                                            )
+                                          : isLoading ||
+                                                _isNavigatingToDiagnosis
+                                          ? context.t(
+                                              vi: 'Đang gửi...',
+                                              en: 'Submitting...',
+                                            )
+                                          : isBlockedByLives
+                                          ? context.t(
+                                              vi: 'Hết tim - chờ hồi sinh',
+                                              en: 'No lives - waiting to regen',
+                                            )
+                                          : context.t(
+                                              vi: _isApiDrivenMode
+                                                  ? (currentNumber <
+                                                            submissionTargetCount
+                                                        ? 'Nộp câu & sang câu ${currentNumber + 1}'
+                                                        : 'Nộp câu cuối & xem chẩn đoán')
+                                                  : (currentNumber <
+                                                            submissionTargetCount
+                                                        ? 'Lưu & sang câu ${currentNumber + 1}'
+                                                        : 'Lưu câu $currentNumber'),
+                                              en: _isApiDrivenMode
+                                                  ? (currentNumber <
+                                                            submissionTargetCount
+                                                        ? 'Submit & go to Q${currentNumber + 1}'
+                                                        : 'Submit final answer')
+                                                  : (currentNumber <
+                                                            submissionTargetCount
+                                                        ? 'Save & go to Q${currentNumber + 1}'
+                                                        : 'Save Q$currentNumber'),
+                                            ),
                                       onPressed: disableSubmit
                                           ? null
-                                          : _toggleHint,
-                                      icon: Icon(
-                                        _showHint
-                                            ? Icons.visibility_off_rounded
-                                            : Icons.lightbulb_outline_rounded,
-                                        size: 18,
-                                      ),
-                                      label: Text(
-                                        _showHint
-                                            ? context.t(
-                                                vi: 'Ẩn gợi ý',
-                                                en: 'Hide hint',
-                                              )
-                                            : context.t(
-                                                vi: 'Hiện gợi ý',
-                                                en: 'Show hint',
-                                              ),
+                                          : _submitCurrentAnswer,
+                                      trailing: const Icon(
+                                        Icons.arrow_forward_rounded,
+                                        color: Colors.white,
+                                        size: 26,
                                       ),
                                     ),
-                                  ),
-                                ], // end casual mode hint block
-                                if (_showHint &&
-                                    !_hasInlineGeneralHint() &&
-                                    (_studyMode == StudyMode.casual ||
-                                        _hasAgenticHint))
-                                  AnimatedOpacity(
-                                    opacity: 1,
-                                    duration: const Duration(milliseconds: 250),
-                                    curve: Curves.easeOut,
-                                    child: AnimatedSlide(
-                                      duration: const Duration(
-                                        milliseconds: 250,
+                                    if (showSubmitAllButton) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
                                       ),
-                                      curve: Curves.easeOut,
-                                      offset: Offset.zero,
-                                      child: Container(
-                                        width: double.infinity,
-                                        padding: const EdgeInsets.symmetric(
-                                          horizontal: 14,
-                                          vertical: 10,
+                                      ZenButton(
+                                        label: context.t(
+                                          vi: 'Nộp toàn bộ bài ($answeredCount/$submissionTargetCount)',
+                                          en: 'Submit all ($answeredCount/$submissionTargetCount)',
                                         ),
-                                        decoration: BoxDecoration(
-                                          color: theme
-                                              .colorScheme
-                                              .secondaryContainer
-                                              .withValues(alpha: 0.42),
-                                          borderRadius: BorderRadius.circular(
-                                            16,
-                                          ),
-                                          border: Border.all(
-                                            color: theme.colorScheme.primary
-                                                .withValues(alpha: 0.08),
-                                          ),
-                                        ),
-                                        child: QuizMathText(
-                                          text: _hintText(context),
-                                          textAlign: TextAlign.center,
-                                          style: theme.textTheme.bodyMedium
-                                              ?.copyWith(
-                                                color: theme
-                                                    .colorScheme
-                                                    .onSurfaceVariant,
-                                                fontWeight: FontWeight.w600,
-                                                height: 1.42,
-                                              ),
-                                        ),
+                                        variant: ZenButtonVariant.secondary,
+                                        onPressed: disableSubmit
+                                            ? null
+                                            : _submitEntireQuiz,
                                       ),
-                                    ),
-                                  ),
-                                // Knowledge cards from agentic RAG
-                                if (_showHint) ...[
-                                  Builder(
-                                    builder: (context) {
-                                      final agenticState = context
-                                          .select<
-                                            AgenticSessionCubit,
-                                            AgenticSessionState
-                                          >((c) => c.state);
-                                      if (!agenticState.hasKnowledge) {
-                                        return const SizedBox.shrink();
-                                      }
-                                      return Padding(
-                                        padding: const EdgeInsets.only(
-                                          top: GrowMateLayout.space8,
-                                        ),
-                                        child: AiKnowledgeCardWidget(
-                                          chunks: agenticState.knowledgeChunks,
-                                        ),
-                                      );
-                                    },
-                                  ),
-                                ],
-                                if (_isTimerExpired &&
-                                    _studyMode == StudyMode.examPrep) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  ZenCard(
-                                    radius: 16,
-                                    color: theme.colorScheme.errorContainer
-                                        .withValues(alpha: 0.3),
-                                    child: Row(
-                                      children: [
-                                        Icon(
-                                          Icons.timer_off_rounded,
-                                          color: theme.colorScheme.error,
-                                          size: 22,
-                                        ),
-                                        const SizedBox(width: 10),
-                                        Expanded(
-                                          child: Text(
-                                            context.t(
-                                              vi: '⏰ Hết giờ! Nộp hoặc làm tiếp.',
-                                              en: '⏰ Time\'s up! Submit or continue.',
+                                    ],
+                                    if (_agenticCubit != null) ...[
+                                      const SizedBox(
+                                        height: GrowMateLayout.space12,
+                                      ),
+                                      RepaintBoundary(
+                                        child:
+                                            BlocBuilder<
+                                              AgenticSessionCubit,
+                                              AgenticSessionState
+                                            >(
+                                              bloc: _agenticCubit,
+                                              buildWhen: (previous, current) {
+                                                return previous.phase !=
+                                                        current.phase ||
+                                                    previous.stepCount !=
+                                                        current.stepCount ||
+                                                    previous.currentContent !=
+                                                        current
+                                                            .currentContent ||
+                                                    previous.currentAction !=
+                                                        current.currentAction ||
+                                                    previous.reasoningTrace !=
+                                                        current
+                                                            .reasoningTrace ||
+                                                    previous.reasoningConfidence !=
+                                                        current
+                                                            .reasoningConfidence ||
+                                                    previous.beliefEntropy !=
+                                                        current.beliefEntropy ||
+                                                    previous.academicState !=
+                                                        current.academicState ||
+                                                    previous.empathyState !=
+                                                        current.empathyState ||
+                                                    previous.strategyState !=
+                                                        current.strategyState;
+                                              },
+                                              builder: (context, agenticState) {
+                                                return _isAdvancedAgenticTimelineEnabled
+                                                    ? _AgenticProcessCard(
+                                                        state: agenticState,
+                                                        onDisableAdvanced: () {
+                                                          unawaited(
+                                                            _setAdvancedTimelineEnabled(
+                                                              false,
+                                                            ),
+                                                          );
+                                                        },
+                                                      )
+                                                    : _AgenticProcessCompactCard(
+                                                        state: agenticState,
+                                                        onEnableAdvanced: () {
+                                                          unawaited(
+                                                            _setAdvancedTimelineEnabled(
+                                                              true,
+                                                            ),
+                                                          );
+                                                        },
+                                                      );
+                                              },
                                             ),
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onErrorContainer,
-                                                  fontWeight: FontWeight.w600,
-                                                  height: 1.35,
-                                                ),
-                                          ),
+                                      ),
+                                    ],
+                                    const SizedBox(
+                                      height: GrowMateLayout.sectionGap,
+                                    ),
+                                    Center(
+                                      child: Text(
+                                        context.t(
+                                          vi: 'CẦN TRỢ GIÚP TỪ AI TUTOR?',
+                                          en: 'NEED HELP FROM AI TUTOR?',
                                         ),
-                                      ],
+                                        style: theme.textTheme.bodyMedium
+                                            ?.copyWith(
+                                              color: theme
+                                                  .colorScheme
+                                                  .onSurfaceVariant,
+                                              letterSpacing: 0.6,
+                                              fontWeight: FontWeight.w600,
+                                            ),
+                                      ),
                                     ),
-                                  ),
-                                ],
-                                if (_submitErrorMessage != null) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  ZenErrorCard(
-                                    message: _submitErrorMessage!,
-                                    onRetry:
-                                        isLoading || _isNavigatingToDiagnosis
-                                        ? null
-                                        : isBlockedByLives
-                                        ? () => _livesCubit?.loadLives()
-                                        : _submitCurrentAnswer,
-                                    onDismiss: () {
-                                      setState(() {
-                                        _submitErrorMessage = null;
-                                      });
-                                    },
-                                  ),
-                                ],
-                                if (isBlockedByLives) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  _NoLivesActionCard(
-                                    message: noLivesMessage,
-                                    countdownLabel: noLivesCountdown,
-                                    livesLabel: noLivesLivesLabel,
-                                    onRefreshLives: () =>
-                                        _livesCubit?.loadLives(),
-                                    onGoProgress: () =>
-                                        context.go(AppRoutes.progress),
-                                    onGoReview: () =>
-                                        context.go(AppRoutes.spacedReview),
-                                  ),
-                                ],
-                                if (showSubmitTransition) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  _buildSubmitTransitionCard(context),
-                                ],
-                                const SizedBox(height: GrowMateLayout.space16),
-                                ZenButton(
-                                  label: showSubmitTransition
-                                      ? context.t(
-                                          vi: 'AI đang phân tích...',
-                                          en: 'AI is analyzing...',
-                                        )
-                                      : isLoading || _isNavigatingToDiagnosis
-                                      ? context.t(
-                                          vi: 'Đang gửi...',
-                                          en: 'Submitting...',
-                                        )
-                                      : isBlockedByLives
-                                      ? context.t(
-                                          vi: 'Hết tim - chờ hồi sinh',
-                                          en: 'No lives - waiting to regen',
-                                        )
-                                      : context.t(
-                                          vi: _isApiDrivenMode
-                                              ? (currentNumber <
-                                                        submissionTargetCount
-                                                    ? 'Nộp câu & sang câu ${currentNumber + 1}'
-                                                    : 'Nộp câu cuối & xem chẩn đoán')
-                                              : (currentNumber <
-                                                        submissionTargetCount
-                                                    ? 'Lưu & sang câu ${currentNumber + 1}'
-                                                    : 'Lưu câu $currentNumber'),
-                                          en: _isApiDrivenMode
-                                              ? (currentNumber <
-                                                        submissionTargetCount
-                                                    ? 'Submit & go to Q${currentNumber + 1}'
-                                                    : 'Submit final answer')
-                                              : (currentNumber <
-                                                        submissionTargetCount
-                                                    ? 'Save & go to Q${currentNumber + 1}'
-                                                    : 'Save Q$currentNumber'),
-                                        ),
-                                  onPressed: disableSubmit
-                                      ? null
-                                      : _submitCurrentAnswer,
-                                  trailing: const Icon(
-                                    Icons.arrow_forward_rounded,
-                                    color: Colors.white,
-                                    size: 26,
-                                  ),
+                                    const SizedBox(height: 6),
+                                  ],
                                 ),
-                                if (showSubmitAllButton) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  ZenButton(
-                                    label: context.t(
-                                      vi: 'Nộp toàn bộ bài ($answeredCount/$submissionTargetCount)',
-                                      en: 'Submit all ($answeredCount/$submissionTargetCount)',
-                                    ),
-                                    variant: ZenButtonVariant.secondary,
-                                    onPressed: disableSubmit
-                                        ? null
-                                        : _submitEntireQuiz,
-                                  ),
-                                ],
-                                if (_agenticCubit != null) ...[
-                                  const SizedBox(
-                                    height: GrowMateLayout.space12,
-                                  ),
-                                  RepaintBoundary(
-                                    child:
-                                        BlocBuilder<
-                                          AgenticSessionCubit,
-                                          AgenticSessionState
-                                        >(
-                                          bloc: _agenticCubit,
-                                          buildWhen: (previous, current) {
-                                            return previous.phase !=
-                                                    current.phase ||
-                                                previous.stepCount !=
-                                                    current.stepCount ||
-                                                previous.currentContent !=
-                                                    current.currentContent ||
-                                                previous.currentAction !=
-                                                    current.currentAction ||
-                                                previous.reasoningTrace !=
-                                                    current.reasoningTrace ||
-                                                previous.reasoningConfidence !=
-                                                    current
-                                                        .reasoningConfidence ||
-                                                previous.beliefEntropy !=
-                                                    current.beliefEntropy ||
-                                                previous.academicState !=
-                                                    current.academicState ||
-                                                previous.empathyState !=
-                                                    current.empathyState ||
-                                                previous.strategyState !=
-                                                    current.strategyState;
-                                          },
-                                          builder: (context, agenticState) {
-                                            return _isAdvancedAgenticTimelineEnabled
-                                                ? _AgenticProcessCard(
-                                                    state: agenticState,
-                                                    onDisableAdvanced: () {
-                                                      unawaited(
-                                                        _setAdvancedTimelineEnabled(
-                                                          false,
-                                                        ),
-                                                      );
-                                                    },
-                                                  )
-                                                : _AgenticProcessCompactCard(
-                                                    state: agenticState,
-                                                    onEnableAdvanced: () {
-                                                      unawaited(
-                                                        _setAdvancedTimelineEnabled(
-                                                          true,
-                                                        ),
-                                                      );
-                                                    },
-                                                  );
-                                          },
-                                        ),
-                                  ),
-                                ],
-                                const SizedBox(
-                                  height: GrowMateLayout.sectionGap,
-                                ),
-                                Center(
-                                  child: Text(
-                                    context.t(
-                                      vi: 'CẦN TRỢ GIÚP TỪ AI TUTOR?',
-                                      en: 'NEED HELP FROM AI TUTOR?',
-                                    ),
-                                    style: theme.textTheme.bodyMedium?.copyWith(
-                                      color: theme.colorScheme.onSurfaceVariant,
-                                      letterSpacing: 0.6,
-                                      fontWeight: FontWeight.w600,
-                                    ),
-                                  ),
-                                ),
-                                const SizedBox(height: 6),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
+                              ),
+                            );
+                          },
+                        ),
+                      ),
                     ),
                   ),
-                ),
+                  if (_showAfkOverlay)
+                    Positioned.fill(
+                      child: AfkOverlay(
+                        onResume: () {
+                          _sessionGuard.onUserActivity();
+                        },
+                      ),
+                    ),
+                ],
               ),
-              if (_showAfkOverlay)
-                Positioned.fill(
-                  child: AfkOverlay(
-                    onResume: () {
-                      _sessionGuard.onUserActivity();
-                    },
-                  ),
-                ),
-            ],
-          );
+            );
 
             final agenticCubit = _agenticCubit;
             if (agenticCubit == null) {
