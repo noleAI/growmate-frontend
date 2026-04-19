@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../data/repositories/auth_repository.dart';
 import 'auth_event.dart';
 import 'auth_state.dart';
+import 'package:flutter/foundation.dart';
 
 class AuthBloc extends Bloc<AuthEvent, AuthState> {
   AuthBloc({required AuthRepository authRepository})
@@ -16,10 +17,7 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
 
   final AuthRepository _authRepository;
 
-  Future<void> _onAppStarted(
-    AppStarted event,
-    Emitter<AuthState> emit,
-  ) async {
+  Future<void> _onAppStarted(AppStarted event, Emitter<AuthState> emit) async {
     emit(const AuthLoading(message: 'Đang khởi tạo phiên làm việc...'));
 
     try {
@@ -46,14 +44,16 @@ class AuthBloc extends Bloc<AuthEvent, AuthState> {
         email: event.email,
         password: event.password,
       );
+      debugPrint(
+        '✅ Login success response: email=${session.email}, '
+        'displayName=${session.displayName}, hasToken=${session.token.isNotEmpty}',
+      );
       emit(AuthAuthenticated(session));
     } on AuthFailure catch (failure) {
       emit(AuthError(failure.message));
     } catch (_) {
       emit(
-        const AuthError(
-          'Kết nối hơi chậm một chút, mình thử lại ngay nhé 🌿',
-        ),
+        const AuthError('Kết nối hơi chậm một chút, mình thử lại ngay nhé 🌿'),
       );
     }
   }

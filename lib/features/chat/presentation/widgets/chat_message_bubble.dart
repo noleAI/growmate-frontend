@@ -25,8 +25,6 @@ class ChatMessageBubble extends StatelessWidget {
     final colors = theme.colorScheme;
     final isUser = message.role == ChatRole.user;
     final assistantTone = _assistantTone;
-    final bubbleWidth =
-        MediaQuery.of(context).size.width * (isUser ? 0.78 : 0.82);
     final bubbleGradient = _bubbleGradient(theme, assistantTone, isUser);
     final borderColor = _bubbleBorderColor(theme, assistantTone, isUser);
     final accentColor = _accentColor(theme, assistantTone, isUser);
@@ -36,63 +34,74 @@ class ChatMessageBubble extends StatelessWidget {
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-      child: Row(
-        mainAxisAlignment: isUser
-            ? MainAxisAlignment.end
-            : MainAxisAlignment.start,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          if (!isUser) ...[
-            _buildAssistantAvatar(theme, assistantTone),
-            const SizedBox(width: 8),
-          ],
-          ConstrainedBox(
-            constraints: BoxConstraints(maxWidth: bubbleWidth),
-            child: GestureDetector(
-              onLongPress: onCopy,
-              child: AnimatedContainer(
-                duration: const Duration(milliseconds: 180),
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
-                decoration: BoxDecoration(
-                  gradient: bubbleGradient,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(22),
-                    topRight: const Radius.circular(22),
-                    bottomLeft: Radius.circular(isUser ? 22 : 8),
-                    bottomRight: Radius.circular(isUser ? 8 : 22),
-                  ),
-                  border: Border.all(color: borderColor),
-                  boxShadow: [
-                    BoxShadow(
-                      color: accentColor.withValues(
-                        alpha: isUser ? 0.10 : 0.04,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final reservedWidth = isUser ? 0.0 : 40.0;
+          final availableBubbleWidth = constraints.maxWidth - reservedWidth;
+          final bubbleMaxWidth = availableBubbleWidth > 0
+              ? availableBubbleWidth * (isUser ? 0.84 : 0.90)
+              : constraints.maxWidth;
+
+          return Row(
+            mainAxisAlignment: isUser
+                ? MainAxisAlignment.end
+                : MainAxisAlignment.start,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              if (!isUser) ...[
+                _buildAssistantAvatar(theme, assistantTone),
+                const SizedBox(width: 8),
+              ],
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: BoxConstraints(maxWidth: bubbleMaxWidth),
+                  child: GestureDetector(
+                    onLongPress: onCopy,
+                    child: AnimatedContainer(
+                      duration: const Duration(milliseconds: 180),
+                      padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
+                      decoration: BoxDecoration(
+                        gradient: bubbleGradient,
+                        borderRadius: BorderRadius.only(
+                          topLeft: const Radius.circular(22),
+                          topRight: const Radius.circular(22),
+                          bottomLeft: Radius.circular(isUser ? 22 : 8),
+                          bottomRight: Radius.circular(isUser ? 8 : 22),
+                        ),
+                        border: Border.all(color: borderColor),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(
+                              alpha: isUser ? 0.10 : 0.04,
+                            ),
+                            blurRadius: 10,
+                            offset: const Offset(0, 4),
+                          ),
+                        ],
                       ),
-                      blurRadius: 10,
-                      offset: const Offset(0, 4),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          if (!isUser) ...[
+                            _buildAssistantHeader(theme, assistantTone),
+                            const SizedBox(height: 12),
+                          ],
+                          _buildContent(theme, isUser, accentColor),
+                          if (!isUser && _hasProcessingDetails) ...[
+                            const SizedBox(height: 12),
+                            _buildProcessingPanel(theme, assistantTone),
+                          ],
+                          const SizedBox(height: 10),
+                          _buildFooter(theme, isUser, footerColor),
+                        ],
+                      ),
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    if (!isUser) ...[
-                      _buildAssistantHeader(theme, assistantTone),
-                      const SizedBox(height: 12),
-                    ],
-                    _buildContent(theme, isUser, accentColor),
-                    if (!isUser && _hasProcessingDetails) ...[
-                      const SizedBox(height: 12),
-                      _buildProcessingPanel(theme, assistantTone),
-                    ],
-                    const SizedBox(height: 10),
-                    _buildFooter(theme, isUser, footerColor),
-                  ],
+                  ),
                 ),
               ),
-            ),
-          ),
-          if (isUser) const SizedBox(width: 8),
-        ],
+            ],
+          );
+        },
       ),
     );
   }
@@ -129,20 +138,30 @@ class ChatMessageBubble extends StatelessWidget {
     final hasText = message.content.trim().isNotEmpty;
 
     if (hasImage) {
-      const imageWidth = 220.0;
-      const imageHeight = 160.0;
-      return Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ClipRRect(
-            borderRadius: BorderRadius.circular(16),
-            child: _buildImagePreview(width: imageWidth, height: imageHeight),
-          ),
-          if (hasText) ...[
-            const SizedBox(height: 10),
-            _buildTextContent(theme, textColor, accentColor, isUser),
-          ],
-        ],
+      return LayoutBuilder(
+        builder: (context, constraints) {
+          final imageWidth = constraints.maxWidth < 220
+              ? constraints.maxWidth
+              : 220.0;
+          final imageHeight = imageWidth * (160 / 220);
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              ClipRRect(
+                borderRadius: BorderRadius.circular(16),
+                child: _buildImagePreview(
+                  width: imageWidth,
+                  height: imageHeight,
+                ),
+              ),
+              if (hasText) ...[
+                const SizedBox(height: 10),
+                _buildTextContent(theme, textColor, accentColor, isUser),
+              ],
+            ],
+          );
+        },
       );
     }
 
@@ -380,11 +399,8 @@ class ChatMessageBubble extends StatelessWidget {
 
   Widget _buildFooter(ThemeData theme, bool isUser, Color footerColor) {
     final colors = theme.colorScheme;
-
-    return Row(
-      children: [
-        if (!isUser)
-          Container(
+    final statusBadge = !isUser
+        ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: colors.surfaceContainerLowest,
@@ -401,10 +417,10 @@ class ChatMessageBubble extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-          ),
-        if (!isUser) const SizedBox(width: 8),
-        if (message.beliefEntropy != null && !isUser) ...[
-          Container(
+          )
+        : null;
+    final entropyBadge = message.beliefEntropy != null && !isUser
+        ? Container(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
             decoration: BoxDecoration(
               color: colors.surfaceContainerLowest,
@@ -417,10 +433,11 @@ class ChatMessageBubble extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-          ),
-          const SizedBox(width: 8),
-        ],
-        const Spacer(),
+          )
+        : null;
+    final timeStamp = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
         Icon(
           isUser ? Icons.arrow_upward_rounded : Icons.schedule_rounded,
           size: 12,
@@ -435,6 +452,23 @@ class ChatMessageBubble extends StatelessWidget {
             fontWeight: FontWeight.w600,
           ),
         ),
+      ],
+    );
+
+    if (statusBadge == null && entropyBadge == null) {
+      return Align(alignment: Alignment.centerRight, child: timeStamp);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [?statusBadge, ?entropyBadge],
+        ),
+        const SizedBox(height: 8),
+        Align(alignment: Alignment.centerRight, child: timeStamp),
       ],
     );
   }
