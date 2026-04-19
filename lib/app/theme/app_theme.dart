@@ -473,6 +473,21 @@ class AppTheme {
           ),
         ),
       ),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          foregroundColor: colorScheme.onSurface,
+          backgroundColor: Colors.transparent,
+          side: BorderSide(color: colorScheme.outlineVariant),
+          minimumSize: const Size.fromHeight(48),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(GrowMateLayout.buttonRadius),
+          ),
+          textStyle: textTheme.labelLarge?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerLow,
@@ -522,6 +537,18 @@ class AppTheme {
         ),
         labelTextStyle: WidgetStatePropertyAll(
           textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+        ),
+      ),
+      tabBarTheme: TabBarThemeData(
+        dividerColor: Colors.transparent,
+        indicatorColor: colorScheme.primary,
+        labelColor: colorScheme.onSurface,
+        unselectedLabelColor: colorScheme.onSurfaceVariant,
+        labelStyle: textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w700,
+        ),
+        unselectedLabelStyle: textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
         ),
       ),
       dividerColor: colorScheme.outlineVariant,

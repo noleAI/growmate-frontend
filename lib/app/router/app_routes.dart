@@ -39,4 +39,5 @@ class AppRoutes {
   static const String onboardingQuiz = '/onboarding/quiz';
   static const String onboardingResult = '/onboarding/result';
   static const String devReasoning = '/dev/reasoning';
+  static const String agenticGlossary = '/agentic-glossary';
 }

@@ -167,7 +167,7 @@ class AgenticWsService {
   // ─── Helpers ───────────────────────────────────────────────────────────
 
   static String get _defaultWsBaseUrl {
-    final restUrl = ApiConfig.restApiBaseUrl;
+    final restUrl = ApiConfig.agenticApiBaseUrl;
     // Convert http(s)://host:port/api/v1 → ws(s)://host:port/ws/v1
     final wsScheme = restUrl.startsWith('https') ? 'wss' : 'ws';
     final uri = Uri.parse(restUrl);

@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -69,6 +71,14 @@ class _SmartSchedulePageState extends State<SmartSchedulePage> {
                   ),
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+                const SizedBox(height: GrowMateLayout.space12),
+                FeatureAvailabilityBanner(
+                  availability: FeatureAvailability.beta,
+                  message: context.t(
+                    vi: 'Smart Schedule hien dang la local beta va deep-link Google Calendar, chua co backend scheduling service.',
+                    en: 'Smart Schedule is currently a local beta with Google Calendar deep-links, not a backend scheduling service yet.',
                   ),
                 ),
                 const SizedBox(height: GrowMateLayout.sectionGap),

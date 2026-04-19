@@ -37,6 +37,59 @@ class ApiConfig {
     return 'https://api-staging.growmate.vn/v1';
   }
 
+  static String get agenticApiBaseUrl {
+    String? fromEnv;
+    try {
+      fromEnv = dotenv.env['AGENTIC_BASE_URL']?.trim();
+    } catch (_) {
+      // Dotenv not initialized yet.
+    }
+
+    if (fromEnv != null && fromEnv.isNotEmpty) {
+      return fromEnv;
+    }
+
+    return restApiBaseUrl;
+  }
+
+  static bool get strictRealBackendDemo {
+    try {
+      return (dotenv.env['STRICT_REAL_BACKEND_DEMO'] ?? '')
+              .trim()
+              .toLowerCase() ==
+          'true';
+    } catch (_) {
+      return false;
+    }
+  }
+
+  static Uri get backendServiceBaseUri {
+    final uri = Uri.parse(agenticApiBaseUrl);
+    final segments = uri.pathSegments.toList(growable: true);
+    if (segments.length >= 2 &&
+        segments[segments.length - 2] == 'api' &&
+        segments.last == 'v1') {
+      segments.removeLast();
+      segments.removeLast();
+    }
+
+    return uri.replace(pathSegments: segments, query: '');
+  }
+
+  static Uri get backendDocsUri => backendServiceBaseUri.replace(
+    path: '${backendServiceBaseUri.path}/docs'.replaceAll('//', '/'),
+  );
+
+  static Uri get backendOpenApiUri => backendServiceBaseUri.replace(
+    path: '${backendServiceBaseUri.path}/openapi.json'.replaceAll('//', '/'),
+  );
+
+  static String get agenticWsBaseUrl {
+    final uri = Uri.parse(agenticApiBaseUrl);
+    final scheme = uri.scheme == 'https' ? 'wss' : 'ws';
+    return '$scheme://${uri.host}${uri.hasPort ? ':${uri.port}' : ''}/ws/v1';
+  }
+
   /// Connect timeout
   static Duration get connectTimeout => const Duration(seconds: 15);
 
@@ -119,10 +172,12 @@ class ApiConfig {
     return '''
 ApiConfig:
   REST API Base: $restApiBaseUrl
+  Agentic API Base: $agenticApiBaseUrl
   Connect Timeout: ${connectTimeout.inSeconds}s
   Receive Timeout: ${receiveTimeout.inSeconds}s
   Max Retries: $maxRetries
   HTTP Logging: $enableHttpLogging
+  Strict Demo: $strictRealBackendDemo
   Environment: ${isProduction
         ? 'Production'
         : isDevelopment

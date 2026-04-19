@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'package:http/http.dart' as http;
 import 'package:supabase_flutter/supabase_flutter.dart';
 
 import 'app/i18n/app_language_cubit.dart';
@@ -19,7 +20,9 @@ import 'core/services/real_api_service.dart';
 import 'core/services/supabase_hybrid_api_service.dart';
 import 'core/services/learning_session_manager.dart';
 import 'core/storage/auth_token_storage.dart';
+import 'core/network/api_config.dart';
 import 'core/widgets/network_status_indicator.dart';
+import 'core/widgets/demo_bootstrap_failure_app.dart';
 import 'data/repositories/backend_profile_repository.dart';
 import 'data/repositories/config_repository.dart';
 import 'data/repositories/profile_repository.dart';
@@ -71,6 +74,7 @@ import 'features/ai_companion/presentation/session_companion_bridge.dart';
 import 'features/chat/data/repositories/chat_repository.dart';
 import 'features/chat/data/repositories/mock_chat_repository.dart';
 import 'features/chat/data/repositories/real_chat_repository.dart';
+import 'features/chat/presentation/cubit/chat_quota_cubit.dart';
 import 'features/quota/data/repositories/quota_repository.dart';
 import 'features/quota/presentation/cubit/quota_cubit.dart';
 
@@ -99,6 +103,7 @@ const String _supabaseAnonKeyFromDefine = String.fromEnvironment(
 late final bool useMockApi;
 late final bool useSupabaseRpcDataPlane;
 late final bool useAgenticBackend;
+String? startupFailureMessage;
 
 bool _boolFromEnvFlag(String rawValue) {
   return rawValue.toLowerCase() == 'true';
@@ -145,7 +150,57 @@ Future<void> main() async {
     );
   }
 
+  startupFailureMessage = await _resolveStartupFailure(
+    supabaseConfigured: supabaseUrl.isNotEmpty && supabaseAnonKey.isNotEmpty,
+  );
+
+  if (startupFailureMessage != null) {
+    runApp(DemoBootstrapFailureApp(message: startupFailureMessage!));
+    return;
+  }
+
   runApp(const GrowMateApp());
+}
+
+Future<String?> _resolveStartupFailure({
+  required bool supabaseConfigured,
+}) async {
+  if (!ApiConfig.strictRealBackendDemo) {
+    return null;
+  }
+
+  if (useMockApi) {
+    return 'Strict demo mode is enabled but USE_MOCK_API=true. '
+        'Set USE_MOCK_API=false before presenting the demo build.';
+  }
+
+  if (!useAgenticBackend) {
+    return 'Strict demo mode requires USE_AGENTIC_BACKEND=true so the '
+        'agentic pipeline stays on the real backend.';
+  }
+
+  if (!supabaseConfigured) {
+    return 'Strict demo mode requires SUPABASE_URL and SUPABASE_ANON_KEY. '
+        'Auth mock mode is not allowed in this build.';
+  }
+
+  final client = http.Client();
+  try {
+    final response = await client
+        .get(ApiConfig.backendOpenApiUri)
+        .timeout(const Duration(seconds: 8));
+    if (response.statusCode >= 200 && response.statusCode < 300) {
+      return null;
+    }
+
+    return 'The deployed backend is unreachable for strict demo mode '
+        '(${ApiConfig.backendOpenApiUri}). Status ${response.statusCode}.';
+  } catch (_) {
+    return 'The deployed backend is unreachable for strict demo mode '
+        '(${ApiConfig.backendOpenApiUri}).';
+  } finally {
+    client.close();
+  }
 }
 
 class GrowMateApp extends StatefulWidget {
@@ -186,6 +241,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
   RealProgressRepository? _realProgressRepository;
   QuotaRepository? _quotaRepository;
   QuotaCubit? _quotaCubit;
+  ChatQuotaCubit? _chatQuotaCubit;
   InspectionOpsRepository? _inspectionOpsRepository;
   late ChatRepository _chatRepository;
 
@@ -255,6 +311,9 @@ class _GrowMateAppState extends State<GrowMateApp> {
 
   QuotaCubit get _resolvedQuotaCubit =>
       _quotaCubit ??= QuotaCubit(repository: _quotaRepository!);
+
+  ChatQuotaCubit get _resolvedChatQuotaCubit =>
+      _chatQuotaCubit ??= ChatQuotaCubit();
 
   /// Khởi tạo API service với token injection (cho production REST API)
   ApiService _buildApiService() {
@@ -519,10 +578,12 @@ class _GrowMateAppState extends State<GrowMateApp> {
                   String? classificationLevel,
                   Map<String, dynamic>? onboardingResults,
                 }) async {
-                  final token =
-                      await GlobalTokenStorage.instance.getAccessToken();
+                  final token = await GlobalTokenStorage.instance
+                      .getAccessToken();
                   if (token == null || token.trim().isEmpty) {
-                    throw StateError('Missing access token for REST session creation');
+                    throw StateError(
+                      'Missing access token for REST session creation',
+                    );
                   }
 
                   final response = await _agenticApiService!.createSession(
@@ -574,6 +635,7 @@ class _GrowMateAppState extends State<GrowMateApp> {
     _studyModeCubit?.close();
     _leaderboardCubit?.close();
     _quotaCubit?.close();
+    _chatQuotaCubit?.close();
     super.dispose();
   }
 
@@ -648,6 +710,8 @@ class _GrowMateAppState extends State<GrowMateApp> {
           ),
           if (_quotaRepository != null)
             BlocProvider<QuotaCubit>.value(value: _resolvedQuotaCubit),
+          if (!useMockApi)
+            BlocProvider<ChatQuotaCubit>.value(value: _resolvedChatQuotaCubit),
           if (_agenticSessionCubit != null)
             BlocProvider<AgenticSessionCubit>.value(
               value: _agenticSessionCubit!,

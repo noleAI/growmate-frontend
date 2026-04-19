@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../achievement_i18n.dart';
 import '../../data/models/achievement_badge.dart';
@@ -55,6 +57,14 @@ class AchievementsPage extends StatelessWidget {
               ),
               style: theme.textTheme.bodyLarge?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: GrowMateLayout.space12),
+            FeatureAvailabilityBanner(
+              availability: FeatureAvailability.beta,
+              message: context.t(
+                vi: 'Achievements hien duoc tinh local. Hay de man nay ngoai luong demo backend chinh.',
+                en: 'Achievements are currently computed locally. Keep this screen outside the main backend demo flow.',
               ),
             ),
             const SizedBox(height: GrowMateLayout.sectionGapLg),

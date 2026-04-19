@@ -5,6 +5,7 @@ import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/services/mood_state_service.dart';
 import '../../../../features/quiz/presentation/cubit/quiz_cubit.dart';
+import '../../../../features/recovery/data/repositories/session_recovery_local.dart';
 import '../../../../shared/widgets/zen_button.dart';
 
 class RecoveryScreen extends StatefulWidget {
@@ -47,10 +48,30 @@ class _RecoveryScreenState extends State<RecoveryScreen>
     super.dispose();
   }
 
-  void _finishRecovery() {
+  Future<void> _finishRecovery() async {
     MoodStateService.instance.setMood('Focused');
     QuizCubit.resetWrongStreak();
-    context.go(AppRoutes.home);
+
+    // Try to resume the quiz session instead of going to home.
+    final pending = await SessionRecoveryLocal.loadFreshSnapshot();
+    if (!mounted) return;
+
+    if (pending != null && pending.hasRealProgressMetadata) {
+      final queryParameters = <String, String>{'resume': '1'};
+      if (pending.sessionId.trim().isNotEmpty) {
+        queryParameters['session_id'] = pending.sessionId;
+      }
+      if (pending.lastQuestionIndex >= 0) {
+        queryParameters['next_index'] = pending.lastQuestionIndex.toString();
+      }
+      final location = Uri(
+        path: AppRoutes.quiz,
+        queryParameters: queryParameters,
+      ).toString();
+      context.go(location);
+    } else {
+      context.go(AppRoutes.home);
+    }
   }
 
   @override

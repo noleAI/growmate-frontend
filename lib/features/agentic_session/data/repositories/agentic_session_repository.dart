@@ -206,6 +206,19 @@ class AgenticSessionRepository {
     return _api.getAuditLogs(sessionId: _sessionId!);
   }
 
+  /// Reconnects real-time streams for the current session when Home refreshes.
+  Future<void> ensureRealtimeConnected() async {
+    if (_sessionId == null) {
+      return;
+    }
+    if (_ws.isBehaviorConnected && _ws.isDashboardConnected) {
+      return;
+    }
+
+    await _ws.connectAll(_sessionId!);
+    _log('Realtime streams reconnected: $_sessionId');
+  }
+
   // ─── Cleanup ───────────────────────────────────────────────────────────
 
   void dispose() {

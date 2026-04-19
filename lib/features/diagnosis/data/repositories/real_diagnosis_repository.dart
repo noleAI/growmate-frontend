@@ -49,7 +49,18 @@ class RealDiagnosisRepository implements DiagnosisRepository {
         diagnosis['next_suggested_topic'] ?? diagnosis['nextSuggestedTopic'],
       ),
       interventionPlan: interventions,
-      raw: diagnosis,
+      raw: <String, dynamic>{
+        ...diagnosis,
+        'interventions': interventions,
+        if (dd?.selectedIntervention != null)
+          'selectedIntervention': dd!.selectedIntervention,
+        'systemBehavior': <String, dynamic>{
+          'finalMode': mode,
+          'requiresHITL': requiresHitl,
+          'riskBandFromThresholds': dd?.riskBand,
+          'fallbackRuleApplied': dd?.systemBehavior.fallbackRuleApplied,
+        },
+      },
       planRepaired: orchestratorResponse.payload.fallbackUsed,
       beliefEntropy: orchestratorResponse.dashboardUpdate.academic.entropy,
       formulaRecommendations: dd?.formulaRecommendations ?? const [],

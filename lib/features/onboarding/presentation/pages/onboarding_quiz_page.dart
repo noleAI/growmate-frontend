@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 
 import '../../../../app/router/app_routes.dart';
+import '../../../quiz/presentation/widgets/quiz_math_text.dart';
 import '../cubit/onboarding_cubit.dart';
 import '../cubit/onboarding_state.dart';
 
@@ -113,8 +114,9 @@ class _QuizBodyState extends State<_QuizBody> {
             ),
             const SizedBox(height: 24),
             // Question
-            Text(
-              q.questionText,
+            QuizMathText(
+              text: q.questionText,
+              textAlign: TextAlign.left,
               style: theme.textTheme.titleLarge?.copyWith(
                 fontWeight: FontWeight.w600,
                 height: 1.4,
@@ -222,8 +224,9 @@ class _OptionTile extends StatelessWidget {
               ),
               const SizedBox(width: 14),
               Expanded(
-                child: Text(
-                  label,
+                child: QuizMathText(
+                  text: label,
+                  textAlign: TextAlign.left,
                   style: TextStyle(
                     color: isSelected ? colors.primary : null,
                     fontWeight: isSelected ? FontWeight.w600 : null,

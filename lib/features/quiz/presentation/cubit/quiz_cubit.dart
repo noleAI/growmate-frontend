@@ -34,6 +34,9 @@ final class QuizSubmitSuccessState extends QuizCubitState {
     required super.answer,
     this.isCorrect = false,
     this.xpEarned = 0,
+    this.answeredCount,
+    this.lastQuestionIndex,
+    this.totalQuestions,
     this.livesRemaining,
     this.canPlay,
     this.nextRegenInSeconds,
@@ -42,6 +45,9 @@ final class QuizSubmitSuccessState extends QuizCubitState {
   final String submissionId;
   final bool isCorrect;
   final int xpEarned;
+  final int? answeredCount;
+  final int? lastQuestionIndex;
+  final int? totalQuestions;
   final int? livesRemaining;
   final bool? canPlay;
   final int? nextRegenInSeconds;
@@ -52,6 +58,9 @@ final class QuizSubmitSuccessState extends QuizCubitState {
     submissionId,
     isCorrect,
     xpEarned,
+    answeredCount,
+    lastQuestionIndex,
+    totalQuestions,
     livesRemaining,
     canPlay,
     nextRegenInSeconds,
@@ -282,6 +291,9 @@ class QuizCubit extends Cubit<QuizCubitState> {
       int? livesRemaining;
       bool? canPlay;
       int? nextRegenInSeconds;
+      int? answeredCount;
+      int? lastQuestionIndex;
+      int? totalQuestions;
 
       if (_quizApiRepository != null && _sessionId != null) {
         final apiSessionId = _sessionId;
@@ -317,6 +329,9 @@ class QuizCubit extends Cubit<QuizCubitState> {
         livesRemaining = apiResponse.livesRemaining;
         canPlay = apiResponse.canPlay;
         nextRegenInSeconds = apiResponse.nextRegenInSeconds;
+        answeredCount = apiResponse.quizSummary?.answeredCount;
+        lastQuestionIndex = apiResponse.lastQuestionIndex;
+        totalQuestions = apiResponse.totalQuestions;
       } else {
         final response = await _quizRepository.submitAnswer(
           questionId: question.id,
@@ -370,6 +385,9 @@ class QuizCubit extends Cubit<QuizCubitState> {
           answer: visibleAnswer,
           isCorrect: isCorrect,
           xpEarned: isCorrect ? (evaluation.score * 100).round() : 0,
+          answeredCount: answeredCount,
+          lastQuestionIndex: lastQuestionIndex,
+          totalQuestions: totalQuestions,
           livesRemaining: livesRemaining,
           canPlay: canPlay,
           nextRegenInSeconds: nextRegenInSeconds,

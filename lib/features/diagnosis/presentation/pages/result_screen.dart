@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/utils/backend_text.dart';
 import '../../../../shared/widgets/ai_components.dart';
 import '../../../../shared/widgets/premium_sections.dart';
 import '../../../../shared/widgets/zen_button.dart';
@@ -72,6 +73,16 @@ class _ResultScreenState extends State<ResultScreen> {
             tooltip: context.t(vi: 'Đóng', en: 'Close'),
             onPressed: () => context.go(AppRoutes.home),
           ),
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.info_outline_rounded),
+              tooltip: context.t(
+                vi: 'Giải thích thuật ngữ Agentic AI',
+                en: 'Explain Agentic AI terms',
+              ),
+              onPressed: () => context.push(AppRoutes.agenticGlossary),
+            ),
+          ],
         ),
         body: SafeArea(
           child: BlocConsumer<ResultCubit, ResultState>(
@@ -283,10 +294,6 @@ class _ResultScreenState extends State<ResultScreen> {
           result.nextSuggestedTopic,
           fallbackEn: 'Continue with one focused review topic.',
         ),
-        subtitle: context.t(
-          vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(context, result.riskLevel)}',
-          en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabel(context, result.riskLevel)}',
-        ),
       );
 
       if (!mounted || action == null) {
@@ -313,7 +320,7 @@ class _ResultScreenState extends State<ResultScreen> {
       return message;
     }
 
-    final trimmed = message.trim();
+    final trimmed = repairAndCollapseText(message);
     switch (trimmed) {
       case 'Lộ trình học của bạn đã được cập nhật':
         return 'Your study roadmap has been updated.';
@@ -331,19 +338,6 @@ class _ResultScreenState extends State<ResultScreen> {
     return RegExp(
       r'[ĂÂĐÊÔƠƯăâđêôơưÁÀẢÃẠẮẰẲẴẶẤẦẨẪẬÉÈẺẼẸẾỀỂỄỆÍÌỈĨỊÓÒỎÕỌỐỒỔỖỘỚỜỞỠỢÚÙỦŨỤỨỪỬỮỰÝỲỶỸỴáàảãạắằẳẵặấầẩẫậéèẻẽẹếềểễệíìỉĩịóòỏõọốồổỗộớờởỡợúùủũụứừửữựýỳỷỹỵ]',
     ).hasMatch(value);
-  }
-
-  String _riskLabel(BuildContext context, String riskLevel) {
-    switch (riskLevel.toLowerCase()) {
-      case 'high':
-        return context.t(vi: 'CAO', en: 'HIGH');
-      case 'medium':
-        return context.t(vi: 'TRUNG BÌNH', en: 'MEDIUM');
-      case 'low':
-        return context.t(vi: 'THẤP', en: 'LOW');
-      default:
-        return riskLevel.toUpperCase();
-    }
   }
 
   bool _isUncertaintyHigh(ResultModel result) {
@@ -369,7 +363,7 @@ String _localizedDynamicText(
   required String fallbackEn,
   String? fallbackVi,
 }) {
-  final trimmed = value.trim();
+  final trimmed = repairAndCollapseText(value);
 
   if (trimmed.isEmpty) {
     return context.t(vi: fallbackVi ?? fallbackEn, en: fallbackEn);
@@ -388,6 +382,19 @@ String _localizedDynamicText(
   }
 
   return trimmed;
+}
+
+String _riskLabelText(BuildContext context, String riskLevel) {
+  switch (riskLevel.toLowerCase()) {
+    case 'high':
+      return context.t(vi: 'CAO', en: 'HIGH');
+    case 'medium':
+      return context.t(vi: 'TRUNG BÌNH', en: 'MEDIUM');
+    case 'low':
+      return context.t(vi: 'THẤP', en: 'LOW');
+    default:
+      return riskLevel.toUpperCase();
+  }
 }
 
 class _ResultContent extends StatelessWidget {
@@ -432,6 +439,27 @@ class _ResultContent extends StatelessWidget {
               height: 1.45,
             ),
           ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MetricChip(
+                icon: Icons.bolt_rounded,
+                label: context.t(
+                  vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}%',
+                  en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}%',
+                ),
+              ),
+              _MetricChip(
+                icon: Icons.flag_circle_rounded,
+                label: context.t(
+                  vi: 'Mức rủi ro ${_riskLabelText(context, result.riskLevel)}',
+                  en: 'Risk ${_riskLabelText(context, result.riskLevel)}',
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 24),
           Container(
             width: double.infinity,
@@ -442,8 +470,11 @@ class _ResultContent extends StatelessWidget {
                 end: Alignment.bottomRight,
                 colors: [
                   theme.colorScheme.primaryContainer.withValues(alpha: 0.6),
-                  theme.colorScheme.primaryContainer.withValues(alpha: 0.3),
+                  theme.colorScheme.tertiaryContainer.withValues(alpha: 0.42),
                 ],
+              ),
+              border: Border.all(
+                color: theme.colorScheme.primary.withValues(alpha: 0.12),
               ),
               borderRadius: BorderRadius.circular(20),
               boxShadow: [
@@ -484,15 +515,16 @@ class _ResultContent extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleLarge?.copyWith(
                           color: theme.colorScheme.primary,
-                          fontSize: 30,
+                          fontSize: 28,
                           height: 1.08,
+                          fontWeight: FontWeight.w800,
                         ),
                       ),
                       const SizedBox(height: 6),
                       Text(
                         context.t(
-                          vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabel(context, result.riskLevel)}',
-                          en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabel(context, result.riskLevel)}',
+                          vi: 'Độ tự tin ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Rủi ro ${_riskLabelText(context, result.riskLevel)}',
+                          en: 'Confidence ${(result.confidenceScore * 100).toStringAsFixed(0)}% · Risk ${_riskLabelText(context, result.riskLevel)}',
                         ),
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
@@ -515,6 +547,27 @@ class _ResultContent extends StatelessWidget {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 10,
+                    vertical: 6,
+                  ),
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHigh,
+                    borderRadius: BorderRadius.circular(999),
+                  ),
+                  child: Text(
+                    context.t(
+                      vi: 'Tổng quan từ phiên vừa hoàn thành',
+                      en: 'Overview from the latest completed session',
+                    ),
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
                 Text(
                   _localizedDynamicText(
                     context,
@@ -610,6 +663,71 @@ class _ResultContent extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 24),
+          Section(
+            title: context.t(
+              vi: 'AI kết luận dựa trên gì',
+              en: 'What the AI used as evidence',
+            ),
+            subtitle: context.t(
+              vi: 'Bằng chứng từ kết quả bài làm, dòng suy luận và kế hoạch can thiệp',
+              en: 'Evidence from quiz result, reasoning, and intervention plan',
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                _PointRow(
+                  icon: Icons.analytics_rounded,
+                  color: theme.colorScheme.primary,
+                  label: context.t(vi: 'Kết quả bài làm', en: 'Quiz result'),
+                  value: _localizedDynamicText(
+                    context,
+                    result.gapAnalysis,
+                    fallbackEn:
+                        'The latest quiz performance shaped the diagnosis baseline.',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _PointRow(
+                  icon: Icons.hub_rounded,
+                  color: theme.colorScheme.tertiary,
+                  label: context.t(
+                    vi: 'Dòng suy luận AI',
+                    en: 'Reasoning trace',
+                  ),
+                  value: _localizedDynamicText(
+                    context,
+                    result.diagnosisReason,
+                    fallbackEn:
+                        'The agent combined confidence, gap severity, and next-step utility.',
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _PointRow(
+                  icon: Icons.auto_awesome_rounded,
+                  color: theme.colorScheme.secondary,
+                  label: context.t(
+                    vi: 'Kế hoạch can thiệp',
+                    en: 'Intervention plan',
+                  ),
+                  value: result.interventionPlan.isEmpty
+                      ? context.t(
+                          vi: 'Backend chưa trả kế hoạch can thiệp phù hợp, app đang dùng phương án an toàn.',
+                          en: 'No backend plan yet, so a safe fallback plan is shown.',
+                        )
+                      : result.interventionPlan
+                            .map(
+                              (step) => repairAndCollapseText(
+                                step['title']?.toString() ?? '',
+                              ),
+                            )
+                            .where((step) => step.isNotEmpty)
+                            .take(2)
+                            .join(' • '),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 24),
           _ParticleFilterSection(result: result),
           const SizedBox(height: 24),
           ZenButton(
@@ -618,23 +736,53 @@ class _ResultContent extends StatelessWidget {
                 : context.t(vi: 'Xem đề xuất AI ✨', en: 'View AI proposal ✨'),
             onPressed: onShowProposal,
           ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: OutlinedButton.icon(
+              onPressed: () => context.go(AppRoutes.home),
+              icon: const Icon(Icons.home_rounded, size: 18),
+              label: Text(context.t(vi: 'Về trang chủ', en: 'Back to home')),
+            ),
+          ),
           const SizedBox(height: 24),
         ],
       ),
     );
   }
+}
 
-  String _riskLabel(BuildContext context, String riskLevel) {
-    switch (riskLevel.toLowerCase()) {
-      case 'high':
-        return context.t(vi: 'CAO', en: 'HIGH');
-      case 'medium':
-        return context.t(vi: 'TRUNG BÌNH', en: 'MEDIUM');
-      case 'low':
-        return context.t(vi: 'THẤP', en: 'LOW');
-      default:
-        return riskLevel.toUpperCase();
-    }
+class _MetricChip extends StatelessWidget {
+  const _MetricChip({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: theme.colorScheme.primary),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -732,7 +880,7 @@ class _ParticleFilterSection extends StatelessWidget {
           const SizedBox(height: 8),
           Text(
             context.t(
-              vi: 'Uncertainty: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
+              vi: 'Độ bất định: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
               en: 'Uncertainty: ${(result.uncertaintyScore * 100).toStringAsFixed(0)}%',
             ),
             style: theme.textTheme.bodySmall?.copyWith(
@@ -920,31 +1068,97 @@ class _HintLine extends StatelessWidget {
 class _ResultLoadingView extends StatelessWidget {
   const _ResultLoadingView();
 
+  Widget _placeholderLine(
+    BuildContext context, {
+    double height = 12,
+    double width = double.infinity,
+  }) {
+    final theme = Theme.of(context);
+    return Container(
+      height: height,
+      width: width,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHighest,
+        borderRadius: BorderRadius.circular(8),
+      ),
+    );
+  }
+
+  Widget _skeletonCard(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(20),
+        border: Border.all(
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.06),
+            blurRadius: 10,
+            offset: const Offset(0, 6),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 48,
+                height: 48,
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _placeholderLine(context, height: 14, width: 140),
+                    const SizedBox(height: 8),
+                    _placeholderLine(context, height: 10, width: 80),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _placeholderLine(context, height: 14),
+          const SizedBox(height: 8),
+          Row(
+            children: [
+              Expanded(child: _placeholderLine(context, height: 12)),
+              const SizedBox(width: 8),
+              _placeholderLine(context, height: 12, width: 60),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     return ZenPageContainer(
-      child: Column(
+      includeBottomSafeArea: false,
+      child: ListView(
         children: [
+          const SizedBox(height: 8),
+          _skeletonCard(context),
+          const SizedBox(height: 12),
+          _skeletonCard(context),
+          const SizedBox(height: 12),
+          _skeletonCard(context),
           const SizedBox(height: 16),
-          const Spacer(),
-          Section(
-            title: context.t(
-              vi: 'Đang tổng hợp kết quả',
-              en: 'Compiling result',
-            ),
-            subtitle: context.t(
-              vi: 'AI đang phân tích hiệu suất của bạn...',
-              en: 'AI is analyzing your performance...',
-            ),
-            child: const Center(
-              child: SizedBox(
-                width: 30,
-                height: 30,
-                child: CircularProgressIndicator(strokeWidth: 2.8),
-              ),
-            ),
-          ),
-          const Spacer(),
         ],
       ),
     );

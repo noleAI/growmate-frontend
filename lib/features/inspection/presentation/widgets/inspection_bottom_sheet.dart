@@ -94,10 +94,6 @@ class _InspectionBottomSheetState extends State<InspectionBottomSheet> {
                                 vi: 'Bảng phân tích AI',
                                 en: 'AI insight panel',
                               ),
-                              subtitle: context.t(
-                                vi: 'AI nhận định · Runtime ${state.runtimeFromServer ? 'server' : 'fallback'} · Cập nhật ${_formatTimestamp(state.updatedAt)}',
-                                en: 'AI insights · Runtime ${state.runtimeFromServer ? 'server' : 'fallback'} · Updated ${_formatTimestamp(state.updatedAt)}',
-                              ),
                               trailing: Row(
                                 mainAxisSize: MainAxisSize.min,
                                 children: [

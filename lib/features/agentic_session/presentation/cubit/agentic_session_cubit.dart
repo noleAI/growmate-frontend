@@ -28,11 +28,10 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
   AgenticSessionCubit({
     required AgenticSessionRepository repository,
     InspectionRuntimeStore? inspectionRuntimeStore,
-  })
-    : _repo = repository,
-      _inspectionRuntimeStore =
-          inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
-      super(AgenticSessionState.initial());
+  }) : _repo = repository,
+       _inspectionRuntimeStore =
+           inspectionRuntimeStore ?? InspectionRuntimeStore.instance,
+       super(AgenticSessionState.initial());
 
   final AgenticSessionRepository _repo;
   final InspectionRuntimeStore _inspectionRuntimeStore;
@@ -234,6 +233,15 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
     }
   }
 
+  /// Ensures Home pull-to-refresh also resyncs live session streams.
+  Future<void> refreshHomeMission() async {
+    try {
+      await _repo.ensureRealtimeConnected();
+    } catch (e) {
+      _log('Home mission refresh skipped: $e');
+    }
+  }
+
   // ─── Internal ──────────────────────────────────────────────────────────
 
   void _handleInteractionResponse(AgenticInteractionResponse response) {
@@ -322,15 +330,17 @@ class AgenticSessionCubit extends Cubit<AgenticSessionState> {
     String? fallbackAction,
     String? fallbackReason,
   }) {
-    final action = (update.orchestrator?.decision.action ??
-            fallbackAction ??
-            update.action)
-        .trim();
-    final rationale = (update.orchestrator?.decision.rationale ??
-            fallbackReason ??
-            content ??
-            '')
-        .trim();
+    final action =
+        (update.orchestrator?.decision.action ??
+                fallbackAction ??
+                update.action)
+            .trim();
+    final rationale =
+        (update.orchestrator?.decision.rationale ??
+                fallbackReason ??
+                content ??
+                '')
+            .trim();
 
     _inspectionRuntimeStore.syncFromAgenticDashboard(
       action: action.isEmpty ? 'agentic_update' : action,

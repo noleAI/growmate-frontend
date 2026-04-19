@@ -96,8 +96,8 @@ class ResultCubit extends Cubit<ResultState> {
       final nextSuggestedTopic = diagnosis.nextSuggestedTopic.isNotEmpty
           ? diagnosis.nextSuggestedTopic
           : needsReview.first;
-      final interventionPlan = _extractPlanList(
-        diagnosis.interventionPlan,
+      final interventionPlan = _extractPlanListFromDiagnosis(
+        diagnosis,
       ).ifEmpty(_fallbackInterventionPlan(nextSuggestedTopic));
 
       // Parse Empathy Agent / Particle Filter fields
@@ -147,6 +147,7 @@ class ResultCubit extends Cubit<ResultState> {
             uncertaintyScore: uncertainty,
             riskLevel: riskLevel,
             requiresHitl: requiresHitl,
+            fromServer: true,
             mentalState: mentalState,
             particleDistribution: particleDistribution,
           ),
@@ -371,9 +372,130 @@ class ResultCubit extends Cubit<ResultState> {
     }
 
     return value
-        .whereType<Map>()
-        .map((item) => Map<String, dynamic>.from(item))
+        .map<Map<String, dynamic>?>((item) => _normalizePlanItem(item))
+        .whereType<Map<String, dynamic>>()
         .toList(growable: false);
+  }
+
+  static List<Map<String, dynamic>> _extractPlanListFromDiagnosis(
+    DiagnosisResponse diagnosis,
+  ) {
+    final directPlan = _extractPlanList(diagnosis.interventionPlan);
+    if (directPlan.isNotEmpty) {
+      return directPlan;
+    }
+
+    final raw = diagnosis.raw;
+    final fromInterventions = _extractPlanList(raw['interventions']);
+    if (fromInterventions.isNotEmpty) {
+      return fromInterventions;
+    }
+
+    final fromSelected = _normalizePlanItem(raw['selectedIntervention']);
+    if (fromSelected != null) {
+      return <Map<String, dynamic>>[fromSelected];
+    }
+
+    final fromRawPlan = _extractPlanList(
+      raw['interventionPlan'] ?? raw['intervention_plan'],
+    );
+    if (fromRawPlan.isNotEmpty) {
+      return fromRawPlan;
+    }
+
+    return <Map<String, dynamic>>[];
+  }
+
+  static Map<String, dynamic>? _normalizePlanItem(Object? item) {
+    if (item is Map) {
+      final map = Map<String, dynamic>.from(item);
+      final id = _readPlanString(map, const <String>['id', 'interventionId']);
+      final title =
+          _readPlanString(map, const <String>['title', 'label']).isEmpty
+          ? _friendlyInterventionTitle(id)
+          : _readPlanString(map, const <String>['title', 'label']);
+      final type = _readPlanString(map, const <String>['type']).isEmpty
+          ? 'general'
+          : _readPlanString(map, const <String>['type']);
+
+      if (id.isEmpty && title.isEmpty) {
+        return null;
+      }
+
+      return <String, dynamic>{
+        ...map,
+        'id': id.isEmpty ? title : id,
+        'title': title.isEmpty ? id : title,
+        'type': type,
+      };
+    }
+
+    final raw = item?.toString().trim() ?? '';
+    if (raw.isEmpty) {
+      return null;
+    }
+
+    return <String, dynamic>{
+      'id': raw,
+      'title': _friendlyInterventionTitle(raw),
+      'type': _inferInterventionType(raw),
+    };
+  }
+
+  static String _readPlanString(
+    Map<String, dynamic> source,
+    List<String> keys,
+  ) {
+    for (final key in keys) {
+      final value = source[key];
+      final normalized = value?.toString().trim() ?? '';
+      if (normalized.isNotEmpty) {
+        return normalized;
+      }
+    }
+
+    return '';
+  }
+
+  static String _friendlyInterventionTitle(String id) {
+    switch (id) {
+      case 'INTV_REVIEW_DERIV_RULES':
+        return 'Ôn nhanh quy tắc đạo hàm';
+      case 'INTV_PRACTICE_TIMED_DERIV':
+        return 'Luyện bộ câu có bấm giờ';
+      case 'INTV_GROUNDING_54321':
+        return 'Grounding 5-4-3-2-1';
+      case 'INTV_BREATH_BOX_60S':
+        return 'Thở hộp 60 giây';
+      case 'INTV_RECOVERY_MICRO_BREAK':
+        return 'Nghỉ ngắn phục hồi';
+      case 'INTV_RECOVERY_LIGHT_RESTART':
+        return 'Khởi động lại nhẹ';
+      case 'INTV_REVIEW_NOTATION_CHECK':
+        return 'Soát lại ký hiệu và dấu';
+      default:
+        return id;
+    }
+  }
+
+  static String _inferInterventionType(String id) {
+    final upper = id.toUpperCase();
+    if (upper.contains('BREATH')) {
+      return 'breath';
+    }
+    if (upper.contains('GROUND')) {
+      return 'grounding';
+    }
+    if (upper.contains('RECOVERY')) {
+      return 'recovery';
+    }
+    if (upper.contains('PRACTICE')) {
+      return 'practice';
+    }
+    if (upper.contains('REVIEW')) {
+      return 'review';
+    }
+    return 'general';
   }
 
   static String _normalizeDiagnosisReason({
@@ -480,6 +602,7 @@ class ResultCubit extends Cubit<ResultState> {
       uncertaintyScore: _normalizeScore(1 - confidence, fallback: 0),
       riskLevel: _riskLevelFromConfidence(confidence),
       requiresHitl: false,
+      fromServer: false,
       mentalState: finalMode == 'recovery' ? 'tired' : 'focused',
       particleDistribution: const <String, double>{},
     );

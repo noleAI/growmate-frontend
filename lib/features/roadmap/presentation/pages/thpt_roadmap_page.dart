@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 
 import '../../../../core/constants/layout.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
+import '../../../../shared/models/feature_availability.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import 'roadmap_learning_data.dart';
@@ -16,6 +18,14 @@ class ThptRoadmapPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    // Compute dynamic counts from the data
+    final totalTopics = roadmapSubjects.fold<int>(
+      0,
+      (sum, subject) => sum + subject.topics.length,
+    );
+    final totalSubjects = roadmapSubjects.length;
 
     return DefaultTabController(
       length: 2,
@@ -26,12 +36,12 @@ class ThptRoadmapPage extends StatelessWidget {
             icon: const Icon(Icons.arrow_back_ios_new_rounded),
             onPressed: () => Navigator.of(context).pop(),
           ),
-          iconTheme: IconThemeData(color: theme.colorScheme.primary),
+          iconTheme: IconThemeData(color: colors.primary),
           titleSpacing: 0,
           title: Text(
             context.t(vi: 'Lộ trình học', en: 'Learning path'),
             style: theme.textTheme.titleMedium?.copyWith(
-              color: theme.colorScheme.primary,
+              color: colors.primary,
               fontWeight: FontWeight.w700,
             ),
           ),
@@ -42,7 +52,7 @@ class ThptRoadmapPage extends StatelessWidget {
               child: Container(
                 height: 6,
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.9),
+                  color: colors.primary.withValues(alpha: 0.9),
                   borderRadius: BorderRadius.circular(999),
                 ),
               ),
@@ -56,83 +66,97 @@ class ThptRoadmapPage extends StatelessWidget {
             children: [
               // ── Progress summary card ──────────────────────────────────
               Container(
-                padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
+                padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
                 decoration: BoxDecoration(
-                  color: theme.colorScheme.primary.withValues(alpha: 0.07),
-                  borderRadius: BorderRadius.circular(16),
-                  border: Border.all(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.15),
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.primaryContainer.withValues(alpha: 0.5),
+                      colors.primaryContainer.withValues(alpha: 0.2),
+                    ],
                   ),
+                  borderRadius: BorderRadius.circular(20),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.12),
+                  ),
+                  boxShadow: [
+                    BoxShadow(
+                      color: colors.shadow.withValues(alpha: 0.06),
+                      blurRadius: 10,
+                      offset: const Offset(0, 4),
+                    ),
+                  ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Row(
                       children: [
-                        Icon(
-                          Icons.route_rounded,
-                          size: 16,
-                          color: theme.colorScheme.primary,
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            context.t(
-                              vi: 'THPT 2026 — Tiến độ của bạn',
-                              en: 'THPT 2026 — Your progress',
-                            ),
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              fontWeight: FontWeight.w700,
-                              color: theme.colorScheme.primary,
-                            ),
+                        Container(
+                          width: 36,
+                          height: 36,
+                          decoration: BoxDecoration(
+                            color: colors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(10),
+                          ),
+                          child: Icon(
+                            Icons.route_rounded,
+                            size: 18,
+                            color: colors.primary,
                           ),
                         ),
-                        Text(
-                          '35%',
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            color: theme.colorScheme.primary,
-                            fontWeight: FontWeight.w800,
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                context.t(
+                                  vi: 'THPT 2026 — Lộ trình Toán',
+                                  en: 'THPT 2026 — Math Path',
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  fontWeight: FontWeight.w700,
+                                  color: colors.primary,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                context.t(
+                                  vi: '$totalSubjects môn · $totalTopics chủ đề',
+                                  en: '$totalSubjects subject · $totalTopics topics',
+                                ),
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 10),
-                    ClipRRect(
-                      borderRadius: BorderRadius.circular(999),
-                      child: LinearProgressIndicator(
-                        value: 0.35,
-                        minHeight: 7,
-                        backgroundColor: theme.colorScheme.primary.withValues(
-                          alpha: 0.12,
-                        ),
-                        valueColor: AlwaysStoppedAnimation<Color>(
-                          theme.colorScheme.primary,
-                        ),
-                      ),
-                    ),
-                    const SizedBox(height: 8),
+                    const SizedBox(height: 14),
                     Row(
                       children: [
-                        const Icon(
-                          Icons.check_circle_outline_rounded,
-                          size: 13,
-                          color: Color(0xFF22C55E),
-                        ),
-                        const SizedBox(width: 4),
-                        Text(
-                          context.t(
-                            vi: '2 / 10 chủ đề hoàn thành',
-                            en: '2 / 10 topics done',
-                          ),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                        Expanded(
+                          child: _MiniStat(
+                            icon: Icons.auto_stories_rounded,
+                            label: context.t(
+                              vi: '$totalTopics chủ đề',
+                              en: '$totalTopics topics',
+                            ),
+                            colors: colors,
+                            theme: theme,
                           ),
                         ),
-                        const Spacer(),
-                        Text(
-                          context.t(vi: '3 môn học', en: '3 subjects'),
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: theme.colorScheme.onSurfaceVariant,
+                        const SizedBox(width: 8),
+                        Expanded(
+                          child: _MiniStat(
+                            icon: Icons.psychology_alt_rounded,
+                            label: context.t(vi: 'AI hỗ trợ', en: 'AI-powered'),
+                            colors: colors,
+                            theme: theme,
                           ),
                         ),
                       ],
@@ -141,20 +165,26 @@ class ThptRoadmapPage extends StatelessWidget {
                 ),
               ),
               const SizedBox(height: GrowMateLayout.space12),
+              FeatureAvailabilityBanner(
+                availability: FeatureAvailability.beta,
+                message: context.t(
+                  vi: 'Roadmap nay van la local beta/hardcoded. Khong nen trinh bay nhu backend roadmap dong bo that.',
+                  en: 'This roadmap is still a local beta/hardcoded view. Do not present it as a fully synced backend roadmap.',
+                ),
+              ),
+              const SizedBox(height: GrowMateLayout.space12),
               // ── Tabs ──────────────────────────────────────────────────
               TabBar(
-                indicatorColor: theme.colorScheme.primary,
+                indicatorColor: colors.primary,
                 indicatorWeight: 3,
                 indicatorSize: TabBarIndicatorSize.tab,
-                labelColor: theme.colorScheme.primary,
-                unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                labelColor: colors.primary,
+                unselectedLabelColor: colors.onSurfaceVariant,
                 labelStyle: theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
                 unselectedLabelStyle: theme.textTheme.labelLarge,
-                dividerColor: theme.colorScheme.outlineVariant.withValues(
-                  alpha: 0.5,
-                ),
+                dividerColor: colors.outlineVariant.withValues(alpha: 0.5),
                 tabs: [
                   Tab(
                     child: Row(
@@ -187,7 +217,7 @@ class ThptRoadmapPage extends StatelessWidget {
                     // Tab 0: Node graph
                     SubjectNodeGraph(
                       subjects: roadmapSubjects,
-                      completedPercent: 0.35,
+                      completedPercent: 0.0,
                       onNodeTap: (subject, topic) {
                         Navigator.push(
                           context,
@@ -203,31 +233,48 @@ class ThptRoadmapPage extends StatelessWidget {
                         top: GrowMateLayout.sectionGap,
                       ),
                       children: [
-                        ...roadmapSubjects.map(
-                          (subject) => Padding(
-                            padding: const EdgeInsets.only(bottom: 14),
-                            child: RoadmapCardItem(
-                              title: subject.title,
-                              subtitle: subject.subtitle,
-                              leading: const IconLeading(
-                                icon: Icons.calculate_rounded,
+                        ...roadmapSubjects.expand(
+                          (subject) => [
+                            // Subject header
+                            Padding(
+                              padding: const EdgeInsets.only(bottom: 10),
+                              child: Text(
+                                subject.title,
+                                style: theme.textTheme.titleLarge?.copyWith(
+                                  fontWeight: FontWeight.w800,
+                                  color: colors.primary,
+                                ),
                               ),
-                              progress: 0.35,
-                              progressLabel: context.t(
-                                vi: 'Đang học: 35%',
-                                en: 'In progress: 35%',
-                              ),
-                              onTap: () {
-                                Navigator.push(
-                                  context,
-                                  MaterialPageRoute<void>(
-                                    builder: (_) =>
-                                        TopicScreen(subject: subject),
-                                  ),
-                                );
-                              },
                             ),
-                          ),
+                            // Topic cards
+                            ...subject.topics.asMap().entries.map((entry) {
+                              final idx = entry.key;
+                              final topic = entry.value;
+                              return Padding(
+                                padding: const EdgeInsets.only(bottom: 12),
+                                child: RoadmapCardItem(
+                                  title: topic.title,
+                                  subtitle:
+                                      '${topic.subtopics.length} bài · ${topic.subtitle}',
+                                  leading: _TopicNumberBadge(
+                                    number: idx + 1,
+                                    colors: colors,
+                                  ),
+                                  progress: null,
+                                  onTap: () {
+                                    Navigator.push(
+                                      context,
+                                      MaterialPageRoute<void>(
+                                        builder: (_) =>
+                                            TopicScreen(subject: subject),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              );
+                            }),
+                            const SizedBox(height: 8),
+                          ],
                         ),
                         const SizedBox(height: GrowMateLayout.space24),
                       ],
@@ -241,6 +288,82 @@ class ThptRoadmapPage extends StatelessWidget {
         bottomNavigationBar: GrowMateBottomNavBar(
           currentTab: GrowMateTab.today,
           onTabSelected: (tab) => handleTabNavigation(context, tab),
+        ),
+      ),
+    );
+  }
+}
+
+class _MiniStat extends StatelessWidget {
+  const _MiniStat({
+    required this.icon,
+    required this.label,
+    required this.colors,
+    required this.theme,
+  });
+
+  final IconData icon;
+  final String label;
+  final ColorScheme colors;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.7),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: colors.primary),
+          const SizedBox(width: 6),
+          Flexible(
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontWeight: FontWeight.w600,
+                color: colors.onSurface,
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _TopicNumberBadge extends StatelessWidget {
+  const _TopicNumberBadge({required this.number, required this.colors});
+
+  final int number;
+  final ColorScheme colors;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: 42,
+      height: 42,
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [colors.primary, colors.primary.withValues(alpha: 0.7)],
+        ),
+        borderRadius: BorderRadius.circular(12),
+      ),
+      alignment: Alignment.center,
+      child: Text(
+        '$number',
+        style: TextStyle(
+          color: colors.onPrimary,
+          fontSize: 16,
+          fontWeight: FontWeight.w800,
         ),
       ),
     );

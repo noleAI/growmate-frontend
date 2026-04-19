@@ -8,6 +8,7 @@ import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../../shared/widgets/zen_screen_header.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -134,19 +135,36 @@ class _LoginPageState extends State<LoginPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  context.t(vi: 'Chào mừng bạn quay lại', en: 'Welcome back'),
-                  style: theme.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  context.t(
-                    vi: 'Mình tiếp tục hành trình nhé',
-                    en: 'Let us continue your learning journey',
+                ZenScreenHeader(
+                  eyebrow: context.t(
+                    vi: 'Đăng nhập an toàn',
+                    en: 'Secure sign-in',
                   ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
+                  title: context.t(
+                    vi: 'Chào mừng bạn quay lại',
+                    en: 'Welcome back',
                   ),
+                  subtitle: context.t(
+                    vi: 'Đăng nhập để đồng bộ tiến trình, tiếp tục phiên học và nhận gợi ý AI đúng nhịp.',
+                    en: 'Sign in to sync your progress, resume sessions, and get AI guidance tuned to your pace.',
+                  ),
+                  icon: Icons.lock_person_rounded,
+                  chips: [
+                    ZenHeaderChipData(
+                      label: context.t(
+                        vi: 'Đồng bộ tiến trình',
+                        en: 'Progress sync',
+                      ),
+                      icon: Icons.cloud_done_rounded,
+                    ),
+                    ZenHeaderChipData(
+                      label: context.t(
+                        vi: 'Tiếp tục phiên học',
+                        en: 'Resume learning',
+                      ),
+                      icon: Icons.play_circle_outline_rounded,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 ZenCard(

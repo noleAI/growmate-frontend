@@ -11,9 +11,12 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../core/network/api_config.dart';
 import '../../../../core/models/signal_batch.dart';
 import '../../../../core/services/behavioral_signal_service.dart';
 import '../../../../core/services/quiz_session_guard.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_badge.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
@@ -112,6 +115,7 @@ class _QuizPageState extends State<QuizPage> {
   bool _isApiDrivenMode = false;
   int _apiQuestionIndex = 0;
   int _apiTotalQuestions = 10;
+  int _apiAnsweredCount = 0;
 
   Timer? _countdownTimer;
   Timer? _draftPersistDebounce;
@@ -137,6 +141,9 @@ class _QuizPageState extends State<QuizPage> {
   QuizQuestionUserAnswer? _pendingAgenticAnswer;
   int? _lastRecoveryPromptStep;
   bool _isRecoveryPromptVisible = false;
+  Future<void>? _quizCompletionXpFuture;
+  bool _hasAwardedCompletionXp = false;
+  bool _hasResolvedPerfectScoreXp = false;
 
   @override
   void initState() {
@@ -318,7 +325,28 @@ class _QuizPageState extends State<QuizPage> {
       if (widget.quizApiRepository != null) {
         final loaded = await _tryLoadFirstApiQuestion();
         if (loaded) return;
+        if (ApiConfig.strictRealBackendDemo) {
+          if (!mounted) {
+            return;
+          }
+          setState(() {
+            _isLoadingQuestions = false;
+            _fetchError =
+                'Strict demo mode blocks local quiz fallback. Backend quiz API is unavailable.';
+          });
+          return;
+        }
         // Fallback to local pool if API fails.
+      } else if (ApiConfig.strictRealBackendDemo) {
+        if (!mounted) {
+          return;
+        }
+        setState(() {
+          _isLoadingQuestions = false;
+          _fetchError =
+              'Strict demo mode requires QuizApiRepository. Local quiz pool is disabled.';
+        });
+        return;
       }
 
       final remoteQuestions = await widget.quizRepository
@@ -414,6 +442,7 @@ class _QuizPageState extends State<QuizPage> {
       _isApiDrivenMode = true;
       _apiQuestionIndex = apiQ.index ?? startIndex;
       _apiTotalQuestions = apiQ.totalQuestions ?? 10;
+      _apiAnsweredCount = math.min(startIndex, _apiTotalQuestions);
       _questionPool = [question];
       _activeQuestion = question;
 
@@ -485,6 +514,7 @@ class _QuizPageState extends State<QuizPage> {
 
       if (response.isCompleted || response.nextQuestion == null) {
         // Quiz session completed by backend.
+        unawaited(_ensureQuizCompletionXpAwarded());
         _trackQuizEvent(
           'quiz_completed',
           data: <String, Object?>{
@@ -928,12 +958,11 @@ class _QuizPageState extends State<QuizPage> {
       return;
     }
 
-    final resolvedTopic =
-        question.topicName?.trim().isNotEmpty == true
-            ? question.topicName!.trim()
-            : question.topicCode?.trim().isNotEmpty == true
-            ? question.topicCode!.trim()
-            : 'quiz_session';
+    final resolvedTopic = question.topicName?.trim().isNotEmpty == true
+        ? question.topicName!.trim()
+        : question.topicCode?.trim().isNotEmpty == true
+        ? question.topicCode!.trim()
+        : 'quiz_session';
 
     await cubit.startSession(
       subject: question.subject.trim().isEmpty ? 'math' : question.subject,
@@ -1028,10 +1057,9 @@ class _QuizPageState extends State<QuizPage> {
   Map<String, dynamic> _buildAgenticBehaviorSignals() {
     final elapsedMs = _elapsedMsSince(_questionShownAt);
     final responseTimeSec = elapsedMs == null ? null : elapsedMs / 1000;
-    final typingSpeed =
-        responseTimeSec == null || responseTimeSec <= 0
-            ? 0.0
-            : _questionTypedChars / responseTimeSec;
+    final typingSpeed = responseTimeSec == null || responseTimeSec <= 0
+        ? 0.0
+        : _questionTypedChars / responseTimeSec;
     final correctionRate = _questionTypedChars <= 0
         ? 0.0
         : (_questionCorrectionCount / _questionTypedChars).clamp(0.0, 1.0);
@@ -1099,7 +1127,9 @@ class _QuizPageState extends State<QuizPage> {
                     Expanded(
                       child: OutlinedButton(
                         onPressed: () => Navigator.of(sheetContext).pop(false),
-                        child: Text(context.t(vi: 'Tiếp tục làm bài', en: 'Stay here')),
+                        child: Text(
+                          context.t(vi: 'Tiếp tục làm bài', en: 'Stay here'),
+                        ),
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -1107,7 +1137,10 @@ class _QuizPageState extends State<QuizPage> {
                       child: FilledButton(
                         onPressed: () => Navigator.of(sheetContext).pop(true),
                         child: Text(
-                          context.t(vi: 'Mở recovery mode', en: 'Open recovery'),
+                          context.t(
+                            vi: 'Mở recovery mode',
+                            en: 'Open recovery',
+                          ),
                         ),
                       ),
                     ),
@@ -1198,6 +1231,10 @@ class _QuizPageState extends State<QuizPage> {
       'sessionId': trimmedSessionId,
       'updatedAt': DateTime.now().toUtc().toIso8601String(),
       'status': status,
+      'isApiDrivenMode': _isApiDrivenMode,
+      'apiQuestionIndex': _apiQuestionIndex,
+      'apiAnsweredCount': _apiAnsweredCount,
+      'activeQuestionId': _activeQuestion?.id,
       'selectedOptionByQuestion': Map<String, String>.from(
         _selectedOptionByQuestion,
       ),
@@ -1207,6 +1244,10 @@ class _QuizPageState extends State<QuizPage> {
       'trueFalseDraftByQuestion': _trueFalseDraftByQuestion.map(
         (k, v) => MapEntry(k, v.map((sk, sv) => MapEntry(sk, sv))),
       ),
+      if (_isApiDrivenMode)
+        'apiQuestionPool': _questionPool
+            .map((question) => question.toJson())
+            .toList(growable: false),
     };
 
     try {
@@ -1245,6 +1286,68 @@ class _QuizPageState extends State<QuizPage> {
       final decoded = jsonDecode(raw);
       if (decoded is! Map<String, dynamic>) {
         return;
+      }
+
+      if (_isApiDrivenMode) {
+        final restoredAnsweredCount = _safeDecodedInt(
+          decoded['apiAnsweredCount'],
+        );
+        if (restoredAnsweredCount != null && restoredAnsweredCount >= 0) {
+          _apiAnsweredCount = restoredAnsweredCount;
+        }
+
+        final restoredPoolRaw = decoded['apiQuestionPool'];
+        if (restoredPoolRaw is List) {
+          final restoredPool = restoredPoolRaw
+              .whereType<Map>()
+              .map(
+                (item) => QuizQuestionTemplate.fromJson(
+                  Map<String, dynamic>.from(item),
+                ),
+              )
+              .toList(growable: false);
+
+          if (restoredPool.isNotEmpty) {
+            final mergedPool = List<QuizQuestionTemplate>.from(restoredPool);
+            final liveQuestion = _activeQuestion;
+            if (liveQuestion != null) {
+              final liveIndex = mergedPool.indexWhere(
+                (question) => question.id == liveQuestion.id,
+              );
+              if (liveIndex >= 0) {
+                mergedPool[liveIndex] = liveQuestion;
+              }
+            }
+
+            final restoredActiveQuestionId = decoded['activeQuestionId']
+                ?.toString();
+            var restoredIndex = _safeDecodedInt(decoded['apiQuestionIndex']);
+
+            if (restoredActiveQuestionId != null &&
+                restoredActiveQuestionId.isNotEmpty) {
+              final indexById = mergedPool.indexWhere(
+                (question) => question.id == restoredActiveQuestionId,
+              );
+              if (indexById >= 0) {
+                restoredIndex = indexById;
+              }
+            }
+
+            if (restoredIndex == null || restoredIndex < 0) {
+              restoredIndex = mergedPool.indexWhere(
+                (question) => question.id == liveQuestion?.id,
+              );
+            }
+
+            restoredIndex = (restoredIndex < 0 ? 0 : restoredIndex)
+                .clamp(0, mergedPool.length - 1)
+                .toInt();
+
+            _questionPool = mergedPool;
+            _apiQuestionIndex = restoredIndex;
+            _activeQuestion = _questionPool[restoredIndex];
+          }
+        }
       }
 
       final selectedRaw = decoded['selectedOptionByQuestion'];
@@ -1365,6 +1468,12 @@ class _QuizPageState extends State<QuizPage> {
     setState(() {
       _showHint = !_showHint;
     });
+  }
+
+  bool get _hasAgenticHint {
+    final agenticState = _agenticCubit?.state;
+    return agenticState?.currentAction?.trim().toLowerCase() == 'show_hint' &&
+        (agenticState?.currentContent?.trim().isNotEmpty ?? false);
   }
 
   bool _hasInlineGeneralHint() {
@@ -1559,7 +1668,10 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     unawaited(
-      _runAgenticPipelineForAnswer(question: activeQuestion, answer: userAnswer),
+      _runAgenticPipelineForAnswer(
+        question: activeQuestion,
+        answer: userAnswer,
+      ),
     );
 
     final currentIndex = _currentQuestionIndex;
@@ -1630,14 +1742,24 @@ class _QuizPageState extends State<QuizPage> {
   /// Handles agentic session state changes from the real-time stream.
   void _onAgenticStateChanged(AgenticSessionState state) {
     if (!mounted) return;
+    final action = state.currentAction?.trim().toLowerCase();
+    final currentContent = state.currentContent?.trim();
+
+    if (action == 'show_hint' &&
+        currentContent != null &&
+        currentContent.isNotEmpty) {
+      setState(() {
+        _showHint = true;
+      });
+    }
+
     if (state.isRecovery) {
-      final message =
-          state.currentContent?.trim().isNotEmpty == true
-              ? state.currentContent!.trim()
-              : context.t(
-                  vi: 'Hệ thống AI phát hiện bạn đang cần một nhịp nghỉ ngắn để giảm tải nhận thức.',
-                  en: 'The AI detected that a short recovery step may help lower your cognitive load.',
-                );
+      final message = currentContent?.isNotEmpty == true
+          ? currentContent!
+          : context.t(
+              vi: 'Hệ thống AI phát hiện bạn đang cần một nhịp nghỉ ngắn để giảm tải nhận thức.',
+              en: 'The AI detected that a short recovery step may help lower your cognitive load.',
+            );
       unawaited(
         _showRecoverySuggestionSheet(
           message: message,
@@ -1647,7 +1769,52 @@ class _QuizPageState extends State<QuizPage> {
     }
   }
 
-  int get _answeredCount => _questionPool.where(_questionHasAnswer).length;
+  int get _answeredCount {
+    if (_isApiDrivenMode) {
+      return math.max(_apiAnsweredCount, _answeredQuestionIds.length);
+    }
+    return _questionPool.where(_questionHasAnswer).length;
+  }
+
+  int get _displayAnsweredCount {
+    if (_isApiDrivenMode) {
+      return _answeredCount.clamp(0, _submissionTargetCount).toInt();
+    }
+
+    return _questionPool
+        .take(_submissionTargetCount)
+        .where(_questionHasAnswer)
+        .length;
+  }
+
+  Set<String> get _answeredQuestionIds {
+    final answeredIds = <String>{};
+
+    _selectedOptionByQuestion.forEach((questionId, selected) {
+      if (selected.trim().isNotEmpty) {
+        answeredIds.add(questionId);
+      }
+    });
+
+    _shortAnswerDraftByQuestion.forEach((questionId, value) {
+      if (value.trim().isNotEmpty) {
+        answeredIds.add(questionId);
+      }
+    });
+
+    _trueFalseDraftByQuestion.forEach((questionId, answers) {
+      if (answers.isNotEmpty) {
+        answeredIds.add(questionId);
+      }
+    });
+
+    final activeQuestion = _activeQuestion;
+    if (activeQuestion != null && _questionHasAnswer(activeQuestion)) {
+      answeredIds.add(activeQuestion.id);
+    }
+
+    return answeredIds;
+  }
 
   /// Total questions to display in UI. In API mode, use the fixed total
   /// from backend instead of the growing pool length.
@@ -1686,7 +1853,7 @@ class _QuizPageState extends State<QuizPage> {
     }
 
     if (_isApiDrivenMode) {
-      return _apiQuestionIndex.clamp(0, _questionPool.length - 1).toInt();
+      return _apiQuestionIndex;
     }
 
     if (_activeQuestion == null) {
@@ -1902,9 +2069,10 @@ class _QuizPageState extends State<QuizPage> {
   TextStyle _questionContentStyle(ThemeData theme, String content) {
     final length = content.runes.length;
     final fontSize = switch (length) {
-      >= 220 => 18.0,
-      >= 140 => 20.0,
-      _ => 24.0,
+      >= 220 => 16.0,
+      >= 160 => 18.0,
+      >= 100 => 20.0,
+      _ => 22.0,
     };
 
     return theme.textTheme.headlineSmall?.copyWith(
@@ -2334,6 +2502,26 @@ class _QuizPageState extends State<QuizPage> {
                             });
                           }
 
+                          if (_isApiDrivenMode) {
+                            final backendAnsweredCount =
+                                state.answeredCount ??
+                                state.lastQuestionIndex ??
+                                _apiAnsweredCount;
+                            setState(() {
+                              _apiAnsweredCount = backendAnsweredCount.clamp(
+                                0,
+                                math.max(
+                                  state.totalQuestions ?? _apiTotalQuestions,
+                                  1,
+                                ),
+                              );
+                              if (state.totalQuestions != null &&
+                                  state.totalQuestions! > 0) {
+                                _apiTotalQuestions = state.totalQuestions!;
+                              }
+                            });
+                          }
+
                           // Award XP for correct answers
                           if (state.isCorrect && state.xpEarned > 0) {
                             context.read<LeaderboardCubit>().addXp(
@@ -2350,7 +2538,7 @@ class _QuizPageState extends State<QuizPage> {
                           // UNLESS user chose "Nộp toàn bộ bài" or we reached the total.
                           if (_isApiDrivenMode && !_isSubmittingEntireQuiz) {
                             // Auto-finish if we've reached the total questions
-                            if (_questionPool.length >= _apiTotalQuestions) {
+                            if (_apiQuestionIndex >= _apiTotalQuestions - 1) {
                               // Fall through to diagnosis navigation below
                             } else {
                               setState(() => _submitErrorMessage = null);
@@ -2359,8 +2547,17 @@ class _QuizPageState extends State<QuizPage> {
                             }
                           }
 
+                          final completedQuiz =
+                              _isSubmittingEntireQuiz ||
+                              (_isApiDrivenMode &&
+                                  _apiQuestionIndex >= _apiTotalQuestions - 1);
+
                           // Reset the flag after consuming it
                           _isSubmittingEntireQuiz = false;
+
+                          if (completedQuiz) {
+                            unawaited(_ensureQuizCompletionXpAwarded());
+                          }
 
                           setState(() {
                             _isNavigatingToDiagnosis = true;
@@ -2409,6 +2606,8 @@ class _QuizPageState extends State<QuizPage> {
                             },
                           );
                           _isSubmittingEntireQuiz = false;
+
+                          unawaited(_ensureQuizCompletionXpAwarded());
 
                           setState(() {
                             _isNavigatingToDiagnosis = true;
@@ -2561,10 +2760,7 @@ class _QuizPageState extends State<QuizPage> {
                         final questionText = _activeQuestion!.content.trim();
                         final isLongQuestion = questionText.runes.length >= 140;
                         final submissionTargetCount = _submissionTargetCount;
-                        final answeredCount = _questionPool
-                            .take(submissionTargetCount)
-                            .where(_questionHasAnswer)
-                            .length;
+                        final answeredCount = _displayAnsweredCount;
                         final showSubmitAllButton =
                             !_isApiDrivenMode &&
                             answeredCount >= submissionTargetCount &&
@@ -3020,54 +3216,55 @@ class _QuizPageState extends State<QuizPage> {
                                       ),
                                     ),
                                   ),
-                                  if (_showHint && !_hasInlineGeneralHint())
-                                    AnimatedOpacity(
-                                      opacity: 1,
+                                ], // end casual mode hint block
+                                if (_showHint &&
+                                    !_hasInlineGeneralHint() &&
+                                    (_studyMode == StudyMode.casual ||
+                                        _hasAgenticHint))
+                                  AnimatedOpacity(
+                                    opacity: 1,
+                                    duration: const Duration(milliseconds: 250),
+                                    curve: Curves.easeOut,
+                                    child: AnimatedSlide(
                                       duration: const Duration(
                                         milliseconds: 250,
                                       ),
                                       curve: Curves.easeOut,
-                                      child: AnimatedSlide(
-                                        duration: const Duration(
-                                          milliseconds: 250,
+                                      offset: Offset.zero,
+                                      child: Container(
+                                        width: double.infinity,
+                                        padding: const EdgeInsets.symmetric(
+                                          horizontal: 14,
+                                          vertical: 10,
                                         ),
-                                        curve: Curves.easeOut,
-                                        offset: Offset.zero,
-                                        child: Container(
-                                          width: double.infinity,
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
+                                        decoration: BoxDecoration(
+                                          color: theme
+                                              .colorScheme
+                                              .secondaryContainer
+                                              .withValues(alpha: 0.42),
+                                          borderRadius: BorderRadius.circular(
+                                            16,
                                           ),
-                                          decoration: BoxDecoration(
-                                            color: theme
-                                                .colorScheme
-                                                .secondaryContainer
-                                                .withValues(alpha: 0.42),
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                            border: Border.all(
-                                              color: theme.colorScheme.primary
-                                                  .withValues(alpha: 0.08),
-                                            ),
+                                          border: Border.all(
+                                            color: theme.colorScheme.primary
+                                                .withValues(alpha: 0.08),
                                           ),
-                                          child: QuizMathText(
-                                            text: _hintText(context),
-                                            textAlign: TextAlign.center,
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                                  color: theme
-                                                      .colorScheme
-                                                      .onSurfaceVariant,
-                                                  fontWeight: FontWeight.w600,
-                                                  height: 1.42,
-                                                ),
-                                          ),
+                                        ),
+                                        child: QuizMathText(
+                                          text: _hintText(context),
+                                          textAlign: TextAlign.center,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                color: theme
+                                                    .colorScheme
+                                                    .onSurfaceVariant,
+                                                fontWeight: FontWeight.w600,
+                                                height: 1.42,
+                                              ),
                                         ),
                                       ),
                                     ),
-                                ], // end casual mode hint block
+                                  ),
                                 // Knowledge cards from agentic RAG
                                 if (_showHint) ...[
                                   Builder(
@@ -3381,6 +3578,11 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   String _hintText(BuildContext context) {
+    final agenticHint = _agenticCubit?.state.currentContent?.trim();
+    if (_hasAgenticHint && agenticHint != null && agenticHint.isNotEmpty) {
+      return agenticHint;
+    }
+
     final payload = _activeQuestion!.payload;
 
     return switch (_activeQuestion!.questionType) {
@@ -3401,6 +3603,111 @@ class _QuizPageState extends State<QuizPage> {
         en: 'Hint: Derivative of x^n is n.x^(n-1)',
       ),
     };
+  }
+
+  Future<void> _ensureQuizCompletionXpAwarded() {
+    if (_hasAwardedCompletionXp && _hasResolvedPerfectScoreXp) {
+      return Future.value();
+    }
+
+    return _quizCompletionXpFuture ??= _awardQuizCompletionXp();
+  }
+
+  Future<void> _awardQuizCompletionXp() async {
+    try {
+      final leaderboardCubit = context.read<LeaderboardCubit>();
+
+      if (!_hasAwardedCompletionXp) {
+        final response = await leaderboardCubit.addXp(
+          eventType: 'complete_quiz',
+        );
+        _hasAwardedCompletionXp = response != null;
+      }
+
+      if (_hasResolvedPerfectScoreXp) {
+        return;
+      }
+
+      final isPerfectScore = await _isPerfectQuizScore();
+      if (!isPerfectScore) {
+        _hasResolvedPerfectScoreXp = true;
+        return;
+      }
+
+      final response = await leaderboardCubit.addXp(eventType: 'perfect_score');
+      if (response != null) {
+        _hasResolvedPerfectScoreXp = true;
+      }
+    } catch (_) {
+      // Allow later completion paths to retry if needed.
+    } finally {
+      _quizCompletionXpFuture = null;
+    }
+  }
+
+  Future<bool> _isPerfectQuizScore() async {
+    final apiRepository = widget.quizApiRepository;
+    final sessionId = _effectiveSessionId.trim();
+
+    if (apiRepository != null && sessionId.isNotEmpty) {
+      try {
+        final result = await apiRepository.getSessionResult(
+          sessionId: sessionId,
+        );
+        final summary = result.summary;
+        if (summary.answeredCount > 0) {
+          if (summary.accuracyPercent >= 100) {
+            return true;
+          }
+          return summary.correctCount >= summary.answeredCount;
+        }
+      } catch (_) {
+        // Fall back to local evaluation if the result endpoint is unavailable.
+      }
+    }
+
+    return _isPerfectLocalQuizScore();
+  }
+
+  bool _isPerfectLocalQuizScore() {
+    final submissionQuestions = _questionPool
+        .take(_submissionTargetCount)
+        .toList(growable: false);
+
+    if (submissionQuestions.isEmpty ||
+        submissionQuestions.any((question) => !_questionHasAnswer(question))) {
+      return false;
+    }
+
+    for (final question in submissionQuestions) {
+      final answer = _buildAnswerFromDraft(question);
+      if (answer == null) {
+        return false;
+      }
+
+      final evaluation = ThptMath2026Scoring.evaluate(
+        question: question,
+        answer: answer,
+      );
+      if (!evaluation.isCorrect) {
+        return false;
+      }
+    }
+
+    return true;
+  }
+
+  int? _safeDecodedInt(Object? value) {
+    if (value is int) {
+      return value;
+    }
+    if (value is num) {
+      return value.toInt();
+    }
+    if (value is String) {
+      return int.tryParse(value.trim());
+    }
+    return null;
   }
 }
 
@@ -3589,6 +3896,34 @@ class _AgenticProcessCardState extends State<_AgenticProcessCard>
                 ),
             ],
           ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FeatureAvailabilityBadge(
+                availability: state.latestDashboard != null
+                    ? FeatureAvailability.server
+                    : FeatureAvailability.localFallback,
+                compact: true,
+              ),
+              _AgenticChip(
+                label: context.t(
+                  vi: state.isLoading ? 'Live: dang xu ly' : 'Live: ready',
+                  en: state.isLoading ? 'Live: processing' : 'Live: ready',
+                ),
+              ),
+              if (state.isHitlPending)
+                _AgenticChip(
+                  label: context.t(
+                    vi: 'HITL: can quyet dinh',
+                    en: 'HITL: user decision needed',
+                  ),
+                ),
+            ],
+          ),
+          const SizedBox(height: 10),
+          _AgentMissionStageRail(state: state),
           const SizedBox(height: 10),
           Wrap(
             spacing: 8,
@@ -3992,6 +4327,122 @@ class _AgentStatusTile extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _AgentMissionStageRail extends StatelessWidget {
+  const _AgentMissionStageRail({required this.state});
+
+  final AgenticSessionState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final phases = <({String label, bool done, bool current})>[
+      (
+        label: context.t(vi: 'Observe', en: 'Observe'),
+        done: state.academicState != null || state.empathyState != null,
+        current: state.phase == AgenticPhase.ready,
+      ),
+      (
+        label: context.t(vi: 'Diagnose', en: 'Diagnose'),
+        done: state.reasoningTrace.isNotEmpty || state.empathyState != null,
+        current: state.phase == AgenticPhase.processing,
+      ),
+      (
+        label: context.t(vi: 'Decide', en: 'Decide'),
+        done:
+            state.currentAction != null &&
+            state.currentAction!.trim().isNotEmpty,
+        current: state.phase == AgenticPhase.hitlPending,
+      ),
+      (
+        label: context.t(vi: 'Act', en: 'Act'),
+        done:
+            state.currentContent != null &&
+            state.currentContent!.trim().isNotEmpty,
+        current:
+            state.phase == AgenticPhase.interacting ||
+            state.phase == AgenticPhase.recovery,
+      ),
+      (
+        label: context.t(vi: 'Reflect', en: 'Reflect'),
+        done: state.latestReflection != null,
+        current: state.phase == AgenticPhase.completed,
+      ),
+    ];
+
+    return Wrap(
+      spacing: 8,
+      runSpacing: 8,
+      children: phases
+          .map(
+            (stage) => _AgentMissionStagePill(
+              label: stage.label,
+              done: stage.done,
+              current: stage.current,
+            ),
+          )
+          .toList(growable: false),
+    );
+  }
+}
+
+class _AgentMissionStagePill extends StatelessWidget {
+  const _AgentMissionStagePill({
+    required this.label,
+    required this.done,
+    required this.current,
+  });
+
+  final String label;
+  final bool done;
+  final bool current;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final foreground = done
+        ? colors.tertiary
+        : current
+        ? colors.primary
+        : colors.onSurfaceVariant;
+    final background = done
+        ? colors.tertiaryContainer.withValues(alpha: 0.76)
+        : current
+        ? colors.primaryContainer.withValues(alpha: 0.74)
+        : colors.surface;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+      decoration: BoxDecoration(
+        color: background,
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: foreground.withValues(alpha: 0.2)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(
+            done
+                ? Icons.check_circle_rounded
+                : current
+                ? Icons.autorenew_rounded
+                : Icons.circle_outlined,
+            size: 14,
+            color: foreground,
+          ),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: foreground,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

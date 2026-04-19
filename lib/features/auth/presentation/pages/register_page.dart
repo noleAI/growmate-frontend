@@ -8,6 +8,7 @@ import '../../../../core/constants/layout.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
+import '../../../../shared/widgets/zen_screen_header.dart';
 import '../../../../shared/widgets/zen_text_field.dart';
 import '../bloc/auth_bloc.dart';
 import '../bloc/auth_event.dart';
@@ -185,22 +186,36 @@ class _RegisterPageState extends State<RegisterPage> {
                   ),
                 ),
                 const SizedBox(height: 8),
-                Text(
-                  context.t(
+                ZenScreenHeader(
+                  eyebrow: context.t(
+                    vi: 'Khởi tạo hành trình',
+                    en: 'Start your journey',
+                  ),
+                  title: context.t(
                     vi: 'Tạo tài khoản mới',
                     en: 'Create a new account',
                   ),
-                  style: theme.textTheme.headlineMedium,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  context.t(
-                    vi: 'Bắt đầu hành trình học tập nhẹ nhàng',
-                    en: 'Start your gentle learning journey',
+                  subtitle: context.t(
+                    vi: 'Thiết lập tài khoản để GrowMate cá nhân hóa nhịp học, mục tiêu và lộ trình ôn tập cho bạn.',
+                    en: 'Set up your account so GrowMate can personalize your pace, goals, and study roadmap.',
                   ),
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+                  icon: Icons.person_add_alt_1_rounded,
+                  chips: [
+                    ZenHeaderChipData(
+                      label: context.t(
+                        vi: 'AI cá nhân hóa',
+                        en: 'AI personalization',
+                      ),
+                      icon: Icons.auto_awesome_rounded,
+                    ),
+                    ZenHeaderChipData(
+                      label: context.t(
+                        vi: 'Lộ trình theo mục tiêu',
+                        en: 'Goal-based roadmap',
+                      ),
+                      icon: Icons.flag_rounded,
+                    ),
+                  ],
                 ),
                 const SizedBox(height: 20),
                 ZenCard(

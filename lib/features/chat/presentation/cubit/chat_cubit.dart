@@ -6,19 +6,19 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 import '../../../../core/error/app_exceptions.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
-import '../../../quota/presentation/cubit/quota_cubit.dart';
+import 'chat_quota_cubit.dart';
 import 'chat_state.dart';
 
 enum ChatSendOutcome { sent, quotaExceeded, failed, ignored }
 
 class ChatCubit extends Cubit<ChatState> {
-  ChatCubit({required ChatRepository repository, QuotaCubit? quotaCubit})
+  ChatCubit({required ChatRepository repository, ChatQuotaCubit? quotaCubit})
     : _repository = repository,
       _quotaCubit = quotaCubit,
       super(const ChatInitial());
 
   final ChatRepository _repository;
-  final QuotaCubit? _quotaCubit;
+  final ChatQuotaCubit? _quotaCubit;
 
   Future<void> initialize() async {
     final quotaCubit = _quotaCubit;
@@ -217,7 +217,7 @@ class ChatCubit extends Cubit<ChatState> {
     emit(ChatReady(messages: [_repository.getGreeting()]));
   }
 
-  Future<void> _syncChatQuota(QuotaCubit quotaCubit) async {
+  Future<void> _syncChatQuota(ChatQuotaCubit quotaCubit) async {
     try {
       final quota = await _repository.fetchQuota();
       quotaCubit.setQuota(quota);

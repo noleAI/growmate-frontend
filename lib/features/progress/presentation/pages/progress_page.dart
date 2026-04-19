@@ -13,11 +13,15 @@ import '../../../../features/session/data/repositories/session_history_repositor
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/premium_sections.dart';
+import '../../../../shared/widgets/zen_empty_state.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
+import '../../../../shared/widgets/zen_screen_header.dart';
 import '../../../../shared/widgets/shimmer/shimmer_text.dart';
 import '../../../../shared/widgets/ai_reflection_widget.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../../quiz/data/repositories/quiz_api_repository.dart';
@@ -245,36 +249,112 @@ class _ProgressScreenState extends State<ProgressScreen> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      context.t(
-                        vi: 'Tiến trình tuần này',
-                        en: 'This week\'s progress',
-                      ),
-                      style: theme.textTheme.headlineLarge,
-                    ),
+              ZenScreenHeader(
+                eyebrow: context.t(
+                  vi: 'Theo dõi nhịp học',
+                  en: 'Track your study pulse',
+                ),
+                title: context.t(
+                  vi: 'Tiến trình tuần này',
+                  en: 'This week\'s progress',
+                ),
+                subtitle: context.t(
+                  vi: 'Theo dõi nhịp học, phiên gần đây và công thức trọng tâm để ôn tập đúng lúc.',
+                  en: 'Track learning rhythm, recent sessions, and key formulas for timely revision.',
+                ),
+                icon: Icons.insights_rounded,
+                chips: [
+                  ZenHeaderChipData(
+                    label: widget.realProgressRepository != null
+                        ? context.t(
+                            vi: 'Dữ liệu từ server',
+                            en: 'Server-backed data',
+                          )
+                        : context.t(
+                            vi: 'Có local fallback',
+                            en: 'Local fallback ready',
+                          ),
+                    icon: widget.realProgressRepository != null
+                        ? Icons.cloud_done_rounded
+                        : Icons.offline_bolt_rounded,
                   ),
-                  // Đã xóa icon Bảng xếp hạng
+                  ZenHeaderChipData(
+                    label: context.t(
+                      vi: 'Sổ tay công thức',
+                      en: 'Formula handbook',
+                    ),
+                    icon: Icons.auto_stories_rounded,
+                  ),
                 ],
               ),
+              const SizedBox(height: GrowMateLayout.space12),
+              FeatureAvailabilityBanner(
+                availability: widget.realProgressRepository != null
+                    ? FeatureAvailability.server
+                    : FeatureAvailability.localFallback,
+                message: widget.realProgressRepository != null
+                    ? context.t(
+                        vi: 'Mastery map uu tien belief-state va session history that tu backend.',
+                        en: 'Mastery map prioritizes backend belief-state and server session history.',
+                      )
+                    : context.t(
+                        vi: 'Progress dang dung local fallback cho narrative khi backend mastery chua san sang.',
+                        en: 'Progress is using a local fallback narrative while backend mastery is unavailable.',
+                      ),
+              ),
               const SizedBox(height: GrowMateLayout.sectionGap),
-              TabBar(
-                labelStyle: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w700,
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 4),
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.surfaceContainerHigh,
+                  borderRadius: BorderRadius.circular(18),
+                  boxShadow: [
+                    BoxShadow(
+                      color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+                      blurRadius: 8,
+                      offset: const Offset(0, 2),
+                    ),
+                  ],
                 ),
-                unselectedLabelStyle: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w600,
+                child: TabBar(
+                  dividerColor: Colors.transparent,
+                  indicator: BoxDecoration(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(14),
+                  ),
+                  labelColor: theme.colorScheme.primary,
+                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+                  labelStyle: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                  unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w600,
+                  ),
+                  overlayColor: WidgetStateProperty.all(Colors.transparent),
+                  tabs: [
+                    Tab(
+                      icon: const Icon(Icons.insights_rounded, size: 22),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          context.t(vi: 'Tiến trình', en: 'Progress'),
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                    Tab(
+                      icon: const Icon(Icons.auto_stories_rounded, size: 22),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(vertical: 2),
+                        child: Text(
+                          context.t(vi: 'Sổ tay', en: 'Handbook'),
+                          style: const TextStyle(fontSize: 16),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-                tabs: [
-                  Tab(
-                    text: context.t(vi: '📊 Tiến trình', en: '📊 Progress'),
-                  ),
-                  Tab(
-                    text: context.t(vi: '📖 Sổ tay', en: '📖 Handbook'),
-                  ),
-                ],
               ),
               Expanded(
                 child: TabBarView(
@@ -483,71 +563,113 @@ class _WeeklyMomentumSection extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          SizedBox(
-            height: 190,
-            child: BarChart(
-              BarChartData(
-                maxY: 4,
-                gridData: const FlGridData(show: false),
-                borderData: FlBorderData(show: false),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  rightTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  leftTitles: const AxisTitles(
-                    sideTitles: SideTitles(showTitles: false),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 22,
-                      getTitlesWidget: (value, meta) {
-                        final index = value.toInt();
-                        if (index < 0 || index >= days.length) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            _weekdayShort(context, days[index]),
-                            style: Theme.of(context).textTheme.bodySmall,
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  colors.primaryContainer.withValues(alpha: 0.45),
+                  colors.surfaceContainerLow,
+                ],
+              ),
+              borderRadius: BorderRadius.circular(14),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MiniMetricChip(
+                      label: context.t(
+                        vi: 'Focus TB ${avgFocus.toStringAsFixed(1)}/4',
+                        en: 'Focus avg ${avgFocus.toStringAsFixed(1)}/4',
+                      ),
+                    ),
+                    _MiniMetricChip(
+                      label: context.t(
+                        vi: 'Chủ đề ưu tiên $weakestTopic',
+                        en: 'Priority topic $weakestTopic',
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                SizedBox(
+                  height: 170,
+                  child: BarChart(
+                    BarChartData(
+                      maxY: 4,
+                      gridData: const FlGridData(show: false),
+                      borderData: FlBorderData(show: false),
+                      titlesData: FlTitlesData(
+                        topTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        leftTitles: const AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        bottomTitles: AxisTitles(
+                          sideTitles: SideTitles(
+                            showTitles: true,
+                            reservedSize: 22,
+                            getTitlesWidget: (value, meta) {
+                              final index = value.toInt();
+                              if (index < 0 || index >= days.length) {
+                                return const SizedBox.shrink();
+                              }
+                              return Padding(
+                                padding: const EdgeInsets.only(top: 6),
+                                child: Text(
+                                  _weekdayShort(context, days[index]),
+                                  style: Theme.of(context).textTheme.bodySmall,
+                                ),
+                              );
+                            },
                           ),
-                        );
-                      },
+                        ),
+                      ),
+                      barGroups: days
+                          .asMap()
+                          .entries
+                          .map((entry) {
+                            final dayKey = _dateKey(entry.value);
+                            final count = (sessionsByDay[dayKey] ?? 0).clamp(
+                              0,
+                              4,
+                            );
+
+                            return BarChartGroupData(
+                              x: entry.key,
+                              barRods: [
+                                BarChartRodData(
+                                  toY: count.toDouble(),
+                                  width: 16,
+                                  borderRadius: BorderRadius.circular(8),
+                                  color: colors.primary,
+                                  backDrawRodData: BackgroundBarChartRodData(
+                                    show: true,
+                                    toY: 4,
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.surfaceContainerHigh,
+                                  ),
+                                ),
+                              ],
+                            );
+                          })
+                          .toList(growable: false),
                     ),
                   ),
                 ),
-                barGroups: days
-                    .asMap()
-                    .entries
-                    .map((entry) {
-                      final dayKey = _dateKey(entry.value);
-                      final count = (sessionsByDay[dayKey] ?? 0).clamp(0, 4);
-
-                      return BarChartGroupData(
-                        x: entry.key,
-                        barRods: [
-                          BarChartRodData(
-                            toY: count.toDouble(),
-                            width: 16,
-                            borderRadius: BorderRadius.circular(8),
-                            color: colors.primary,
-                            backDrawRodData: BackgroundBarChartRodData(
-                              show: true,
-                              toY: 4,
-                              color: Theme.of(
-                                context,
-                              ).colorScheme.surfaceContainerHigh,
-                            ),
-                          ),
-                        ],
-                      );
-                    })
-                    .toList(growable: false),
-              ),
+              ],
             ),
           ),
           const SizedBox(height: 8),
@@ -601,6 +723,32 @@ class _WeeklyMomentumSection extends StatelessWidget {
   }
 }
 
+class _MiniMetricChip extends StatelessWidget {
+  const _MiniMetricChip({required this.label});
+
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.72),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Text(
+        label,
+        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: colors.onSurfaceVariant,
+          fontWeight: FontWeight.w700,
+        ),
+      ),
+    );
+  }
+}
+
 class _RecentSessionsSection extends StatelessWidget {
   const _RecentSessionsSection({
     required this.history,
@@ -622,14 +770,19 @@ class _RecentSessionsSection extends StatelessWidget {
           vi: 'Lịch sử phiên học theo session_id',
           en: 'Session history keyed by session_id',
         ),
-        child: Text(
-          context.t(
-            vi: 'Chưa có phiên nào để hiển thị.',
-            en: 'No sessions to show yet.',
+        child: ZenEmptyState(
+          icon: Icons.history_toggle_off_rounded,
+          title: context.t(
+            vi: 'Bạn chưa có phiên học nào gần đây',
+            en: 'No recent sessions yet',
           ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurfaceVariant,
+          subtitle: context.t(
+            vi: 'Bắt đầu một phiên quiz ngắn để hệ thống ghi nhận tiến trình và tạo gợi ý cá nhân hóa.',
+            en: 'Start a short quiz session so the system can track progress and generate personalized suggestions.',
           ),
+          primaryLabel: context.t(vi: 'Làm quiz ngay', en: 'Start a quiz'),
+          onPrimaryPressed: () => context.push(AppRoutes.quiz),
+          centered: false,
         ),
       );
     }
@@ -678,9 +831,18 @@ class _RecentSessionsSection extends StatelessWidget {
                 width: double.infinity,
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerLow,
+                  gradient: LinearGradient(
+                    begin: Alignment.topLeft,
+                    end: Alignment.bottomRight,
+                    colors: [
+                      colors.surfaceContainerLow,
+                      colors.surfaceContainerHigh.withValues(alpha: 0.78),
+                    ],
+                  ),
                   borderRadius: BorderRadius.circular(12),
-                  border: Border.all(color: colors.surfaceContainerHigh),
+                  border: Border.all(
+                    color: colors.primary.withValues(alpha: 0.08),
+                  ),
                 ),
                 child: Row(
                   children: [

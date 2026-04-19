@@ -5,6 +5,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../../shared/widgets/zen_button.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
@@ -166,6 +168,9 @@ class _InterventionPageState extends State<InterventionPage> {
                 final displayedOptions = state.options
                     .where((option) => option.id != 'skip_once')
                     .toList(growable: false);
+                final hasBackendPlan = displayedOptions.any(
+                  (option) => option.fromBackend,
+                );
 
                 return ZenPageContainer(
                   includeBottomSafeArea: false,
@@ -333,6 +338,16 @@ class _InterventionPageState extends State<InterventionPage> {
                           height: 1.45,
                         ),
                       ),
+                      if (displayedOptions.isNotEmpty && !hasBackendPlan) ...[
+                        const SizedBox(height: GrowMateLayout.space16),
+                        FeatureAvailabilityBanner(
+                          availability: FeatureAvailability.localFallback,
+                          message: context.t(
+                            vi: 'Backend chưa trả về intervention plan usable cho phiên này. App đang dùng phương án an toàn để không đứt flow demo.',
+                            en: 'The backend has not returned a usable intervention plan for this session. The app is showing a safe fallback so the demo flow remains intact.',
+                          ),
+                        ),
+                      ],
                       const SizedBox(height: GrowMateLayout.sectionGap),
                       ...displayedOptions.map((option) {
                         return Padding(
@@ -352,17 +367,97 @@ class _InterventionPageState extends State<InterventionPage> {
                         Padding(
                           padding: const EdgeInsets.only(bottom: 12),
                           child: ZenCard(
-                            radius: 18,
-                            child: Text(
-                              context.t(
-                                vi: 'Hiện chưa có phương án can thiệp từ hệ thống.',
-                                en: 'No intervention options are available from the backend yet.',
-                              ),
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodyMedium?.copyWith(
-                                color: theme.colorScheme.onSurfaceVariant,
-                                height: 1.35,
-                              ),
+                            radius: 22,
+                            gradient: LinearGradient(
+                              begin: Alignment.topLeft,
+                              end: Alignment.bottomRight,
+                              colors: [
+                                theme.colorScheme.primaryContainer.withValues(
+                                  alpha: 0.5,
+                                ),
+                                theme.colorScheme.surfaceContainerLow,
+                              ],
+                            ),
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 56,
+                                  height: 56,
+                                  decoration: BoxDecoration(
+                                    color: theme.colorScheme.surface.withValues(
+                                      alpha: 0.86,
+                                    ),
+                                    borderRadius: BorderRadius.circular(18),
+                                  ),
+                                  child: Icon(
+                                    Icons.route_rounded,
+                                    color: theme.colorScheme.primary,
+                                    size: 30,
+                                  ),
+                                ),
+                                const SizedBox(height: 12),
+                                Text(
+                                  context.t(
+                                    vi: 'Chưa có phương án can thiệp phù hợp',
+                                    en: 'No intervention option available yet',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    color: theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 8),
+                                Text(
+                                  context.t(
+                                    vi: 'Hệ thống chưa trả về lựa chọn can thiệp cho phiên này. Bạn có thể quay về trang chủ hoặc tiếp tục một phiên luyện tập nhẹ.',
+                                    en: 'The backend has not returned intervention options for this session. You can return home or continue with a light practice session.',
+                                  ),
+                                  textAlign: TextAlign.center,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: theme.colorScheme.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                                ),
+                                const SizedBox(height: 14),
+                                Row(
+                                  children: [
+                                    Expanded(
+                                      child: OutlinedButton.icon(
+                                        onPressed: () =>
+                                            context.go(AppRoutes.home),
+                                        icon: const Icon(
+                                          Icons.home_rounded,
+                                          size: 18,
+                                        ),
+                                        label: Text(
+                                          context.t(
+                                            vi: 'Về trang chủ',
+                                            en: 'Back home',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    const SizedBox(width: 10),
+                                    Expanded(
+                                      child: FilledButton.icon(
+                                        onPressed: () =>
+                                            context.push(AppRoutes.quiz),
+                                        icon: const Icon(
+                                          Icons.play_arrow_rounded,
+                                          size: 18,
+                                        ),
+                                        label: Text(
+                                          context.t(
+                                            vi: 'Luyện tập',
+                                            en: 'Practice',
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              ],
                             ),
                           ),
                         ),
@@ -587,7 +682,14 @@ class _InterventionOptionCard extends StatelessWidget {
       onTap: isSubmitting ? null : onTap,
       child: ZenCard(
         radius: 24,
-        color: theme.colorScheme.surface.withValues(alpha: 0.86),
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            theme.colorScheme.surface.withValues(alpha: 0.96),
+            theme.colorScheme.surfaceContainerLow.withValues(alpha: 0.95),
+          ],
+        ),
         padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
         child: Row(
           children: [

@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../../../../shared/utils/backend_text.dart';
+
 class QuizMathText extends StatelessWidget {
   const QuizMathText({
     super.key,
@@ -21,7 +23,9 @@ class QuizMathText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final normalizedText = text.trim();
+    final normalizedText = _expandMixedTokenBoundaries(
+      _normalizeDisplaySource(text),
+    ).trim();
     if (normalizedText.isEmpty) {
       return const SizedBox.shrink();
     }
@@ -187,8 +191,9 @@ class QuizMathText extends StatelessWidget {
     required String source,
     required TextStyle? style,
   }) {
+    final normalizedSource = _expandMixedTokenBoundaries(source);
     final pieces = RegExp(r'\s+|\S+')
-        .allMatches(source)
+        .allMatches(normalizedSource)
         .map((match) => match.group(0) ?? '')
         .toList(growable: false);
 
@@ -323,11 +328,20 @@ class QuizMathText extends StatelessWidget {
       return false;
     }
 
-    if (RegExp(r'[0-9₀₁₂₃₄₅₆₇₈₉¹²³⁴⁵⁶⁷⁸⁹⁰⁺⁻⁼⁽⁾ˣʸᵗⁿ]').hasMatch(cleaned)) {
+    // LaTeX brace patterns: ^{...}, _{...}, \cmd{...}
+    if (RegExp(r'[\^_]\{|\\[A-Za-z]+\{').hasMatch(cleaned)) {
       return true;
     }
 
-    if (RegExp(r'[=+\-−*/^√πΔΩω∑∫≤≥<>→←]').hasMatch(cleaned)) {
+    if (RegExp(
+      r'[0-9Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°Ã‚Â¹Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°Ã¢ÂÂºÃ¢ÂÂ»Ã¢ÂÂ¼Ã¢ÂÂ½Ã¢ÂÂ¾Ã‹Â£ÃŠÂ¸Ã¡Âµâ€”Ã¢ÂÂ¿]',
+    ).hasMatch(cleaned)) {
+      return true;
+    }
+
+    if (RegExp(
+      r'[=+\-Ã¢Ë†â€™*/^Ã¢Ë†Å¡Ãâ‚¬ÃŽâ€ÃŽÂ©Ãâ€°Ã¢Ë†â€˜Ã¢Ë†Â«Ã¢â€°Â¤Ã¢â€°Â¥<>Ã¢â€ â€™Ã¢â€ Â]',
+    ).hasMatch(cleaned)) {
       return true;
     }
 
@@ -342,7 +356,7 @@ class QuizMathText extends StatelessWidget {
     }
 
     if (RegExp(r'[()\[\]]').hasMatch(cleaned) &&
-        RegExp(r'[A-Za-z0-9π]').hasMatch(cleaned)) {
+        RegExp(r'[A-Za-z0-9Ãâ‚¬]').hasMatch(cleaned)) {
       return true;
     }
 
@@ -370,12 +384,24 @@ class QuizMathText extends StatelessWidget {
       return false;
     }
 
+    if (containsVietnameseChars(normalized) ||
+        _containsProsePhrase(normalized)) {
+      return false;
+    }
+
+    // Strong signal: raw LaTeX brace constructs like ^{...}, _{...}, \frac{}{}
+    // These are unambiguous LaTeX and should always trigger whole-expression mode.
+    final hasLatexBraces = RegExp(
+      r'[\^_]\{[^}]*\}|\\[A-Za-z]+\{',
+    ).hasMatch(normalized);
+
     // Extended LaTeX command check: include trigonometric, logarithmic, and other
     // commonly used math commands in addition to structural commands
     final hasRawCoreLatex = RegExp(
-      r'\\(lim|frac|sqrt|sin|cos|tan|cot|sec|csc|ln|log|exp|pi|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|xi|rho|sigma|tau|phi|chi|psi|omega|partial|nabla|int|sum|prod|infty|approx|equiv|neq|leq|geq|leftarrow|rightarrow|leftrightarrow|to)\b',
+      r'\\(lim|frac|sqrt|sin|cos|tan|cot|sec|csc|ln|log|exp|pi|alpha|beta|gamma|delta|epsilon|theta|lambda|mu|nu|xi|rho|sigma|tau|phi|chi|psi|omega|partial|nabla|int|sum|prod|infty|approx|equiv|neq|leq|geq|leftarrow|rightarrow|leftrightarrow|to|prime|text|mathrm|mathbb|mathbf|cdot|times)\b',
     ).hasMatch(normalized);
-    if (!hasRawCoreLatex) {
+
+    if (!hasRawCoreLatex && !hasLatexBraces) {
       return false;
     }
 
@@ -392,6 +418,23 @@ class QuizMathText extends StatelessWidget {
     return startsAsExpression && !hasSentenceLikeTail;
   }
 
+  static bool _containsProsePhrase(String source) {
+    final tokens = source
+        .split(RegExp(r'\s+'))
+        .map((token) => token.trim())
+        .where((token) => token.isNotEmpty)
+        .toList(growable: false);
+
+    final proseTokens = tokens
+        .where(
+          (token) =>
+              !_isLikelyMathToken(token) && RegExp(r'[A-Za-z]').hasMatch(token),
+        )
+        .length;
+
+    return proseTokens >= 2;
+  }
+
   static MapEntry<String, String> _splitMathTrailingPunctuation(String input) {
     final match = RegExp(r'^(.*?)([,.!?;:]+)$').firstMatch(input.trimRight());
     if (match == null) {
@@ -402,23 +445,23 @@ class QuizMathText extends StatelessWidget {
   }
 
   static String _normalizePlainMathText(String input) {
-    var output = input
-        .replaceAll(RegExp(r'\bsqrt\s*\('), '√(')
-        .replaceAll('<=', '≤')
-        .replaceAll('>=', '≥')
-        .replaceAll('*', '·');
+    var output = repairAndCollapseText(input)
+        .replaceAll(RegExp(r'\bsqrt\s*\('), 'Ã¢Ë†Å¡(')
+        .replaceAll('<=', 'Ã¢â€°Â¤')
+        .replaceAll('>=', 'Ã¢â€°Â¥')
+        .replaceAll('*', 'Ã‚Â·');
 
     output = _normalizeUnicodeSubscriptNotation(output);
 
-    output = output.replaceAllMapped(RegExp(r'\bx[oO]\b'), (_) => 'x₀');
+    output = output.replaceAllMapped(RegExp(r'\bx[oO]\b'), (_) => 'xÃ¢â€šâ‚¬');
 
     output = output.replaceAllMapped(
       RegExp(
-        r'lim\s*([A-Za-z])\s*(?:->|→)\s*([\-+]?(?:\d+(?:\.\d+)?|[₀₁₂₃₄₅₆₇₈₉]+|[A-Za-z]))',
+        r'lim\s*([A-Za-z])\s*(?:->|Ã¢â€ â€™)\s*([\-+]?(?:\d+(?:\.\d+)?|[Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°]+|[A-Za-z]))',
         caseSensitive: false,
       ),
       (match) =>
-          'lim${match.group(1)?.toLowerCase() ?? 'x'}→${_normalizeLimitTarget(match.group(2) ?? '')}',
+          'lim${match.group(1)?.toLowerCase() ?? 'x'}Ã¢â€ â€™${_normalizeLimitTarget(match.group(2) ?? '')}',
     );
 
     output = output.replaceAllMapped(RegExp(r'([A-Za-z])([0-9])\b'), (match) {
@@ -440,16 +483,16 @@ class QuizMathText extends StatelessWidget {
   }
 
   static String _normalizeLatexExpression(String input) {
-    var output = input
-        .replaceAll('−', '-')
-        .replaceAll('≤', r'\leq ')
-        .replaceAll('≥', r'\geq ')
+    var output = repairAndCollapseText(input)
+        .replaceAll('Ã¢Ë†â€™', '-')
+        .replaceAll('Ã¢â€°Â¤', r'\leq ')
+        .replaceAll('Ã¢â€°Â¥', r'\geq ')
         .replaceAll('<=', r'\leq ')
         .replaceAll('>=', r'\geq ')
-        .replaceAll('×', r'\times ')
-        .replaceAll('·', r'\cdot ')
+        .replaceAll('Ãƒâ€”', r'\times ')
+        .replaceAll('Ã‚Â·', r'\cdot ')
         .replaceAll('*', r' \cdot ')
-        .replaceAll('π', r'\pi ');
+        .replaceAll('Ãâ‚¬', r'\pi ');
 
     // Normalize escaped command prefixes from serialized sources: "\\sin" -> "\sin".
     output = output.replaceAllMapped(
@@ -475,7 +518,7 @@ class QuizMathText extends StatelessWidget {
     );
 
     output = _convertLimitNotationToLatex(output);
-    output = output.replaceAll('→', r'\to ').replaceAll('->', r'\to ');
+    output = output.replaceAll('Ã¢â€ â€™', r'\to ').replaceAll('->', r'\to ');
     output = _convertImplicitSubscriptsToLatex(output);
 
     output = _convertFunctionCallFractionsToLatex(output);
@@ -507,7 +550,7 @@ class QuizMathText extends StatelessWidget {
     for (final command in unaryCommands) {
       output = output.replaceAllMapped(
         RegExp(
-          '\\\\$command([A-Za-z0-9π](?:_[{]?[A-Za-z0-9]+[}]?)?(?:\\^{[^}]+}|\\^[A-Za-z0-9+-]+)?)',
+          '\\\\$command([A-Za-z0-9Ãâ‚¬](?:_[{]?[A-Za-z0-9]+[}]?)?(?:\\^{[^}]+}|\\^[A-Za-z0-9+-]+)?)',
         ),
         (match) => '\\$command ${match.group(1)}',
       );
@@ -517,28 +560,31 @@ class QuizMathText extends StatelessWidget {
   }
 
   static String _normalizeSubscriptSequences(String input) {
-    return input.replaceAllMapped(RegExp(r'([A-Za-z])([₀₁₂₃₄₅₆₇₈₉]+)'), (
-      match,
-    ) {
-      final base = match.group(1) ?? '';
-      final raw = match.group(2) ?? '';
-      final plainDigits = raw
-          .split('')
-          .map((char) => _subscriptToPlainMap[char] ?? '')
-          .join();
+    return input.replaceAllMapped(
+      RegExp(
+        r'([A-Za-z])([Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°]+)',
+      ),
+      (match) {
+        final base = match.group(1) ?? '';
+        final raw = match.group(2) ?? '';
+        final plainDigits = raw
+            .split('')
+            .map((char) => _subscriptToPlainMap[char] ?? '')
+            .join();
 
-      if (plainDigits.isEmpty) {
-        return match.group(0) ?? '';
-      }
+        if (plainDigits.isEmpty) {
+          return match.group(0) ?? '';
+        }
 
-      return '${base}_{$plainDigits}';
-    });
+        return '${base}_{$plainDigits}';
+      },
+    );
   }
 
   static String _normalizeSuperscriptSequences(String input) {
     return input.replaceAllMapped(
       RegExp(
-        r'([A-Za-z0-9π\)\}])([¹²³⁴⁵⁶⁷⁸⁹⁰⁺⁻⁼⁽⁾ˣʸᵗⁿᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᵒᵖʳˢᵘᵛʷᶻ]+)',
+        r'([A-Za-z0-9Ãâ‚¬\)\}])([Ã‚Â¹Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°Ã¢ÂÂºÃ¢ÂÂ»Ã¢ÂÂ¼Ã¢ÂÂ½Ã¢ÂÂ¾Ã‹Â£ÃŠÂ¸Ã¡Âµâ€”Ã¢ÂÂ¿Ã¡ÂµÆ’Ã¡Âµâ€¡Ã¡Â¶Å“Ã¡ÂµË†Ã¡Âµâ€°Ã¡Â¶Â Ã¡ÂµÂÃŠÂ°Ã¢ÂÂ±ÃŠÂ²Ã¡ÂµÂÃ‹Â¡Ã¡ÂµÂÃ¡Âµâ€™Ã¡Âµâ€“ÃŠÂ³Ã‹Â¢Ã¡ÂµËœÃ¡Âµâ€ºÃŠÂ·Ã¡Â¶Â»]+)',
       ),
       (match) {
         final base = match.group(1) ?? '';
@@ -568,7 +614,7 @@ class QuizMathText extends StatelessWidget {
     }
 
     return trimmed.replaceAllMapped(
-      RegExp(r'([A-Za-zπ])(\d+)'),
+      RegExp(r'([A-Za-zÃâ‚¬])(\d+)'),
       (match) => '${match.group(1)}^{${match.group(2)}}',
     );
   }
@@ -576,7 +622,7 @@ class QuizMathText extends StatelessWidget {
   static String _convertLimitNotationToLatex(String input) {
     return input.replaceAllMapped(
       RegExp(
-        r'lim\s*(?:\(\s*)?([A-Za-z])\s*(?:->|→|\\to)\s*([\-+]?(?:\d+(?:\.\d+)?|[₀₁₂₃₄₅₆₇₈₉]+|[A-Za-z](?:_\{?\d+\}?|\d+)?))(?:\s*\))?',
+        r'lim\s*(?:\(\s*)?([A-Za-z])\s*(?:->|Ã¢â€ â€™|\\to)\s*([\-+]?(?:\d+(?:\.\d+)?|[Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°]+|[A-Za-z](?:_\{?\d+\}?|\d+)?))(?:\s*\))?',
         caseSensitive: false,
       ),
       (match) {
@@ -589,16 +635,62 @@ class QuizMathText extends StatelessWidget {
 
   static String _normalizeUnicodeSubscriptNotation(String input) {
     var output = input
-        .replaceAll('₍', '(')
-        .replaceAll('₎', ')')
-        .replaceAll('ₓ', 'x')
-        .replaceAll('ₜ', 't')
-        .replaceAll('ₙ', 'n')
-        .replaceAll('ₘ', 'm')
-        .replaceAll('ₖ', 'k')
-        .replaceAll('ₚ', 'p');
+        .replaceAll('Ã¢â€šÂ', '(')
+        .replaceAll('Ã¢â€šÅ½', ')')
+        .replaceAll('Ã¢â€šâ€œ', 'x')
+        .replaceAll('Ã¢â€šÅ“', 't')
+        .replaceAll('Ã¢â€šâ„¢', 'n')
+        .replaceAll('Ã¢â€šËœ', 'm')
+        .replaceAll('Ã¢â€šâ€“', 'k')
+        .replaceAll('Ã¢â€šÅ¡', 'p');
 
     return output;
+  }
+
+  static String _normalizeDisplaySource(String input) {
+    var output = repairAndCollapseText(input);
+
+    output = output
+        .replaceAllMapped(
+          RegExp(r'([)\]}])(?=[A-Za-z])'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAllMapped(
+          RegExp(r'([A-Za-z])(?=\\[A-Za-z])'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAllMapped(
+          RegExp(r'([.!?;,])(?=[A-Za-z])'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAllMapped(
+          RegExp(r'([0-9])(?=[A-Za-z]{2,})'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAll(RegExp(r'\s{2,}'), ' ');
+
+    return output.trim();
+  }
+
+  static String _expandMixedTokenBoundaries(String input) {
+    return input
+        .replaceAllMapped(
+          RegExp(r'(\\[A-Za-z]+(?:\{[^}]*\})*(?:\([^)]*\))?)(?=[A-Za-z])'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAllMapped(
+          RegExp(r'([)\]}])(?=[A-Za-z])'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAllMapped(
+          RegExp(r'([A-Za-z]{2,})([A-Za-z])(?=\\s*[=([{\\])'),
+          (match) => '${match.group(1)} ${match.group(2)}',
+        )
+        .replaceAllMapped(
+          RegExp(r'([0-9}\]])(?=[A-Za-z]{2,})'),
+          (match) => '${match.group(1)} ',
+        )
+        .replaceAll(RegExp(r'\s{2,}'), ' ');
   }
 
   static String _normalizeLimitTarget(String input) {
@@ -608,7 +700,9 @@ class QuizMathText extends StatelessWidget {
     }
 
     final normalizedDigits = trimmed.replaceAllMapped(
-      RegExp(r'[₀₁₂₃₄₅₆₇₈₉]'),
+      RegExp(
+        r'[Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°]',
+      ),
       (match) => _subscriptToPlainMap[match.group(0)] ?? '',
     );
 
@@ -633,7 +727,7 @@ class QuizMathText extends StatelessWidget {
   static String _convertBracketFractionsToLatex(String input) {
     return input.replaceAllMapped(
       RegExp(
-        r'(?<!\\)(\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|-?(?:\d+(?:\.\d+)?|[A-Za-zπ])(?:\^\{[^}]+\}|\^[-+]?\d+|[²³⁴⁵⁶⁷⁸⁹⁰])?)\s*/\s*((?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|(?:\d+(?:\.\d+)?|[A-Za-zπ]))(?:\^\{[^}]+\}|\^[-+]?\d+|[²³⁴⁵⁶⁷⁸⁹⁰])?)',
+        r'(?<!\\)(\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|-?(?:\d+(?:\.\d+)?|[A-Za-zÃâ‚¬])(?:\^\{[^}]+\}|\^[-+]?\d+|[Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°])?)\s*/\s*((?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|(?:\d+(?:\.\d+)?|[A-Za-zÃâ‚¬]))(?:\^\{[^}]+\}|\^[-+]?\d+|[Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°])?)',
       ),
       (match) => '\\frac{${match.group(1) ?? ''}}{${match.group(2) ?? ''}}',
     );
@@ -746,7 +840,7 @@ class QuizMathText extends StatelessWidget {
   static String _convertSymbolicNumericFractionsToLatex(String input) {
     return input.replaceAllMapped(
       RegExp(
-        r'(?<!\\)(\\[A-Za-z]+|[A-Za-zπ](?:_\{?\d+\}?|\^\{[^}]+\}|\^[-+]?\d+)?)\s*/\s*(-?\d+(?:\.\d+)?)(?![A-Za-z0-9])',
+        r'(?<!\\)(\\[A-Za-z]+|[A-Za-zÃâ‚¬](?:_\{?\d+\}?|\^\{[^}]+\}|\^[-+]?\d+)?)\s*/\s*(-?\d+(?:\.\d+)?)(?![A-Za-z0-9])',
       ),
       (match) => '\\frac{${match.group(1) ?? ''}}{${match.group(2) ?? ''}}',
     );
@@ -833,102 +927,102 @@ class QuizMathText extends StatelessWidget {
   }
 
   static const Map<String, String> _superscriptMap = {
-    '0': '⁰',
-    '1': '¹',
-    '2': '²',
-    '3': '³',
-    '4': '⁴',
-    '5': '⁵',
-    '6': '⁶',
-    '7': '⁷',
-    '8': '⁸',
-    '9': '⁹',
-    '+': '⁺',
-    '-': '⁻',
-    '(': '⁽',
-    ')': '⁾',
+    '0': 'Ã¢ÂÂ°',
+    '1': 'Ã‚Â¹',
+    '2': 'Ã‚Â²',
+    '3': 'Ã‚Â³',
+    '4': 'Ã¢ÂÂ´',
+    '5': 'Ã¢ÂÂµ',
+    '6': 'Ã¢ÂÂ¶',
+    '7': 'Ã¢ÂÂ·',
+    '8': 'Ã¢ÂÂ¸',
+    '9': 'Ã¢ÂÂ¹',
+    '+': 'Ã¢ÂÂº',
+    '-': 'Ã¢ÂÂ»',
+    '(': 'Ã¢ÂÂ½',
+    ')': 'Ã¢ÂÂ¾',
   };
 
   static const Map<String, String> _subscriptMap = {
-    '0': '₀',
-    '1': '₁',
-    '2': '₂',
-    '3': '₃',
-    '4': '₄',
-    '5': '₅',
-    '6': '₆',
-    '7': '₇',
-    '8': '₈',
-    '9': '₉',
+    '0': 'Ã¢â€šâ‚¬',
+    '1': 'Ã¢â€šÂ',
+    '2': 'Ã¢â€šâ€š',
+    '3': 'Ã¢â€šÆ’',
+    '4': 'Ã¢â€šâ€ž',
+    '5': 'Ã¢â€šâ€¦',
+    '6': 'Ã¢â€šâ€ ',
+    '7': 'Ã¢â€šâ€¡',
+    '8': 'Ã¢â€šË†',
+    '9': 'Ã¢â€šâ€°',
   };
 
   static const Map<String, String> _subscriptToPlainMap = {
-    '₀': '0',
-    '₁': '1',
-    '₂': '2',
-    '₃': '3',
-    '₄': '4',
-    '₅': '5',
-    '₆': '6',
-    '₇': '7',
-    '₈': '8',
-    '₉': '9',
+    'Ã¢â€šâ‚¬': '0',
+    'Ã¢â€šÂ': '1',
+    'Ã¢â€šâ€š': '2',
+    'Ã¢â€šÆ’': '3',
+    'Ã¢â€šâ€ž': '4',
+    'Ã¢â€šâ€¦': '5',
+    'Ã¢â€šâ€ ': '6',
+    'Ã¢â€šâ€¡': '7',
+    'Ã¢â€šË†': '8',
+    'Ã¢â€šâ€°': '9',
   };
 
   static const Map<String, String> _superscriptToPlainMap = {
-    '¹': '1',
-    '²': '2',
-    '³': '3',
-    '⁴': '4',
-    '⁵': '5',
-    '⁶': '6',
-    '⁷': '7',
-    '⁸': '8',
-    '⁹': '9',
-    '⁰': '0',
-    '⁺': '+',
-    '⁻': '-',
-    '⁼': '=',
-    '⁽': '(',
-    '⁾': ')',
-    'ˣ': 'x',
-    'ʸ': 'y',
-    'ᵗ': 't',
-    'ⁿ': 'n',
-    'ᵃ': 'a',
-    'ᵇ': 'b',
-    'ᶜ': 'c',
-    'ᵈ': 'd',
-    'ᵉ': 'e',
-    'ᶠ': 'f',
-    'ᵍ': 'g',
-    'ʰ': 'h',
-    'ⁱ': 'i',
-    'ʲ': 'j',
-    'ᵏ': 'k',
-    'ˡ': 'l',
-    'ᵐ': 'm',
-    'ᵒ': 'o',
-    'ᵖ': 'p',
-    'ʳ': 'r',
-    'ˢ': 's',
-    'ᵘ': 'u',
-    'ᵛ': 'v',
-    'ʷ': 'w',
-    'ᶻ': 'z',
+    'Ã‚Â¹': '1',
+    'Ã‚Â²': '2',
+    'Ã‚Â³': '3',
+    'Ã¢ÂÂ´': '4',
+    'Ã¢ÂÂµ': '5',
+    'Ã¢ÂÂ¶': '6',
+    'Ã¢ÂÂ·': '7',
+    'Ã¢ÂÂ¸': '8',
+    'Ã¢ÂÂ¹': '9',
+    'Ã¢ÂÂ°': '0',
+    'Ã¢ÂÂº': '+',
+    'Ã¢ÂÂ»': '-',
+    'Ã¢ÂÂ¼': '=',
+    'Ã¢ÂÂ½': '(',
+    'Ã¢ÂÂ¾': ')',
+    'Ã‹Â£': 'x',
+    'ÃŠÂ¸': 'y',
+    'Ã¡Âµâ€”': 't',
+    'Ã¢ÂÂ¿': 'n',
+    'Ã¡ÂµÆ’': 'a',
+    'Ã¡Âµâ€¡': 'b',
+    'Ã¡Â¶Å“': 'c',
+    'Ã¡ÂµË†': 'd',
+    'Ã¡Âµâ€°': 'e',
+    'Ã¡Â¶Â ': 'f',
+    'Ã¡ÂµÂ': 'g',
+    'ÃŠÂ°': 'h',
+    'Ã¢ÂÂ±': 'i',
+    'ÃŠÂ²': 'j',
+    'Ã¡ÂµÂ': 'k',
+    'Ã‹Â¡': 'l',
+    'Ã¡ÂµÂ': 'm',
+    'Ã¡Âµâ€™': 'o',
+    'Ã¡Âµâ€“': 'p',
+    'ÃŠÂ³': 'r',
+    'Ã‹Â¢': 's',
+    'Ã¡ÂµËœ': 'u',
+    'Ã¡Âµâ€º': 'v',
+    'ÃŠÂ·': 'w',
+    'Ã¡Â¶Â»': 'z',
   };
 
   static const String _legacyMathTokenPatternSource =
-      r"(?<![A-Za-zÀ-ỹ])(?:"
-      r"lim(?:\s*[A-Za-z]|[ₓₜₙₘₖₚ])\s*(?:->|→)\s*(?:[₀₁₂₃₄₅₆₇₈₉]+|[-+]?(?:\d+(?:\.\d+)?|[A-Za-z]))|"
+      r"(?<![A-Za-zÃƒâ‚¬-Ã¡Â»Â¹])(?:"
+      r"lim(?:\s*[A-Za-z]|[Ã¢â€šâ€œÃ¢â€šÅ“Ã¢â€šâ„¢Ã¢â€šËœÃ¢â€šâ€“Ã¢â€šÅ¡])\s*(?:->|Ã¢â€ â€™)\s*(?:[Ã¢â€šâ‚¬Ã¢â€šÂÃ¢â€šâ€šÃ¢â€šÆ’Ã¢â€šâ€žÃ¢â€šâ€¦Ã¢â€šâ€ Ã¢â€šâ€¡Ã¢â€šË†Ã¢â€šâ€°]+|[-+]?(?:\d+(?:\.\d+)?|[A-Za-z]))|"
       r"sqrt\([^()]+\)|"
       r"(?:sin|cos|tan|ln|log)\([^)]*\)|"
-      r"(?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|-?(?:\d+(?:\.\d+)?|[A-Za-zπ]))\s*/\s*(?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|(?:\d+(?:\.\d+)?|[A-Za-zπ]))(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[¹²³⁴⁵⁶⁷⁸⁹⁰⁺⁻⁼⁽⁾ˣʸᵗⁿᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᵒᵖʳˢᵘᵛʷᶻ])?|"
-      r"\d+/\d+(?:[A-Za-zπ](?:\([^)]+\))?(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[¹²³⁴⁵⁶⁷⁸⁹⁰⁺⁻⁼⁽⁾ˣʸᵗⁿᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᵒᵖʳˢᵘᵛʷᶻ])?)?|"
-      r"(?:\d+(?:\.\d+)?)?[A-Za-zπ](?:\([^)]+\))?(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[¹²³⁴⁵⁶⁷⁸⁹⁰⁺⁻⁼⁽⁾ˣʸᵗⁿᵃᵇᶜᵈᵉᶠᵍʰⁱʲᵏˡᵐᵒᵖʳˢᵘᵛʷᶻ])+'?|"
+      r"(?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|-?(?:\d+(?:\.\d+)?|[A-Za-zÃâ‚¬]))\s*/\s*(?:\[(?:[^\[\]]|\[[^\[\]]*\])+\]|\((?:[^()]|\([^()]*\))+\)|(?:\d+(?:\.\d+)?|[A-Za-zÃâ‚¬]))(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[Ã‚Â¹Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°Ã¢ÂÂºÃ¢ÂÂ»Ã¢ÂÂ¼Ã¢ÂÂ½Ã¢ÂÂ¾Ã‹Â£ÃŠÂ¸Ã¡Âµâ€”Ã¢ÂÂ¿Ã¡ÂµÆ’Ã¡Âµâ€¡Ã¡Â¶Å“Ã¡ÂµË†Ã¡Âµâ€°Ã¡Â¶Â Ã¡ÂµÂÃŠÂ°Ã¢ÂÂ±ÃŠÂ²Ã¡ÂµÂÃ‹Â¡Ã¡ÂµÂÃ¡Âµâ€™Ã¡Âµâ€“ÃŠÂ³Ã‹Â¢Ã¡ÂµËœÃ¡Âµâ€ºÃŠÂ·Ã¡Â¶Â»])?|"
+      r"\d+/\d+(?:[A-Za-zÃâ‚¬](?:\([^)]+\))?(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[Ã‚Â¹Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°Ã¢ÂÂºÃ¢ÂÂ»Ã¢ÂÂ¼Ã¢ÂÂ½Ã¢ÂÂ¾Ã‹Â£ÃŠÂ¸Ã¡Âµâ€”Ã¢ÂÂ¿Ã¡ÂµÆ’Ã¡Âµâ€¡Ã¡Â¶Å“Ã¡ÂµË†Ã¡Âµâ€°Ã¡Â¶Â Ã¡ÂµÂÃŠÂ°Ã¢ÂÂ±ÃŠÂ²Ã¡ÂµÂÃ‹Â¡Ã¡ÂµÂÃ¡Âµâ€™Ã¡Âµâ€“ÃŠÂ³Ã‹Â¢Ã¡ÂµËœÃ¡Âµâ€ºÃŠÂ·Ã¡Â¶Â»])?)?|"
+      r"(?:\d+(?:\.\d+)?)?[A-Za-zÃâ‚¬](?:\([^)]+\))?(?:\^\{[^}]+\}|\^\((?:[^()]+|\([^()]*\))*\)|\^[-+]?\d+|[Ã‚Â¹Ã‚Â²Ã‚Â³Ã¢ÂÂ´Ã¢ÂÂµÃ¢ÂÂ¶Ã¢ÂÂ·Ã¢ÂÂ¸Ã¢ÂÂ¹Ã¢ÂÂ°Ã¢ÂÂºÃ¢ÂÂ»Ã¢ÂÂ¼Ã¢ÂÂ½Ã¢ÂÂ¾Ã‹Â£ÃŠÂ¸Ã¡Âµâ€”Ã¢ÂÂ¿Ã¡ÂµÆ’Ã¡Âµâ€¡Ã¡Â¶Å“Ã¡ÂµË†Ã¡Âµâ€°Ã¡Â¶Â Ã¡ÂµÂÃŠÂ°Ã¢ÂÂ±ÃŠÂ²Ã¡ÂµÂÃ‹Â¡Ã¡ÂµÂÃ¡Âµâ€™Ã¡Âµâ€“ÃŠÂ³Ã‹Â¢Ã¡ÂµËœÃ¡Âµâ€ºÃŠÂ·Ã¡Â¶Â»])+'?|"
       r"[A-Za-z]\([^)]+\)'?|"
       r"\d+/\d+"
-      r")(?![A-Za-zÀ-ỹ])";
+      r")(?![A-Za-zÃƒâ‚¬-Ã¡Â»Â¹])";
 
   static final RegExp _legacyMathTokenPattern = RegExp(
     _legacyMathTokenPatternSource,

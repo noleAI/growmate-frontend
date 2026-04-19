@@ -9,10 +9,10 @@ import '../../../../app/i18n/build_context_i18n.dart';
 import '../../data/repositories/chat_repository.dart';
 import '../../domain/entities/chat_message.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
-import '../../../quota/presentation/cubit/quota_cubit.dart';
-import '../../../quota/presentation/cubit/quota_state.dart';
 import '../../../quota/presentation/widgets/quota_exceeded_dialog.dart';
 import '../../../quota/presentation/widgets/quota_indicator.dart';
+import '../cubit/chat_quota_cubit.dart';
+import '../cubit/chat_quota_state.dart';
 import '../cubit/chat_cubit.dart';
 import '../cubit/chat_state.dart';
 import '../widgets/chat_message_bubble.dart';
@@ -24,7 +24,7 @@ class ChatPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final quotaCubit = context.read<QuotaCubit?>();
+    final quotaCubit = context.read<ChatQuotaCubit?>();
 
     return BlocProvider(
       create: (_) => ChatCubit(
@@ -155,7 +155,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     final trimmed = text.trim();
     if (trimmed.isEmpty) return;
 
-    final quotaCubit = context.read<QuotaCubit?>();
+    final quotaCubit = context.read<ChatQuotaCubit?>();
     if (quotaCubit != null && !quotaCubit.canChat) {
       await QuotaExceededDialog.show(
         context,
@@ -188,15 +188,15 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     }
   }
 
-  int _quotaLimitFromState(QuotaState? state) {
-    if (state is QuotaLoaded) {
+  int _quotaLimitFromState(ChatQuotaState? state) {
+    if (state is ChatQuotaLoaded) {
       return state.quota.limit;
     }
     return 30;
   }
 
-  bool _canChatFromQuotaState(QuotaState state) {
-    if (state is QuotaLoaded) {
+  bool _canChatFromQuotaState(ChatQuotaState state) {
+    if (state is ChatQuotaLoaded) {
       return !state.quota.isExceeded;
     }
     return true;
@@ -215,7 +215,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
             )
           : text;
 
-      final quotaCubit = context.read<QuotaCubit?>();
+      final quotaCubit = context.read<ChatQuotaCubit?>();
       if (quotaCubit != null && !quotaCubit.canChat) {
         QuotaExceededDialog.show(
           context,
@@ -464,7 +464,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final hasQuotaCubit = context.read<QuotaCubit?>() != null;
+    final hasQuotaCubit = context.read<ChatQuotaCubit?>() != null;
 
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
@@ -631,7 +631,7 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
                   );
                 }
 
-                return BlocBuilder<QuotaCubit, QuotaState>(
+                return BlocBuilder<ChatQuotaCubit, ChatQuotaState>(
                   builder: (context, quotaState) {
                     if (!_canChatFromQuotaState(quotaState)) {
                       return const SizedBox.shrink();

@@ -25,6 +25,7 @@ import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../../../shared/widgets/ai_components.dart';
+import '../../../../shared/models/feature_availability.dart';
 import '../../../inspection/presentation/cubit/inspection_cubit.dart';
 import '../../../inspection/presentation/widgets/inspection_bottom_sheet.dart';
 import '../../../wellness/presentation/widgets/mood_check_dialog.dart';
@@ -32,7 +33,6 @@ import '../../../session_recovery/data/models/pending_session.dart';
 import '../../../session_recovery/data/repositories/session_recovery_repository.dart';
 import '../cubit/home_hydration_cubit.dart';
 import '../cubit/home_hydration_state.dart';
-import '../widgets/resume_banner.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../../mascot/presentation/pages/mascot_selection_page.dart';
@@ -46,7 +46,6 @@ class TodayPage extends StatefulWidget {
 
 class _TodayPageState extends State<TodayPage> {
   bool _onboardingDismissed = true;
-  bool _resumeDismissed = false;
   HomeHydrationCubit? _homeHydrationCubit;
   bool _didInitializeHydration = false;
 
@@ -76,6 +75,19 @@ class _TodayPageState extends State<TodayPage> {
   }
 
   Future<void> _checkDailyStreak() async {
+    LeaderboardRepository? repo;
+    LeaderboardCubit? lbCubit;
+    try {
+      repo = context.read<LeaderboardRepository>();
+    } catch (_) {
+      repo = null;
+    }
+    try {
+      lbCubit = context.read<LeaderboardCubit>();
+    } catch (_) {
+      lbCubit = null;
+    }
+
     final prefs = await SharedPreferences.getInstance();
     if (!mounted) {
       return;
@@ -88,11 +100,16 @@ class _TodayPageState extends State<TodayPage> {
       return;
     }
 
+    // Optimistic guard: mark the local day before hitting the API.
+    await prefs.setString('streak_popup_date', today);
+
     int streakDays = 1;
     int xpBonus = 10;
     var shouldShowPopup = false;
     try {
-      final repo = context.read<LeaderboardRepository>();
+      if (repo == null) {
+        throw StateError('LeaderboardRepository is unavailable');
+      }
       final response = await repo.addXp(eventType: 'daily_login');
       streakDays = response.currentStreak;
       xpBonus = response.xpAdded;
@@ -102,15 +119,16 @@ class _TodayPageState extends State<TodayPage> {
       if (!mounted) return;
       // Fallback: read streak from cubit or local counter.
       try {
-        final lbCubit = context.read<LeaderboardCubit>();
-        final lbState = lbCubit.state;
-        if (lbState.myRank != null) {
-          streakDays = lbState.myRank!.currentStreak;
-        } else {
-          await lbCubit.loadLeaderboard();
-          final refreshed = lbCubit.state;
-          if (refreshed.myRank != null) {
-            streakDays = refreshed.myRank!.currentStreak;
+        if (lbCubit != null) {
+          final lbState = lbCubit.state;
+          if (lbState.myRank != null) {
+            streakDays = lbState.myRank!.currentStreak;
+          } else {
+            await lbCubit.loadLeaderboard();
+            final refreshed = lbCubit.state;
+            if (refreshed.myRank != null) {
+              streakDays = refreshed.myRank!.currentStreak;
+            }
           }
         }
       } catch (_) {
@@ -123,8 +141,6 @@ class _TodayPageState extends State<TodayPage> {
     if (!mounted || !shouldShowPopup) {
       return;
     }
-
-    await prefs.setString('streak_popup_date', today);
     if (!mounted) {
       return;
     }
@@ -170,6 +186,27 @@ class _TodayPageState extends State<TodayPage> {
     });
   }
 
+  Future<void> _handleRefresh(BuildContext context) async {
+    final hydrationRefresh = context.read<HomeHydrationCubit>().refresh();
+
+    AgenticSessionCubit? agenticCubit;
+    try {
+      agenticCubit = context.read<AgenticSessionCubit>();
+    } catch (_) {
+      agenticCubit = null;
+    }
+
+    if (agenticCubit == null) {
+      await hydrationRefresh;
+      return;
+    }
+
+    await Future.wait<void>([
+      hydrationRefresh,
+      agenticCubit.refreshHomeMission(),
+    ]);
+  }
+
   @override
   void dispose() {
     _homeHydrationCubit?.close();
@@ -200,7 +237,7 @@ class _TodayPageState extends State<TodayPage> {
             body: ZenPageContainer(
               includeBottomSafeArea: false,
               child: RefreshIndicator(
-                onRefresh: context.read<HomeHydrationCubit>().refresh,
+                onRefresh: () => _handleRefresh(context),
                 child: ListView(
                   children: [
                     _buildTopAppBar(context),
@@ -210,7 +247,23 @@ class _TodayPageState extends State<TodayPage> {
                       dateLabel: _dateLabel(context, DateTime.now()),
                       hydrationStatus: hydrationState.status,
                       pendingSession: pendingSession,
+                      showStatusChip: !hasPendingSession,
                     ),
+
+                    if (hasPendingSession) ...[
+                      const SizedBox(height: GrowMateLayout.space16),
+                      FadeSlideIn(
+                        delayMs: 0,
+                        child: _PendingHeroCard(
+                          pendingSession: pendingSession!,
+                          onResume: (pending) => _resumePendingSession(
+                            context: context,
+                            pending: pending,
+                          ),
+                        ),
+                      ),
+                    ],
+
                     const SizedBox(height: GrowMateLayout.contentGap),
 
                     // Recovery mode indicator (subtle) — only when AgenticSessionCubit is present
@@ -315,16 +368,7 @@ class _TodayPageState extends State<TodayPage> {
                             onRetry: context.read<HomeHydrationCubit>().refresh,
                           ),
                         ),
-                        _ when hasPendingSession => FadeSlideIn(
-                          delayMs: 150,
-                          child: _PendingHeroCard(
-                            pendingSession: pendingSession!,
-                            onResume: (pending) => _resumePendingSession(
-                              context: context,
-                              pending: pending,
-                            ),
-                          ),
-                        ),
+                        _ when hasPendingSession => const SizedBox.shrink(),
                         HomeHydrationStatus.ready => FadeSlideIn(
                           delayMs: 150,
                           child: _AiStateCard(
@@ -341,19 +385,16 @@ class _TodayPageState extends State<TodayPage> {
                       },
                     ),
 
-                    if (!_resumeDismissed && hasPendingSession) ...[
-                      const SizedBox(height: GrowMateLayout.space12),
-                      ResumeBanner(
-                        pendingSession: pendingSession!,
-                        onResume: (pending) => _resumePendingSession(
-                          context: context,
-                          pending: pending,
-                        ),
-                        onDismiss: () {
-                          setState(() => _resumeDismissed = true);
-                        },
-                      ),
-                    ],
+                    const SizedBox(height: GrowMateLayout.space12),
+                    AnimatedSwitcher(
+                      duration: const Duration(milliseconds: 220),
+                      switchInCurve: Curves.easeOut,
+                      switchOutCurve: Curves.easeOut,
+                      child:
+                          hydrationState.status == HomeHydrationStatus.loading
+                          ? const _AgentMissionLoadingCard()
+                          : _AgentMissionCard(hydrationState: hydrationState),
+                    ),
 
                     const SizedBox(height: GrowMateLayout.breath),
 
@@ -947,11 +988,13 @@ class _HomeHeader extends StatelessWidget {
     required this.dateLabel,
     required this.hydrationStatus,
     required this.pendingSession,
+    this.showStatusChip = true,
   });
 
   final String dateLabel;
   final HomeHydrationStatus hydrationStatus;
   final PendingSession? pendingSession;
+  final bool showStatusChip;
 
   String _greeting(BuildContext context, DateTime now) {
     if (context.isEnglish) {
@@ -1039,44 +1082,46 @@ class _HomeHeader extends StatelessWidget {
             fontWeight: FontWeight.w500,
           ),
         ),
-        const SizedBox(height: GrowMateLayout.space8),
-        FractionallySizedBox(
-          widthFactor: 1,
-          alignment: Alignment.centerLeft,
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-            decoration: BoxDecoration(
-              color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(999),
-              border: Border.all(color: statusColor.withValues(alpha: 0.22)),
-            ),
-            child: Row(
-              mainAxisSize: MainAxisSize.max,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    color: statusColor,
-                    shape: BoxShape.circle,
-                  ),
-                ),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    statusText,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.labelSmall?.copyWith(
+        if (showStatusChip) ...[
+          const SizedBox(height: GrowMateLayout.space8),
+          FractionallySizedBox(
+            widthFactor: 1,
+            alignment: Alignment.centerLeft,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: statusColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(999),
+                border: Border.all(color: statusColor.withValues(alpha: 0.22)),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.max,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
                       color: statusColor,
-                      fontWeight: FontWeight.w700,
+                      shape: BoxShape.circle,
                     ),
                   ),
-                ),
-              ],
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      statusText,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: statusColor,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
+        ],
       ],
     );
   }
@@ -1358,6 +1403,377 @@ class _PulseCircleState extends State<_PulseCircle>
   }
 }
 
+class _AgentMissionCard extends StatelessWidget {
+  const _AgentMissionCard({required this.hydrationState});
+
+  final HomeHydrationState hydrationState;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    AgenticSessionState? agenticState;
+    try {
+      agenticState = context.watch<AgenticSessionCubit>().state;
+    } catch (_) {
+      agenticState = null;
+    }
+
+    final pending = hydrationState.pendingSession;
+    final latestSession = hydrationState.latestSession;
+    final diagnosisSnapshot = hydrationState.diagnosisSnapshot;
+    final hasPendingSession = pending?.hasPending == true;
+    final hasLiveDashboard = agenticState?.latestDashboard != null;
+    // Feature availability badge removed during UI cleanup.
+
+    final reflection = agenticState?.latestReflection;
+    final confidence =
+        (hasLiveDashboard
+            ? agenticState?.latestDashboard?.academic.confidence
+            : diagnosisSnapshot?.confidenceScore) ??
+        latestSession?.confidenceScore ??
+        hydrationState.confidence;
+    final confidenceLabel = '${(confidence.clamp(0.0, 1.0) * 100).round()}%';
+    final stageLabel = _resolveStageLabel(
+      context,
+      agenticState: agenticState,
+      hasPendingSession: hasPendingSession,
+    );
+    final nextCheckpoint = _resolveNextCheckpoint(
+      context,
+      agenticState: agenticState,
+      pending: pending,
+      latestSession: latestSession,
+    );
+
+    return ZenCard(
+      radius: GrowMateLayout.cardRadiusLg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Icon(
+                  Icons.psychology_alt_rounded,
+                  color: colors.primary,
+                  size: 20,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      context.t(vi: 'Nhiệm vụ của Agent', en: 'Agent Mission'),
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    // Đã xóa text nhỏ mô tả quy trình dưới 'Nhiệm vụ của Agent' theo yêu cầu
+                  ],
+                ),
+              ),
+              // FeatureAvailabilityBadge removed as per UI cleanup request
+            ],
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _MissionMetricChip(
+                label: context.t(vi: 'Pha', en: 'Phase'),
+                value: stageLabel,
+              ),
+              _MissionMetricChip(
+                label: context.t(vi: 'Độ tin cậy', en: 'Confidence'),
+                value: confidenceLabel,
+              ),
+              if (pending?.hasPending == true)
+                _MissionMetricChip(
+                  label: context.t(vi: 'Đang chờ', en: 'Pending'),
+                  value: context.t(vi: 'Có', en: 'Yes'),
+                ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          _MissionLine(
+            title: context.t(vi: 'Mốc tiếp theo', en: 'Next checkpoint'),
+            body: nextCheckpoint,
+          ),
+          if (reflection != null) ...[
+            const SizedBox(height: 10),
+            _MissionLine(
+              title: context.t(vi: 'Phản tư gần nhất', en: 'Latest reflection'),
+              body: reflection.recommendation.trim().isEmpty
+                  ? reflection.reasoning
+                  : reflection.recommendation,
+            ),
+          ],
+          if (hydrationState.errorMessage != null) ...[
+            const SizedBox(height: 10),
+            Text(
+              hydrationState.errorMessage!,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+
+  String _resolveStageLabel(
+    BuildContext context, {
+    required AgenticSessionState? agenticState,
+    required bool hasPendingSession,
+  }) {
+    if (hasPendingSession) {
+      if (hydrationState.pendingSession?.pauseState == true) {
+        return context.t(vi: 'Tạm dừng', en: 'Paused');
+      }
+      return switch (agenticState?.phase) {
+        AgenticPhase.processing => context.t(
+          vi: 'Đang xử lý',
+          en: 'Processing',
+        ),
+        AgenticPhase.hitlPending => context.t(
+          vi: 'Chờ HITL',
+          en: 'HITL pending',
+        ),
+        AgenticPhase.recovery => context.t(vi: 'Phục hồi', en: 'Recovery'),
+        AgenticPhase.error => context.t(vi: 'Lỗi', en: 'Error'),
+        _ => context.t(vi: 'Sẵn sàng tiếp tục', en: 'Ready to resume'),
+      };
+    }
+
+    if (agenticState?.latestDashboard != null) {
+      return _phaseLabel(context, agenticState?.phase);
+    }
+
+    if (hydrationState.hasReadyHistory ||
+        hydrationState.diagnosisSnapshot != null ||
+        hydrationState.hasRemoteHistoryConfirmation) {
+      return context.t(vi: 'Sẵn sàng', en: 'Ready');
+    }
+
+    return context.t(vi: 'Agent đang nghỉ', en: 'Agent idle');
+  }
+
+  String _resolveNextCheckpoint(
+    BuildContext context, {
+    required AgenticSessionState? agenticState,
+    required PendingSession? pending,
+    required SessionHistoryEntry? latestSession,
+  }) {
+    if (pending?.hasPending == true) {
+      return context.t(
+        vi: 'Tiếp tục từ câu ${((pending?.lastQuestionIndex ?? 0) + 1)}',
+        en: 'Resume at Q${((pending?.lastQuestionIndex ?? 0) + 1)}',
+      );
+    }
+
+    final liveAction = agenticState?.currentAction?.trim();
+    if (agenticState?.latestDashboard != null &&
+        liveAction != null &&
+        liveAction.isNotEmpty) {
+      return _humanizeAction(context, liveAction);
+    }
+
+    final suggestedTopic = hydrationState.diagnosisSnapshot?.nextSuggestedTopic
+        .trim();
+    if (suggestedTopic != null && suggestedTopic.isNotEmpty) {
+      return suggestedTopic;
+    }
+
+    final nextAction = latestSession?.nextAction.trim();
+    if (nextAction != null && nextAction.isNotEmpty) {
+      return nextAction;
+    }
+
+    return context.t(
+      vi: 'Bắt đầu quiz để AI lập kế hoạch',
+      en: 'Start a quiz so AI can plan',
+    );
+  }
+
+  String _phaseLabel(BuildContext context, AgenticPhase? phase) {
+    return switch (phase) {
+      null => context.t(vi: 'Agent đang nghỉ', en: 'Agent idle'),
+      AgenticPhase.idle => context.t(vi: 'Nhàn rỗi', en: 'Idle'),
+      AgenticPhase.ready => context.t(vi: 'Sẵn sàng', en: 'Ready'),
+      AgenticPhase.interacting => context.t(
+        vi: 'Đang tương tác',
+        en: 'Interacting',
+      ),
+      AgenticPhase.processing => context.t(vi: 'Đang xử lý', en: 'Processing'),
+      AgenticPhase.hitlPending => context.t(vi: 'Chờ HITL', en: 'HITL pending'),
+      AgenticPhase.recovery => context.t(vi: 'Phục hồi', en: 'Recovery'),
+      AgenticPhase.completed => context.t(vi: 'Hoàn tất', en: 'Completed'),
+      AgenticPhase.error => context.t(vi: 'Lỗi', en: 'Error'),
+    };
+  }
+
+  String _humanizeAction(BuildContext context, String action) {
+    return switch (action) {
+      'next_question' => context.t(
+        vi: 'Tiếp tục sang câu hỏi tiếp theo',
+        en: 'Continue to the next question',
+      ),
+      'show_hint' => context.t(
+        vi: 'Xem một gợi ý ngắn trước khi làm tiếp',
+        en: 'Review a short hint before continuing',
+      ),
+      'de_stress' || 'recovery' || 'suggest_break' => context.t(
+        vi: 'Chuyển sang nhịp học nhẹ hơn để hồi phục',
+        en: 'Switch to a lighter recovery step',
+      ),
+      'hitl_pending' || 'hitl' => context.t(
+        vi: 'Chờ xác nhận cho bước can thiệp tiếp theo',
+        en: 'Wait for confirmation on the next intervention',
+      ),
+      _ => action.replaceAll('_', ' '),
+    };
+  }
+}
+
+class _AgentMissionLoadingCard extends StatelessWidget {
+  const _AgentMissionLoadingCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ZenCard(
+      key: const ValueKey<String>('agent-mission-loading'),
+      radius: GrowMateLayout.cardRadiusLg,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: const [
+          Row(
+            children: [
+              ShimmerCard(height: 36, width: 36, radius: 12),
+              SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    ShimmerText(width: 150, height: 16),
+                    SizedBox(height: 6),
+                    ShimmerText(width: 220, height: 12),
+                  ],
+                ),
+              ),
+              SizedBox(width: 8),
+              ShimmerCard(height: 28, width: 92, radius: 16),
+            ],
+          ),
+          SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              ShimmerCard(height: 36, width: 108, radius: 18),
+              ShimmerCard(height: 36, width: 116, radius: 18),
+            ],
+          ),
+          SizedBox(height: 12),
+          ShimmerText(width: 100, height: 12),
+          SizedBox(height: 8),
+          ShimmerText(width: double.infinity, height: 14),
+          SizedBox(height: 6),
+          ShimmerText(width: 180, height: 14),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionMetricChip extends StatelessWidget {
+  const _MissionMetricChip({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(12),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.center,
+        children: [
+          Text(
+            value,
+            style: theme.textTheme.titleMedium?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.onSurfaceVariant,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionLine extends StatelessWidget {
+  const _MissionLine({required this.title, required this.body});
+
+  final String title;
+  final String body;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.labelMedium?.copyWith(
+            color: colors.onSurfaceVariant,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          body,
+          style: theme.textTheme.bodyMedium?.copyWith(
+            color: colors.onSurface,
+            height: 1.4,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
 class _FeatureHubSection extends StatelessWidget {
   const _FeatureHubSection();
 
@@ -1372,18 +1788,21 @@ class _FeatureHubSection extends StatelessWidget {
         label: context.t(vi: 'Làm bài', en: 'Quiz'),
         color: colors.primary,
         route: AppRoutes.quiz,
+        availability: FeatureAvailability.server,
       ),
       _FeatureShortcutData(
         icon: Icons.refresh_rounded,
         label: context.t(vi: 'Ôn tập', en: 'Review'),
         color: colors.tertiary,
         route: AppRoutes.spacedReview,
+        availability: FeatureAvailability.server,
       ),
       _FeatureShortcutData(
         icon: Icons.timer_rounded,
         label: context.t(vi: 'Tập trung', en: 'Focus'),
         color: const Color(0xFF2563EB),
         route: AppRoutes.focusTimer,
+        availability: FeatureAvailability.server,
       ),
     ];
 
@@ -1393,30 +1812,35 @@ class _FeatureHubSection extends StatelessWidget {
         label: context.t(vi: 'Lộ trình', en: 'Roadmap'),
         color: const Color(0xFF0EA5E9),
         route: AppRoutes.thptRoadmap,
+        availability: FeatureAvailability.beta,
       ),
       _FeatureShortcutData(
         icon: Icons.calendar_month_rounded,
         label: context.t(vi: 'Lịch học', en: 'Schedule'),
         color: const Color(0xFFF59E0B),
         route: AppRoutes.schedule,
+        availability: FeatureAvailability.beta,
       ),
       _FeatureShortcutData(
         icon: Icons.groups_rounded,
         label: context.t(vi: 'So tài', en: 'Versus'),
         color: const Color(0xFF10B981),
         route: AppRoutes.multiplayer,
+        availability: FeatureAvailability.requiresBackend,
       ),
       _FeatureShortcutData(
         icon: Icons.spa_rounded,
         label: context.t(vi: 'Thư giãn', en: 'Relax'),
         color: const Color(0xFF14B8A6),
         route: AppRoutes.mindfulBreak,
+        availability: FeatureAvailability.beta,
       ),
       _FeatureShortcutData(
         icon: Icons.pets_rounded,
         label: context.t(vi: 'Linh vật', en: 'Mascot'),
         color: const Color(0xFF8B5CF6),
         route: AppRoutes.mascotSelection,
+        availability: FeatureAvailability.beta,
       ),
     ];
 
@@ -1467,15 +1891,7 @@ class _FeatureHubSection extends StatelessWidget {
                   color: colors.onSurface,
                 ),
               ),
-              subtitle: Text(
-                context.t(
-                  vi: 'Lộ trình, lịch học, đấu đôi, linh vật...',
-                  en: 'Roadmap, schedule, versus, mascot...',
-                ),
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
-                ),
-              ),
+              // Đã xóa subtitle nhỏ dưới tên mục công thức theo yêu cầu
               children: [
                 const SizedBox(height: GrowMateLayout.space8),
                 Wrap(
@@ -1503,12 +1919,14 @@ class _FeatureShortcutData {
     required this.label,
     required this.color,
     required this.route,
+    this.availability = FeatureAvailability.server,
   });
 
   final IconData icon;
   final String label;
   final Color color;
   final String route;
+  final FeatureAvailability availability;
 }
 
 class _FeatureShortcutChip extends StatelessWidget {
@@ -1552,6 +1970,8 @@ class _FeatureShortcutChip extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
+              const SizedBox(width: 8),
+              // FeatureAvailabilityBadge removed as per UI cleanup request
             ],
           ),
         ),

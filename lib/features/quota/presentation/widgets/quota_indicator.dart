@@ -2,8 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../../../app/i18n/build_context_i18n.dart';
-import '../cubit/quota_cubit.dart';
-import '../cubit/quota_state.dart';
+import '../../../chat/presentation/cubit/chat_quota_cubit.dart';
+import '../../../chat/presentation/cubit/chat_quota_state.dart';
 
 /// Small badge showing remaining chat quota (e.g. "💬 15").
 ///
@@ -15,22 +15,9 @@ class QuotaIndicator extends StatelessWidget {
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
 
-    return BlocBuilder<QuotaCubit, QuotaState>(
+    return BlocBuilder<ChatQuotaCubit, ChatQuotaState>(
       builder: (context, state) {
-        if (state is QuotaLoading) {
-          return Container(
-            width: 36,
-            height: 24,
-            alignment: Alignment.center,
-            child: SizedBox(
-              width: 14,
-              height: 14,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            ),
-          );
-        }
-
-        if (state is! QuotaLoaded) {
+        if (state is! ChatQuotaLoaded) {
           return const SizedBox.shrink();
         }
 

@@ -4,7 +4,7 @@ import '../../data/models/quota_status.dart';
 import '../../data/repositories/quota_repository.dart';
 import 'quota_state.dart';
 
-/// Cubit managing the user's daily LLM chat quota.
+/// Cubit managing the learning/session quota from `GET /quota`.
 class QuotaCubit extends Cubit<QuotaState> {
   QuotaCubit({required QuotaRepository repository})
     : _repository = repository,
@@ -31,7 +31,7 @@ class QuotaCubit extends Cubit<QuotaState> {
     emit(QuotaLoaded(quota));
   }
 
-  /// Locally decrement remaining after a chat message is sent.
+  /// Locally decrement remaining after a learning action is consumed.
   void useOne() {
     final current = state;
     if (current is QuotaLoaded) {
@@ -45,7 +45,7 @@ class QuotaCubit extends Cubit<QuotaState> {
     }
   }
 
-  /// Sync quota using the latest `remaining_quota` returned by chatbot API.
+  /// Sync quota using a backend-provided remaining count.
   void syncFromRemaining(int remaining, {int? limit}) {
     final current = state;
 
@@ -83,8 +83,8 @@ class QuotaCubit extends Cubit<QuotaState> {
     emit(QuotaLoaded(quota));
   }
 
-  /// Whether the user can still send chat messages.
-  bool get canChat {
+  /// Whether the user can still continue quota-gated learning flows.
+  bool get canUseLearningFlow {
     final current = state;
     if (current is QuotaLoaded) {
       return !current.quota.isExceeded;

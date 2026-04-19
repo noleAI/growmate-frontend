@@ -4,6 +4,8 @@ import 'package:go_router/go_router.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../app/router/app_routes.dart';
 import '../../../../core/constants/layout.dart';
+import '../../../../shared/models/feature_availability.dart';
+import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../../shared/widgets/zen_card.dart';
 import '../../../../shared/widgets/zen_page_container.dart';
 import '../../data/models/app_notification.dart';
@@ -142,6 +144,14 @@ class _NotificationPageState extends State<NotificationPage> {
               ),
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: GrowMateLayout.space12),
+            FeatureAvailabilityBanner(
+              availability: FeatureAvailability.beta,
+              message: context.t(
+                vi: 'Notifications hien dang duoc quan ly local. Khong nen xem day la backend proof trong ban demo.',
+                en: 'Notifications are currently managed locally. Do not treat this screen as backend proof in the demo.',
               ),
             ),
             const SizedBox(height: GrowMateLayout.space12),

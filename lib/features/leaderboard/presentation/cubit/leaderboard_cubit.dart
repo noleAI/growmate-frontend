@@ -129,6 +129,9 @@ class LeaderboardCubit extends Cubit<LeaderboardState> {
           ),
         );
       }
+      if (state.rankingStatus == LeaderboardLoadStatus.success) {
+        await loadLeaderboard(period: state.selectedPeriod);
+      }
       return response;
     } catch (_) {
       return null;

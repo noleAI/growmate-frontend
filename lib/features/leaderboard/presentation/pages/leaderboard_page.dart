@@ -2,11 +2,14 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
+import 'package:go_router/go_router.dart';
 
+import '../../../../app/router/app_routes.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
 import '../../../../shared/widgets/bottom_nav_bar.dart';
 import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
+import '../../../../shared/widgets/zen_empty_state.dart';
 import '../../../../shared/widgets/shimmer/shimmer_text.dart';
 import '../cubit/leaderboard_cubit.dart';
 import '../cubit/leaderboard_state.dart';
@@ -184,16 +187,7 @@ class _RankingTab extends StatelessWidget {
           if (state.entries.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Text(
-                context.t(
-                  vi: 'Chưa có dữ liệu bảng xếp hạng.',
-                  en: 'No leaderboard data yet.',
-                ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-                textAlign: TextAlign.center,
-              ),
+              child: const _EmptyLeaderboardCard(),
             ),
           if (state.entries.length >= 3) ...[
             TopThreePodium(entries: state.entries.take(3).toList()),
@@ -276,15 +270,21 @@ class _BadgesTab extends StatelessWidget {
           if (state.badges.isEmpty)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 24),
-              child: Text(
-                context.t(
-                  vi: 'Chưa có dữ liệu huy hiệu.',
-                  en: 'No badge data yet.',
+              child: ZenEmptyState(
+                icon: Icons.workspace_premium_outlined,
+                title: context.t(
+                  vi: 'Chưa có huy hiệu nào hiển thị',
+                  en: 'No badges to show yet',
                 ),
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                subtitle: context.t(
+                  vi: 'Tiếp tục làm quiz và tích XP để mở khóa các mốc thành tựu đầu tiên.',
+                  en: 'Keep taking quizzes and earning XP to unlock your first milestones.',
                 ),
-                textAlign: TextAlign.center,
+                primaryLabel: context.t(
+                  vi: 'Làm quiz ngay',
+                  en: 'Start a quiz',
+                ),
+                onPrimaryPressed: () => context.go(AppRoutes.quiz),
               ),
             )
           else
@@ -317,6 +317,28 @@ class _LeaderboardLoadingPane extends StatelessWidget {
           ShimmerText(width: double.infinity, height: 12),
         ],
       ),
+    );
+  }
+}
+
+class _EmptyLeaderboardCard extends StatelessWidget {
+  const _EmptyLeaderboardCard();
+
+  @override
+  Widget build(BuildContext context) {
+    return ZenEmptyState(
+      icon: Icons.emoji_events_outlined,
+      title: context.t(
+        vi: 'Bảng xếp hạng đang chờ người mở màn',
+        en: 'The leaderboard is waiting for its first entry',
+      ),
+      subtitle: context.t(
+        vi: 'Làm một bài quiz để tích XP và xuất hiện trên bảng xếp hạng.',
+        en: 'Take a quiz to earn XP and show up on the leaderboard.',
+      ),
+      primaryLabel: context.t(vi: 'Làm quiz ngay', en: 'Start a quiz'),
+      onPrimaryPressed: () => context.go(AppRoutes.quiz),
+      centered: true,
     );
   }
 }

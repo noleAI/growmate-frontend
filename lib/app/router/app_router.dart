@@ -32,9 +32,9 @@ import '../../features/privacy/presentation/pages/privacy_policy_page.dart';
 import '../../features/privacy/presentation/pages/terms_of_service_page.dart';
 import '../../features/leaderboard/presentation/pages/leaderboard_page.dart';
 import '../../features/chat/presentation/pages/chat_page.dart';
-import '../../features/multiplayer/presentation/pages/create_room_page.dart';
 import '../../features/mascot/presentation/pages/mascot_selection_page.dart';
 import '../../features/focus/presentation/pages/focus_timer_page.dart';
+import '../../features/agentic_glossary/presentation/pages/agentic_glossary_page.dart';
 import '../../features/agentic_session/presentation/pages/reasoning_dashboard_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_welcome_page.dart';
 import '../../features/onboarding/presentation/pages/onboarding_goal_page.dart';
@@ -375,6 +375,10 @@ class AppRouter {
         },
       ),
       GoRoute(
+        path: AppRoutes.agenticGlossary,
+        builder: (context, state) => const AgenticGlossaryPage(),
+      ),
+      GoRoute(
         path: quizPath,
         builder: (context, state) {
           return QuizPage(
@@ -484,7 +488,11 @@ class AppRouter {
       ),
       GoRoute(
         path: AppRoutes.multiplayer,
-        builder: (context, state) => const CreateRoomPage(),
+        builder: (context, state) => const _FeatureGatePage(
+          title: 'Multiplayer',
+          message:
+              'This screen is not wired to the deployed backend yet. Keep it outside the hackathon demo flow until the room service is live.',
+        ),
       ),
       GoRoute(
         path: AppRoutes.mascotSelection,
@@ -666,6 +674,61 @@ class _RouteDataErrorPage extends StatelessWidget {
                 style: theme.textTheme.bodyMedium,
               ),
             ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _FeatureGatePage extends StatelessWidget {
+  const _FeatureGatePage({required this.title, required this.message});
+
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Scaffold(
+      appBar: AppBar(title: Text(title)),
+      body: Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: ConstrainedBox(
+            constraints: const BoxConstraints(maxWidth: 520),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Container(
+                  width: 64,
+                  height: 64,
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.errorContainer,
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Icon(
+                    Icons.cloud_off_rounded,
+                    color: theme.colorScheme.error,
+                    size: 32,
+                  ),
+                ),
+                const SizedBox(height: 16),
+                Text(
+                  title,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Text(
+                  message,
+                  textAlign: TextAlign.center,
+                  style: theme.textTheme.bodyLarge?.copyWith(height: 1.45),
+                ),
+              ],
+            ),
           ),
         ),
       ),

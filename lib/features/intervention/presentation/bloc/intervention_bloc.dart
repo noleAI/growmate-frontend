@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../../../shared/utils/backend_text.dart';
 import '../../../inspection/domain/inspection_runtime_store.dart';
 import '../../../notification/data/repositories/notification_repository.dart';
 import '../../data/repositories/intervention_repository.dart';
@@ -67,7 +68,10 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     final initialMode = finalMode == 'recovery'
         ? InterventionMode.recovery
         : InterventionMode.academic;
-    final options = _buildOptionsFromBackend(_backendInterventionPlan);
+    final options = _buildOptionsFromBackend(
+      backendPlan: _backendInterventionPlan,
+      mode: initialMode,
+    );
 
     emit(
       state.copyWith(
@@ -284,14 +288,17 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     }
   }
 
-  List<InterventionOption> _buildOptionsFromBackend(
-    List<Map<String, dynamic>> backendPlan,
-  ) {
+  List<InterventionOption> _buildOptionsFromBackend({
+    required List<Map<String, dynamic>> backendPlan,
+    required InterventionMode mode,
+  }) {
     final mapped = backendPlan
         .map((item) {
           final metadata = Map<String, dynamic>.from(item);
-          final id = item['id']?.toString() ?? '';
-          final title = item['title']?.toString() ?? '';
+          final id = repairAndCollapseText(
+            item['id']?.toString() ?? item['interventionId']?.toString() ?? '',
+          );
+          final title = repairAndCollapseText(item['title']?.toString() ?? '');
           final type = item['type']?.toString() ?? 'general';
           if (id.isEmpty || title.isEmpty) {
             return null;
@@ -310,15 +317,82 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
 
     if (mapped.isEmpty) {
       _inspectionRuntimeStore.addDecision(
-        action: 'Intervention Options Missing',
-        reason: 'Backend returned no intervention options.',
+        action: 'Intervention Options Fallback',
+        reason:
+            'Backend returned no usable intervention options. Switching to a safe local fallback.',
         source: 'intervention',
       );
 
-      return const <InterventionOption>[];
+      return _buildLocalFallbackOptions(mode);
     }
 
     return mapped;
+  }
+
+  List<InterventionOption> _buildLocalFallbackOptions(InterventionMode mode) {
+    if (mode == InterventionMode.recovery) {
+      return <InterventionOption>[
+        InterventionOption(
+          id: 'local_recovery_break',
+          label: isEnglish
+              ? 'Take a short recovery break'
+              : 'Nghỉ ngắn để lấy lại nhịp học',
+          type: 'recovery',
+          metadata: <String, dynamic>{
+            'topic': nextSuggestedTopic ?? 'derivative',
+            'nextAction': isEnglish
+                ? 'Resume with one easier question'
+                : 'Quay lại bằng một câu dễ hơn',
+            'durationMinutes': 5,
+          },
+        ),
+        InterventionOption(
+          id: 'local_recovery_notation',
+          label: isEnglish
+              ? 'Check notation before continuing'
+              : 'Soát lại ký hiệu trước khi làm tiếp',
+          type: 'review',
+          metadata: <String, dynamic>{
+            'topic': nextSuggestedTopic ?? 'derivative',
+            'nextAction': isEnglish
+                ? 'Review one worked example'
+                : 'Xem lại một ví dụ mẫu ngắn',
+            'durationMinutes': 6,
+          },
+        ),
+      ];
+    }
+
+    return <InterventionOption>[
+      InterventionOption(
+        id: 'local_review_rules',
+        label: isEnglish
+            ? 'Review core rules briefly'
+            : 'Ôn nhanh quy tắc trọng tâm',
+        type: 'review',
+        metadata: <String, dynamic>{
+          'topic': nextSuggestedTopic ?? 'derivative',
+          'nextAction': isEnglish
+              ? 'Revisit one key rule set'
+              : 'Xem lại nhóm công thức chính',
+          'durationMinutes': 8,
+        },
+      ),
+      InterventionOption(
+        id: 'local_practice_light',
+        label: isEnglish
+            ? 'Do a lighter practice set'
+            : 'Làm bộ câu luyện tập nhẹ',
+        type: 'practice',
+        metadata: <String, dynamic>{
+          'topic': nextSuggestedTopic ?? 'derivative',
+          'nextAction': isEnglish
+              ? 'Practice 3 gentler questions'
+              : 'Luyện thêm 3 câu vừa sức',
+          'durationMinutes': 10,
+        },
+      ),
+    ];
   }
 
   static String? _firstNonEmpty(Iterable<String?> values) {
@@ -407,7 +481,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
     required String type,
   }) {
     if (!isEnglish) {
-      return title;
+      return repairAndCollapseText(title);
     }
 
     final lowerId = id.toLowerCase();
@@ -428,7 +502,7 @@ class InterventionBloc extends Bloc<InterventionEvent, InterventionState> {
       return 'Review core concepts gently';
     }
 
-    return title;
+    return repairAndCollapseText(title);
   }
 
   String _selectionToastMessage({

@@ -22,7 +22,10 @@ import '../../features/offline/data/repositories/offline_mode_repository.dart';
 import '../../features/privacy/data/repositories/privacy_repository.dart';
 import '../../features/session/data/repositories/session_history_repository.dart';
 import '../../shared/widgets/bottom_nav_bar.dart';
+import '../../shared/models/feature_availability.dart';
 import '../../shared/widgets/nav_tab_routing.dart';
+import '../../shared/widgets/feature_availability_badge.dart';
+import '../../shared/widgets/zen_screen_header.dart';
 import '../../shared/widgets/zen_page_container.dart';
 import '../cubit/profile_cubit.dart';
 
@@ -50,13 +53,14 @@ class _ProfileScreenState extends State<ProfileScreen> {
   final _formKey = GlobalKey<FormState>();
   final _fullNameController = TextEditingController();
 
+  // MVP: Chỉ hiển thị môn Toán. Các môn khác sẽ bổ sung sau.
   static const _subjectOptions = <String>[
     'Toán',
-    'Vật lý',
-    'Hóa học',
-    'Sinh học',
-    'Ngữ văn',
-    'Tiếng Anh',
+    // 'Vật lý',
+    // 'Hóa học',
+    // 'Sinh học',
+    // 'Ngữ văn',
+    // 'Tiếng Anh',
   ];
 
   static const _gradeOptions = <String>[
@@ -207,6 +211,21 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
+  List<Color> _palettePreviewColors(AppColorPalette palette) {
+    switch (palette) {
+      case AppColorPalette.greenYellow:
+        return const [Color(0xFF73C66B), Color(0xFFE6D65B)];
+      case AppColorPalette.blueWhite:
+        return const [Color(0xFF5A94FF), Color(0xFFE9F2FF)];
+      case AppColorPalette.sunsetPeach:
+        return const [Color(0xFFF29A76), Color(0xFFFEDFCB)];
+      case AppColorPalette.mintCream:
+        return const [Color(0xFF67C8B6), Color(0xFFF1FCEB)];
+      case AppColorPalette.oceanSlate:
+        return const [Color(0xFF3E5D86), Color(0xFF9AB2C9)];
+    }
+  }
+
   @override
   void initState() {
     super.initState();
@@ -239,6 +258,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
       }
 
       setState(() {
+        if ((backendProfile.displayName ?? '').trim().isNotEmpty) {
+          _fullNameController.text = backendProfile.displayName!.trim();
+        }
         _studyGoal = _sanitizeStudyGoal(backendProfile.studyGoal);
         _dailyMinutes = backendProfile.dailyMinutes.clamp(5, 180);
         _userLevel = backendProfile.userLevel;
@@ -262,13 +284,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
   }
 
-  Future<void> _saveBackendProfile() async {
+  Future<void> _saveBackendProfile([UserProfile? sourceProfile]) async {
     final repository = widget.backendProfileRepository;
     if (repository == null) {
       return;
     }
 
     final updated = await repository.updateProfile(
+      displayName: _fullNameController.text.trim(),
+      avatarUrl: sourceProfile?.avatarUrl,
       studyGoal: _sanitizeStudyGoal(_studyGoal),
       dailyMinutes: _dailyMinutes.clamp(5, 180),
     );
@@ -282,6 +306,9 @@ class _ProfileScreenState extends State<ProfileScreen> {
     }
 
     setState(() {
+      if ((updated.displayName ?? '').trim().isNotEmpty) {
+        _fullNameController.text = updated.displayName!.trim();
+      }
       _studyGoal = _sanitizeStudyGoal(updated.studyGoal);
       _dailyMinutes = updated.dailyMinutes.clamp(5, 180);
       _userLevel = updated.userLevel;
@@ -413,20 +440,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
               includeBottomSafeArea: false,
               child: ListView(
                 children: [
-                  _buildSectionHeader(
-                    title: _isSettingsSection
-                        ? context.t(vi: 'Cài đặt', en: 'Settings')
-                        : context.t(vi: 'Hồ sơ', en: 'Profile'),
-                    subtitle: _isSettingsSection
-                        ? context.t(
-                            vi: 'Quyền riêng tư, thông báo và cấu hình.',
-                            en: 'Privacy, notifications, and preferences.',
-                          )
-                        : context.t(
-                            vi: 'Cá nhân hóa để AI hỗ trợ tốt hơn.',
-                            en: 'Personalize for better AI support.',
-                          ),
-                  ),
+                  _buildSectionHeader(profile: profile),
                   const SizedBox(height: GrowMateLayout.sectionGap),
                   if (profile == null && state is ProfileLoading)
                     _CalmCard(
@@ -521,25 +535,92 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
-  Widget _buildSectionHeader({
-    required String title,
-    required String subtitle,
-  }) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+  Widget _buildSectionHeader({UserProfile? profile}) {
+    return ZenScreenHeader(
+      eyebrow: _isSettingsSection
+          ? context.t(vi: 'Tùy chỉnh trải nghiệm', en: 'Tune your experience')
+          : context.t(vi: 'Hồ sơ học tập', en: 'Learning profile'),
+      title: _isSettingsSection
+          ? context.t(vi: 'Cài đặt', en: 'Settings')
+          : context.t(vi: 'Hồ sơ', en: 'Profile'),
+      subtitle: _isSettingsSection
+          ? context.t(
+              vi: 'Quyền riêng tư, thông báo và cấu hình để ứng dụng hợp với nhịp học của bạn.',
+              en: 'Privacy, notifications, and app preferences tuned to your study rhythm.',
+            )
+          : context.t(
+              vi: 'Cá nhân hóa mục tiêu, cường độ và sở thích để AI hỗ trợ chính xác hơn.',
+              en: 'Personalize your goals, pace, and preferences so AI can support you more accurately.',
+            ),
+      icon: _isSettingsSection ? Icons.tune_rounded : Icons.person_rounded,
+      chips: _isSettingsSection
+          ? <ZenHeaderChipData>[
+              ZenHeaderChipData(
+                label: context.t(
+                  vi: 'Giao diện và bảng màu',
+                  en: 'Theme and palette',
+                ),
+                icon: Icons.palette_outlined,
+              ),
+              ZenHeaderChipData(
+                label: context.t(
+                  vi: 'Quyền riêng tư và thông báo',
+                  en: 'Privacy and alerts',
+                ),
+                icon: Icons.shield_outlined,
+              ),
+            ]
+          : <ZenHeaderChipData>[
+              ZenHeaderChipData(
+                label:
+                    '${_dailyMinutes.toString()} ${context.t(vi: 'phút/ngày', en: 'min/day')}',
+                icon: Icons.schedule_rounded,
+              ),
+              ZenHeaderChipData(
+                label: _toTierLabel(_subscriptionTier),
+                icon: Icons.workspace_premium_rounded,
+              ),
+            ],
+      trailing: _isSettingsSection ? null : _buildHeaderAvatar(profile),
+    );
+  }
 
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(title, style: theme.textTheme.headlineLarge),
-        const SizedBox(height: GrowMateLayout.space8),
-        Text(
-          subtitle,
-          style: theme.textTheme.bodyLarge?.copyWith(
-            color: colors.onSurfaceVariant,
-          ),
-        ),
-      ],
+  Widget _buildHeaderAvatar(UserProfile? profile) {
+    final theme = Theme.of(context);
+    final name = (profile?.fullName != null && profile!.fullName.isNotEmpty)
+        ? profile.fullName
+        : context.t(vi: 'Bạn', en: 'You');
+    final avatarUrl = profile?.avatarUrl;
+    final initials = name.trim().isEmpty
+        ? ''
+        : name
+              .trim()
+              .split(' ')
+              .map((s) => s.isNotEmpty ? s[0] : '')
+              .take(2)
+              .join();
+
+    return Container(
+      width: 56,
+      height: 56,
+      decoration: BoxDecoration(
+        color: theme.colorScheme.primaryContainer.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: avatarUrl != null && avatarUrl.isNotEmpty
+          ? ClipRRect(
+              borderRadius: BorderRadius.circular(18),
+              child: Image.network(avatarUrl, fit: BoxFit.cover),
+            )
+          : Center(
+              child: Text(
+                initials,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: theme.colorScheme.onPrimaryContainer,
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
     );
   }
 
@@ -589,7 +670,7 @@ class _ProfileScreenState extends State<ProfileScreen> {
                 var backendSynced = true;
                 if (widget.backendProfileRepository != null) {
                   try {
-                    await _saveBackendProfile();
+                    await _saveBackendProfile(profile);
                   } catch (_) {
                     backendSynced = false;
                   }
@@ -895,6 +976,15 @@ class _ProfileScreenState extends State<ProfileScreen> {
             subtitle: context.t(
               vi: 'Đồng bộ với backend để gợi ý lộ trình chính xác trên mọi thiết bị.',
               en: 'Synced with backend to keep recommendations consistent across devices.',
+            ),
+          ),
+          const SizedBox(height: GrowMateLayout.contentGap),
+          Align(
+            alignment: Alignment.centerLeft,
+            child: FeatureAvailabilityBadge(
+              availability: hasBackendRepo
+                  ? FeatureAvailability.server
+                  : FeatureAvailability.localFallback,
             ),
           ),
           const SizedBox(height: GrowMateLayout.contentGap),
@@ -1497,6 +1587,36 @@ class _ProfileScreenState extends State<ProfileScreen> {
                         style: Theme.of(context).textTheme.bodySmall?.copyWith(
                           color: theme.colorScheme.onSurfaceVariant,
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 10),
+                    Padding(
+                      padding: const EdgeInsets.only(left: settingContentInset),
+                      child: Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: AppColorPalette.values
+                            .map(
+                              (option) => Container(
+                                width: 30,
+                                height: 30,
+                                decoration: BoxDecoration(
+                                  borderRadius: BorderRadius.circular(999),
+                                  border: Border.all(
+                                    color: option == palette
+                                        ? theme.colorScheme.primary
+                                        : theme.colorScheme.outlineVariant,
+                                    width: option == palette ? 2 : 1,
+                                  ),
+                                  gradient: LinearGradient(
+                                    begin: Alignment.topLeft,
+                                    end: Alignment.bottomRight,
+                                    colors: _palettePreviewColors(option),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
                       ),
                     ),
                   ],

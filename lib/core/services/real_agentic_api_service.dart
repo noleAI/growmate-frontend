@@ -33,7 +33,7 @@ class RealAgenticApiService implements AgenticApiService {
 
   bool _isRefreshing = false;
 
-  String get _baseUrl => ApiConfig.restApiBaseUrl;
+  String get _baseUrl => ApiConfig.agenticApiBaseUrl;
 
   // ─── Session ───────────────────────────────────────────────────────────
 
