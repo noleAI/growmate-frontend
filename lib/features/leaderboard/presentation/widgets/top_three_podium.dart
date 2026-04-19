@@ -42,48 +42,55 @@ class _TopThreePodiumState extends State<TopThreePodium>
     final second = widget.entries[1];
     final third = widget.entries[2];
 
-    return SizedBox(
-      height: 180,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          // 2nd place
-          Expanded(
-            child: _PodiumColumn(
-              entry: second,
-              height: 110,
-              medal: '🥈',
-              medalColor: const Color(0xFFC0C0C0),
-              theme: theme,
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 18, 12, 16),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.45),
+        ),
+      ),
+      child: SizedBox(
+        height: 220,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
+          children: [
+            Expanded(
+              child: _PodiumColumn(
+                entry: second,
+                height: 118,
+                medal: '🥈',
+                medalColor: const Color(0xFFC0C0C0),
+                theme: theme,
+              ),
             ),
-          ),
-          // 1st place — tallest + shimmer
-          Expanded(
-            child: AnimatedBuilder(
-              animation: _shimmerController,
-              builder: (context, child) {
-                return _PodiumColumn(
-                  entry: first,
-                  height: 145,
-                  medal: '🥇',
-                  medalColor: const Color(0xFFFFD700),
-                  theme: theme,
-                  shimmerValue: _shimmerController.value,
-                );
-              },
+            Expanded(
+              child: AnimatedBuilder(
+                animation: _shimmerController,
+                builder: (context, child) {
+                  return _PodiumColumn(
+                    entry: first,
+                    height: 156,
+                    medal: '🥇',
+                    medalColor: const Color(0xFFFFD700),
+                    theme: theme,
+                    shimmerValue: _shimmerController.value,
+                  );
+                },
+              ),
             ),
-          ),
-          // 3rd place
-          Expanded(
-            child: _PodiumColumn(
-              entry: third,
-              height: 90,
-              medal: '🥉',
-              medalColor: const Color(0xFFCD7F32),
-              theme: theme,
+            Expanded(
+              child: _PodiumColumn(
+                entry: third,
+                height: 100,
+                medal: '🥉',
+                medalColor: const Color(0xFFCD7F32),
+                theme: theme,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -111,22 +118,35 @@ class _PodiumColumn extends StatelessWidget {
     final shimmer = shimmerValue;
     final glowOpacity = shimmer != null ? 0.2 + shimmer * 0.4 : 0.0;
     final barFactor = (height / 145).clamp(0.55, 1.0);
+    final colors = theme.colorScheme;
 
     return Column(
       mainAxisAlignment: MainAxisAlignment.end,
       children: [
         Text(medal, style: const TextStyle(fontSize: 28)),
         const SizedBox(height: 4),
-        Text(
-          entry.displayName.split(' ').last,
-          style: theme.textTheme.labelSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+        CircleAvatar(
+          radius: 22,
+          backgroundColor: medalColor.withValues(alpha: 0.16),
+          child: Text(
+            entry.initials,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w800,
+            ),
           ),
-          maxLines: 1,
+        ),
+        const SizedBox(height: 8),
+        Text(
+          entry.safeDisplayName,
+          style: theme.textTheme.bodySmall?.copyWith(
+            fontWeight: FontWeight.w800,
+          ),
+          maxLines: 2,
           overflow: TextOverflow.ellipsis,
           textAlign: TextAlign.center,
         ),
-        const SizedBox(height: 2),
+        const SizedBox(height: 4),
         Text(
           '${entry.weeklyXp} XP',
           style: theme.textTheme.labelSmall?.copyWith(
@@ -143,9 +163,16 @@ class _PodiumColumn extends StatelessWidget {
               child: Container(
                 margin: const EdgeInsets.symmetric(horizontal: 4),
                 decoration: BoxDecoration(
-                  color: medalColor.withValues(alpha: 0.2),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      medalColor.withValues(alpha: 0.22),
+                      medalColor.withValues(alpha: 0.08),
+                    ],
+                  ),
                   borderRadius: const BorderRadius.vertical(
-                    top: Radius.circular(12),
+                    top: Radius.circular(18),
                   ),
                   border: Border.all(
                     color: medalColor.withValues(alpha: 0.5),
@@ -162,12 +189,25 @@ class _PodiumColumn extends StatelessWidget {
                       : null,
                 ),
                 alignment: Alignment.center,
-                child: Text(
-                  '${entry.rank}',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    color: medalColor,
-                    fontWeight: FontWeight.w900,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      '#${entry.rank}',
+                      style: theme.textTheme.headlineSmall?.copyWith(
+                        color: medalColor,
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (entry.currentStreak > 0)
+                      Text(
+                        '🔥 ${entry.currentStreak}',
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),

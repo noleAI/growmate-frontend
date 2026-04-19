@@ -16,6 +16,8 @@ class ChatMessage {
     this.imageUrl,
     this.imageMimeType,
     this.imageName,
+    this.processingSummary,
+    this.processingTags = const [],
   });
 
   final String id;
@@ -40,6 +42,12 @@ class ChatMessage {
   final String? imageMimeType;
   final String? imageName;
 
+  /// Backend-provided processing summary for the assistant reply.
+  final String? processingSummary;
+
+  /// Backend-provided processing badges that explain what was used.
+  final List<String> processingTags;
+
   ChatMessage copyWith({
     String? id,
     ChatRole? role,
@@ -53,6 +61,8 @@ class ChatMessage {
     String? imageUrl,
     String? imageMimeType,
     String? imageName,
+    String? processingSummary,
+    List<String>? processingTags,
   }) {
     return ChatMessage(
       id: id ?? this.id,
@@ -67,6 +77,8 @@ class ChatMessage {
       imageUrl: imageUrl ?? this.imageUrl,
       imageMimeType: imageMimeType ?? this.imageMimeType,
       imageName: imageName ?? this.imageName,
+      processingSummary: processingSummary ?? this.processingSummary,
+      processingTags: processingTags ?? this.processingTags,
     );
   }
 }

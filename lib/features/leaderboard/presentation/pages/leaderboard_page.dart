@@ -11,6 +11,7 @@ import '../../../../shared/widgets/nav_tab_routing.dart';
 import '../../../../shared/widgets/zen_error_card.dart';
 import '../../../../shared/widgets/zen_empty_state.dart';
 import '../../../../shared/widgets/shimmer/shimmer_text.dart';
+import '../../data/models/leaderboard_entry.dart';
 import '../cubit/leaderboard_cubit.dart';
 import '../cubit/leaderboard_state.dart';
 import '../widgets/badge_showcase_grid.dart';
@@ -38,6 +39,14 @@ class _LeaderboardView extends StatefulWidget {
 class _LeaderboardViewState extends State<_LeaderboardView>
     with SingleTickerProviderStateMixin {
   late final TabController _tabController;
+
+  static String _periodLabel(BuildContext context, String period) {
+    return switch (period) {
+      'monthly' => context.t(vi: 'Tháng này', en: 'This month'),
+      'all_time' => context.t(vi: 'Tổng tích lũy', en: 'All time'),
+      _ => context.t(vi: 'Tuần này', en: 'This week'),
+    };
+  }
 
   @override
   void initState() {
@@ -81,14 +90,39 @@ class _LeaderboardViewState extends State<_LeaderboardView>
     return Scaffold(
       backgroundColor: theme.scaffoldBackgroundColor,
       appBar: AppBar(
-        title: Text(
-          context.t(vi: '🏆 Bảng Xếp Hạng', en: '🏆 Leaderboard'),
-          style: theme.textTheme.titleLarge?.copyWith(
-            fontWeight: FontWeight.w800,
-          ),
+        titleSpacing: 16,
+        elevation: 0,
+        title: Row(
+          children: [
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: theme.colorScheme.primaryContainer.withValues(
+                  alpha: 0.9,
+                ),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              child: Icon(
+                Icons.emoji_events_rounded,
+                color: theme.colorScheme.primary,
+                size: 20,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                context.t(vi: 'Bảng Xếp Hạng', en: 'Leaderboard'),
+                style: theme.textTheme.titleLarge?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+          ],
         ),
         bottom: TabBar(
           controller: _tabController,
+          indicatorSize: TabBarIndicatorSize.label,
           tabs: [
             Tab(
               text: context.t(vi: 'Bảng xếp hạng', en: 'Leaderboard'),
@@ -138,6 +172,11 @@ class _RankingTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final remainingEntries = state.entries
+        .skip(state.entries.length >= 3 ? 3 : 0)
+        .toList(growable: false);
+    final topEntry = state.entries.isNotEmpty ? state.entries.first : null;
+
     if (state.isRankingLoading && state.entries.isEmpty) {
       return const _LeaderboardLoadingPane();
     }
@@ -166,6 +205,15 @@ class _RankingTab extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 16, 16, 100),
         children: [
+          _LeaderboardHeroCard(
+            periodLabel: _LeaderboardViewState._periodLabel(
+              context,
+              state.selectedPeriod,
+            ),
+            myEntry: state.myRank,
+            topEntry: topEntry,
+          ),
+          const SizedBox(height: 16),
           if (state.isRankingFailed) ...[
             ZenErrorCard(
               message: context.t(
@@ -190,17 +238,380 @@ class _RankingTab extends StatelessWidget {
               child: const _EmptyLeaderboardCard(),
             ),
           if (state.entries.length >= 3) ...[
+            _SectionCaption(
+              title: context.t(vi: 'Top 3 nổi bật', en: 'Featured top 3'),
+              subtitle: context.t(
+                vi: 'Ba người đang dẫn đầu nhịp học hiện tại',
+                en: 'Three learners leading this cycle',
+              ),
+            ),
+            const SizedBox(height: 12),
             TopThreePodium(entries: state.entries.take(3).toList()),
             const SizedBox(height: 20),
           ],
-          ...state.entries
-              .skip(state.entries.length >= 3 ? 3 : 0)
-              .map(
-                (entry) => LeaderboardCard(
-                  entry: entry,
-                  isMe: entry.userId == myUserId,
+          if (state.entries.length >= 3) ...[
+            _SectionCaption(
+              title: context.t(vi: 'Bảng chi tiết', en: 'Detailed board'),
+              subtitle: context.t(
+                vi: 'Danh sách từ hạng 4 trở xuống',
+                en: 'Ranks from 4 downward',
+              ),
+            ),
+            const SizedBox(height: 12),
+          ],
+          if (remainingEntries.isEmpty && state.entries.length >= 3)
+            _RemainingRanksEmptyCard(
+              message: context.t(
+                vi: 'Hiện mới có đủ dữ liệu cho top 3. Khi có thêm người chơi, danh sách từ hạng 4 sẽ hiện ở đây.',
+                en: 'Only the top 3 is available for now. When more players appear, ranks 4 and below will show here.',
+              ),
+            )
+          else
+            ...remainingEntries.map(
+              (entry) =>
+                  LeaderboardCard(entry: entry, isMe: entry.userId == myUserId),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RemainingRanksEmptyCard extends StatelessWidget {
+  const _RemainingRanksEmptyCard({required this.message});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 14, 14, 14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.6),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(
+              Icons.people_alt_rounded,
+              color: colors.primary,
+              size: 18,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: colors.onSurfaceVariant,
+                height: 1.4,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SectionCaption extends StatelessWidget {
+  const _SectionCaption({required this.title, required this.subtitle});
+
+  final String title;
+  final String subtitle;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(
+          title,
+          style: theme.textTheme.titleMedium?.copyWith(
+            color: colors.onSurface,
+            fontWeight: FontWeight.w800,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          subtitle,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+            height: 1.35,
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+class _LeaderboardHeroCard extends StatelessWidget {
+  const _LeaderboardHeroCard({
+    required this.periodLabel,
+    required this.myEntry,
+    required this.topEntry,
+  });
+
+  final String periodLabel;
+  final LeaderboardEntry? myEntry;
+  final LeaderboardEntry? topEntry;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    final stats = <({IconData icon, String label, String value})>[
+      (
+        icon: Icons.emoji_events_outlined,
+        label: context.t(vi: 'Người dẫn đầu', en: 'Top player'),
+        value:
+            topEntry?.safeDisplayName ?? context.t(vi: 'Chưa có', en: 'None'),
+      ),
+      (
+        icon: Icons.military_tech_outlined,
+        label: context.t(vi: 'Hạng của bạn', en: 'Your rank'),
+        value: myEntry != null
+            ? '#${myEntry!.rank}'
+            : context.t(vi: 'Chưa vào bảng', en: 'Unranked'),
+      ),
+      (
+        icon: Icons.local_fire_department_outlined,
+        label: context.t(vi: 'Streak hiện tại', en: 'Current streak'),
+        value: myEntry != null
+            ? context.t(
+                vi: '${myEntry!.currentStreak} ngày',
+                en: '${myEntry!.currentStreak} days',
+              )
+            : context.t(vi: '0 ngày', en: '0 days'),
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.62),
+            colors.tertiaryContainer.withValues(alpha: 0.34),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colors.surface.withValues(alpha: 0.82),
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Icon(Icons.insights_rounded, color: colors.primary),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      periodLabel,
+                      style: theme.textTheme.labelLarge?.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      context.t(
+                        vi: 'Theo dõi nhịp tích XP và vị trí của bạn theo từng chu kỳ.',
+                        en: 'Track XP momentum and your position across each cycle.',
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
                 ),
               ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: stats
+                .map(
+                  (item) => _HeroMetricPill(
+                    icon: item.icon,
+                    label: item.label,
+                    value: item.value,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _HeroMetricPill extends StatelessWidget {
+  const _HeroMetricPill({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      constraints: const BoxConstraints(minWidth: 140, maxWidth: 220),
+      padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.76),
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(icon, size: 18, color: colors.primary),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  value,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface,
+                    fontWeight: FontWeight.w800,
+                    height: 1.25,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _BadgeHeroCard extends StatelessWidget {
+  const _BadgeHeroCard({required this.totalBadges, required this.earnedBadges});
+
+  final int totalBadges;
+  final int earnedBadges;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(16, 16, 16, 16),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.secondaryContainer.withValues(alpha: 0.62),
+            colors.primaryContainer.withValues(alpha: 0.28),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.secondary.withValues(alpha: 0.15)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.84),
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Icon(
+              Icons.workspace_premium_rounded,
+              color: colors.secondary,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.t(vi: 'Bộ sưu tập huy hiệu', en: 'Badge collection'),
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: colors.onSurface,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  context.t(
+                    vi: '$earnedBadges/$totalBadges mốc thành tựu đã mở khóa.',
+                    en: '$earnedBadges/$totalBadges milestones unlocked.',
+                  ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    height: 1.35,
+                  ),
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -239,6 +650,11 @@ class _BadgesTab extends StatelessWidget {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 100),
         children: [
+          _BadgeHeroCard(
+            totalBadges: state.badges.length,
+            earnedBadges: state.myBadges.length,
+          ),
+          const SizedBox(height: 16),
           if (state.isBadgesFailed) ...[
             ZenErrorCard(
               message: context.t(

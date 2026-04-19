@@ -15,7 +15,7 @@ class ZenMascot extends StatelessWidget {
     );
     final locale = Localizations.localeOf(context);
     final isEnglish = locale.languageCode == 'en';
-    // TODO: Replace with real state (happy/sad/sleep) from quiz/session
+    // Default to the cheerful mood until session-driven mascot state is wired in.
     final mood = mascot.moods.happy;
     return Column(
       mainAxisSize: MainAxisSize.min,

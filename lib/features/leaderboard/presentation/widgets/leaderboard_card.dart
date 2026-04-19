@@ -13,98 +13,137 @@ class LeaderboardCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final accentColor = isMe ? colors.primary : colors.secondary;
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 250),
-      margin: const EdgeInsets.symmetric(vertical: 3),
+      margin: const EdgeInsets.symmetric(vertical: 5),
       decoration: BoxDecoration(
         color: isMe
             ? colors.primaryContainer.withValues(alpha: 0.35)
             : colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: isMe
-            ? Border.all(
-                color: colors.primary.withValues(alpha: 0.4),
-                width: 1.5,
-              )
-            : null,
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: (isMe ? colors.primary : colors.outlineVariant).withValues(
+            alpha: isMe ? 0.36 : 0.28,
+          ),
+          width: isMe ? 1.4 : 1,
+        ),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
         child: Row(
           children: [
-            // Rank
-            SizedBox(
-              width: 32,
-              child: Text(
-                '#${entry.rank}',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w700,
-                  color: entry.rank <= 3
-                      ? colors.primary
-                      : colors.onSurfaceVariant,
+            Container(
+              width: 42,
+              height: 42,
+              decoration: BoxDecoration(
+                color: accentColor.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Center(
+                child: Text(
+                  '#${entry.rank}',
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
+                    color: accentColor,
+                  ),
+                  textAlign: TextAlign.center,
                 ),
-                textAlign: TextAlign.center,
               ),
             ),
             const SizedBox(width: 10),
-            // Avatar circle
             CircleAvatar(
-              radius: 18,
-              backgroundColor: colors.primaryContainer,
+              radius: 20,
+              backgroundColor: accentColor.withValues(alpha: 0.14),
               child: Text(
-                entry.displayName.isNotEmpty
-                    ? entry.displayName[0].toUpperCase()
-                    : (isMe ? 'T' : '?'),
+                isMe ? entry.initials : entry.initials,
                 style: theme.textTheme.labelLarge?.copyWith(
-                  color: colors.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
+                  color: accentColor,
+                  fontWeight: FontWeight.w800,
                 ),
               ),
             ),
             const SizedBox(width: 10),
-            // Name
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(
-                    isMe
-                        ? (entry.displayName.isNotEmpty
-                              ? '${entry.displayName} (Bạn)'
-                              : 'Bạn')
-                        : entry.displayName,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      fontWeight: isMe ? FontWeight.w700 : FontWeight.w500,
-                    ),
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                  if (entry.currentStreak > 0)
-                    Text(
-                      '🔥 ${entry.currentStreak} ngày',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+                  Row(
+                    children: [
+                      Expanded(
+                        child: Text(
+                          isMe
+                              ? (entry.safeDisplayName.isNotEmpty
+                                    ? '${entry.safeDisplayName} (Bạn)'
+                                    : 'Bạn')
+                              : entry.safeDisplayName,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            fontWeight: isMe
+                                ? FontWeight.w800
+                                : FontWeight.w600,
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
                       ),
-                    ),
+                      if (isMe) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 8,
+                            vertical: 4,
+                          ),
+                          decoration: BoxDecoration(
+                            color: colors.primary.withValues(alpha: 0.12),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: Text(
+                            'Bạn',
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: [
+                      if (entry.currentStreak > 0)
+                        _InfoChip(
+                          icon: Icons.local_fire_department_rounded,
+                          label: '${entry.currentStreak} ngày',
+                          color: Colors.orange,
+                        ),
+                      _InfoChip(
+                        icon: Icons.auto_graph_rounded,
+                        label: '${entry.totalXp} tổng XP',
+                        color: colors.secondary,
+                      ),
+                    ],
+                  ),
                 ],
               ),
             ),
-            // XP
             Column(
               crossAxisAlignment: CrossAxisAlignment.end,
               mainAxisSize: MainAxisSize.min,
               children: [
                 Text(
                   '${entry.weeklyXp}',
-                  style: theme.textTheme.labelLarge?.copyWith(
-                    fontWeight: FontWeight.w700,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
                     color: colors.primary,
                   ),
                 ),
                 Text(
-                  'XP',
+                  'XP kỳ này',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -113,6 +152,45 @@ class LeaderboardCard extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+class _InfoChip extends StatelessWidget {
+  const _InfoChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 12, color: color),
+          const SizedBox(width: 4),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
       ),
     );
   }

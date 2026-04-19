@@ -83,6 +83,11 @@ class RealChatRepository implements ChatRepository {
               ? replyText!
               : 'Mình chưa nhận được phản hồi hợp lệ từ server. Bạn thử lại giúp mình nhé!',
           timestamp: DateTime.now(),
+          nextNodeType: data['next_node_type']?.toString(),
+          planRepaired: _toBool(data['plan_repaired']),
+          beliefEntropy: _toDouble(data['belief_entropy']),
+          processingSummary: _processingSummary(data['processing']),
+          processingTags: _processingTags(data['processing']),
         ),
         remainingQuota: remainingQuota,
       );
@@ -148,6 +153,11 @@ class RealChatRepository implements ChatRepository {
               ? replyText!
               : 'Mình chưa nhận được phản hồi hợp lệ từ server. Bạn thử lại giúp mình nhé!',
           timestamp: DateTime.now(),
+          nextNodeType: data['next_node_type']?.toString(),
+          planRepaired: _toBool(data['plan_repaired']),
+          beliefEntropy: _toDouble(data['belief_entropy']),
+          processingSummary: _processingSummary(data['processing']),
+          processingTags: _processingTags(data['processing']),
         ),
         remainingQuota: remainingQuota,
       );
@@ -211,6 +221,11 @@ class RealChatRepository implements ChatRepository {
             role: role,
             content: content,
             timestamp: (createdAt ?? DateTime.now()).toLocal(),
+            nextNodeType: map['next_node_type']?.toString(),
+            planRepaired: _toBool(map['plan_repaired']),
+            beliefEntropy: _toDouble(map['belief_entropy']),
+            processingSummary: _processingSummary(map['processing']),
+            processingTags: _processingTags(map['processing']),
             imageUrl: attachment?.url,
             imageMimeType: attachment?.mimeType,
             imageName: attachment?.fileName,
@@ -308,6 +323,40 @@ class RealChatRepository implements ChatRepository {
     if (value is int) return value;
     if (value is String) return int.tryParse(value);
     return null;
+  }
+
+  double? _toDouble(dynamic value) {
+    if (value is double) return value;
+    if (value is num) return value.toDouble();
+    if (value is String) return double.tryParse(value);
+    return null;
+  }
+
+  bool _toBool(dynamic value) {
+    if (value is bool) return value;
+    if (value is String) {
+      final normalized = value.trim().toLowerCase();
+      return normalized == 'true' || normalized == '1' || normalized == 'yes';
+    }
+    if (value is num) return value != 0;
+    return false;
+  }
+
+  String? _processingSummary(dynamic value) {
+    if (value is! Map) return null;
+    final summary = value['summary']?.toString().trim() ?? '';
+    return summary.isEmpty ? null : summary;
+  }
+
+  List<String> _processingTags(dynamic value) {
+    if (value is! Map) return const [];
+    final rawTags = value['tags'];
+    if (rawTags is! List) return const [];
+
+    return rawTags
+        .map((item) => item?.toString().trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
   }
 
   ChatRole? _parseRole(String? roleStr) {

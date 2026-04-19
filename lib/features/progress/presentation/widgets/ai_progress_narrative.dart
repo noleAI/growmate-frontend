@@ -214,90 +214,116 @@ class _Level1Card extends StatelessWidget {
         en: 'AI weekly assessment',
       ),
       accentColor: GrowMateColors.aiCore(Theme.of(context).brightness),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            headline,
-            style: theme.textTheme.bodyLarge?.copyWith(
-              fontWeight: FontWeight.w600,
-              height: 1.45,
-            ),
-          ),
-          if (!isEmpty) ...[
-            const SizedBox(height: GrowMateLayout.breath),
-            Row(
-              children: [
-                // Strong arc
-                Expanded(
-                  child: Column(
-                    children: [
-                      ConfidenceArc(
-                        confidence: strongConfidence,
-                        size: 96,
-                        strokeWidth: 6,
-                        label: context.t(vi: 'Tự tin', en: 'Confident'),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(width: 16),
-                // Needs-work arc (amber)
-                Expanded(
-                  child: Column(
-                    children: [
-                      ConfidenceArc(
-                        confidence: weakConfidence,
-                        size: 96,
-                        strokeWidth: 6,
-                        label: context.t(vi: 'Cần ôn', en: 'Needs review'),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ],
-          const SizedBox(height: GrowMateLayout.breathSm),
-          Row(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final isCompact = constraints.maxWidth < 360;
+          final arcSize = isCompact ? 88.0 : 96.0;
+          final metricWidth = isCompact
+              ? constraints.maxWidth
+              : (constraints.maxWidth - 16) / 2;
+
+          final statusText = isConfirmed
+              ? context.t(
+                  vi: 'AI cập nhật $updatedAgo',
+                  en: 'AI updated $updatedAgo',
+                )
+              : context.t(
+                  vi: 'Dữ liệu tạm thời · có thể chưa chính xác',
+                  en: 'Data provisional · may be approximate',
+                );
+
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Icon(
-                Icons.schedule_rounded,
-                size: 12,
-                color: theme.colorScheme.onSurfaceVariant,
-              ),
-              const SizedBox(width: 4),
-              if (isConfirmed) ...[
-                Text(
-                  context.t(
-                    vi: 'AI cập nhật $updatedAgo',
-                    en: 'AI updated $updatedAgo',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              Text(
+                headline,
+                style: theme.textTheme.bodyLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                  height: 1.45,
                 ),
-              ] else ...[
-                Text(
-                  context.t(
-                    vi: 'Dữ liệu tạm thời · có thể chưa chính xác',
-                    en: 'Data provisional · may be approximate',
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: theme.colorScheme.onSurfaceVariant,
-                  ),
+              ),
+              if (!isEmpty) ...[
+                const SizedBox(height: GrowMateLayout.breath),
+                Wrap(
+                  spacing: 16,
+                  runSpacing: 14,
+                  children: [
+                    SizedBox(
+                      width: metricWidth,
+                      child: Center(
+                        child: ConfidenceArc(
+                          confidence: strongConfidence,
+                          size: arcSize,
+                          strokeWidth: 6,
+                          label: context.t(vi: 'Tự tin', en: 'Confident'),
+                        ),
+                      ),
+                    ),
+                    SizedBox(
+                      width: metricWidth,
+                      child: Center(
+                        child: ConfidenceArc(
+                          confidence: weakConfidence,
+                          size: arcSize,
+                          strokeWidth: 6,
+                          label: context.t(vi: 'Cần ôn', en: 'Needs review'),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ],
-              const Spacer(),
-              GestureDetector(
-                onTap: onWhyTap,
-                child: Row(
-                  children: [DecisionBadge(label: 'Vì sao?', onTap: onWhyTap)],
+              const SizedBox(height: GrowMateLayout.breathSm),
+              if (isCompact) ...[
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 6),
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                          height: 1.35,
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
-              ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: DecisionBadge(label: 'Vì sao?', onTap: onWhyTap),
+                ),
+              ] else
+                Row(
+                  children: [
+                    Icon(
+                      Icons.schedule_rounded,
+                      size: 12,
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                    const SizedBox(width: 4),
+                    Expanded(
+                      child: Text(
+                        statusText,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    DecisionBadge(label: 'Vì sao?', onTap: onWhyTap),
+                  ],
+                ),
             ],
-          ),
-        ],
+          );
+        },
       ),
     );
   }

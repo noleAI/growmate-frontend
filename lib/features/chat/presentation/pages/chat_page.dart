@@ -195,6 +195,11 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
     return 30;
   }
 
+  bool _isGreetingOnly(ChatReady state) {
+    return state.messages.length == 1 &&
+        state.messages.first.id.startsWith('greeting_');
+  }
+
   bool _canChatFromQuotaState(ChatQuotaState state) {
     if (state is ChatQuotaLoaded) {
       return !state.quota.isExceeded;
@@ -526,96 +531,132 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
         children: [
           // Messages list
           Expanded(
-            child: BlocConsumer<ChatCubit, ChatState>(
-              listener: (context, state) {
-                if (state is ChatReady) {
-                  _scrollToBottom();
-                }
-              },
-              builder: (context, state) {
-                if (state is ChatInitial) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+            child: Container(
+              decoration: BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [
+                    colors.surface.withValues(alpha: 0.96),
+                    colors.surfaceContainerLowest.withValues(alpha: 0.94),
+                  ],
+                ),
+              ),
+              child: BlocConsumer<ChatCubit, ChatState>(
+                listener: (context, state) {
+                  if (state is ChatReady) {
+                    _scrollToBottom();
+                  }
+                },
+                builder: (context, state) {
+                  if (state is ChatInitial) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
 
-                if (state is ChatError) {
-                  return Center(
-                    child: Padding(
-                      padding: const EdgeInsets.all(32),
-                      child: Column(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.error_outline_rounded,
-                            size: 48,
-                            color: colors.error,
-                          ),
-                          const SizedBox(height: 16),
-                          Text(
-                            state.message,
-                            style: theme.textTheme.bodyLarge,
-                            textAlign: TextAlign.center,
-                          ),
-                        ],
-                      ),
-                    ),
-                  );
-                }
-
-                if (state is ChatReady) {
-                  if (state.messages.isEmpty) {
+                  if (state is ChatError) {
                     return Center(
-                      child: Text(
-                        context.t(
-                          vi: 'Bắt đầu cuộc trò chuyện!',
-                          en: 'Start a conversation!',
-                        ),
-                        style: theme.textTheme.bodyLarge?.copyWith(
-                          color: colors.onSurfaceVariant,
+                      child: Padding(
+                        padding: const EdgeInsets.all(32),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.error_outline_rounded,
+                              size: 48,
+                              color: colors.error,
+                            ),
+                            const SizedBox(height: 16),
+                            Text(
+                              state.message,
+                              style: theme.textTheme.bodyLarge,
+                              textAlign: TextAlign.center,
+                            ),
+                          ],
                         ),
                       ),
                     );
                   }
 
-                  return ListView.builder(
-                    controller: _scrollController,
-                    cacheExtent: 600,
-                    keyboardDismissBehavior:
-                        ScrollViewKeyboardDismissBehavior.onDrag,
-                    padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
-                    itemCount:
-                        state.messages.length + (state.isAiTyping ? 1 : 0),
-                    itemBuilder: (context, index) {
-                      if (index == state.messages.length && state.isAiTyping) {
-                        return const ChatTypingIndicator();
-                      }
-                      final isBot =
-                          state.messages[index].role == ChatRole.assistant;
-                      return ChatMessageBubble(
-                        message: state.messages[index],
-                        onCopy: () {
-                          Clipboard.setData(
-                            ClipboardData(text: state.messages[index].content),
-                          );
-                          ScaffoldMessenger.of(context)
-                            ..hideCurrentSnackBar()
-                            ..showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  context.t(vi: 'Đã sao chép', en: 'Copied'),
-                                ),
-                                duration: const Duration(seconds: 1),
-                              ),
-                            );
-                        },
-                        botMascot: isBot ? _selectedMascot : null,
+                  if (state is ChatReady) {
+                    if (state.messages.isEmpty) {
+                      return Center(
+                        child: Text(
+                          context.t(
+                            vi: 'Bắt đầu cuộc trò chuyện!',
+                            en: 'Start a conversation!',
+                          ),
+                          style: theme.textTheme.bodyLarge?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
                       );
-                    },
-                  );
-                }
+                    }
 
-                return const SizedBox.shrink();
-              },
+                    final showWelcomeCard = _isGreetingOnly(state);
+
+                    return ListView(
+                      controller: _scrollController,
+                      cacheExtent: 600,
+                      keyboardDismissBehavior:
+                          ScrollViewKeyboardDismissBehavior.onDrag,
+                      padding: const EdgeInsets.fromLTRB(0, 16, 0, 8),
+                      children: [
+                        if (showWelcomeCard)
+                          Padding(
+                            padding: const EdgeInsets.fromLTRB(12, 0, 12, 12),
+                            child: _ChatWelcomeCard(
+                              onSuggestionSelected: (value) {
+                                _sendMessage(value);
+                              },
+                            ),
+                          ),
+                        ...state.messages.map((message) {
+                          final isBot = message.role == ChatRole.assistant;
+                          return ChatMessageBubble(
+                            message: message,
+                            onCopy: () {
+                              Clipboard.setData(
+                                ClipboardData(text: message.content),
+                              );
+                              ScaffoldMessenger.of(context)
+                                ..hideCurrentSnackBar()
+                                ..showSnackBar(
+                                  SnackBar(
+                                    content: Text(
+                                      context.t(
+                                        vi: 'Đã sao chép',
+                                        en: 'Copied',
+                                      ),
+                                    ),
+                                    duration: const Duration(seconds: 1),
+                                  ),
+                                );
+                            },
+                            botMascot: isBot ? _selectedMascot : null,
+                          );
+                        }),
+                        if (state.isAiTyping) const ChatTypingIndicator(),
+                      ],
+                    );
+                  }
+
+                  return const SizedBox.shrink();
+                },
+              ),
             ),
+          ),
+
+          BlocBuilder<ChatCubit, ChatState>(
+            builder: (context, state) {
+              if (state is ChatReady && state.isAiTyping) {
+                return const Padding(
+                  padding: EdgeInsets.fromLTRB(12, 0, 12, 8),
+                  child: _ChatProcessingBanner(),
+                );
+              }
+
+              return const SizedBox.shrink();
+            },
           ),
 
           // Quick chips
@@ -865,6 +906,210 @@ class _ChatViewState extends State<_ChatView> with TickerProviderStateMixin {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ChatProcessingBanner extends StatelessWidget {
+  const _ChatProcessingBanner();
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.centerLeft,
+          end: Alignment.centerRight,
+          colors: [
+            colors.primary.withValues(alpha: 0.10),
+            colors.tertiary.withValues(alpha: 0.08),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.16)),
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.hourglass_top_rounded, color: colors.primary, size: 18),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              context.t(
+                vi: 'AI đang phân tích câu hỏi và chuẩn bị câu trả lời rõ ràng hơn cho bạn.',
+                en: 'AI is analyzing your question and preparing a clearer answer.',
+              ),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurface,
+                fontWeight: FontWeight.w600,
+                height: 1.35,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChatWelcomeCard extends StatelessWidget {
+  const _ChatWelcomeCard({required this.onSuggestionSelected});
+
+  final ValueChanged<String> onSuggestionSelected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final suggestions = <String>[
+      'Giải thích lại bài này từng bước giúp mình',
+      'Tóm tắt nhanh công thức đạo hàm quan trọng',
+      'Cho mình một ví dụ dễ hơn rồi nâng dần',
+    ];
+
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.82),
+            colors.surface,
+          ],
+        ),
+        borderRadius: BorderRadius.circular(28),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.12)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 42,
+                height: 42,
+                decoration: BoxDecoration(
+                  color: colors.primary,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                alignment: Alignment.center,
+                child: Icon(
+                  Icons.auto_awesome_rounded,
+                  color: colors.onPrimary,
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      'GrowMate AI',
+                      style: theme.textTheme.titleMedium?.copyWith(
+                        color: colors.onSurface,
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      context.t(
+                        vi: 'Hỏi bằng chữ, giọng nói hoặc gửi ảnh để được hỗ trợ học nhanh hơn.',
+                        en: 'Ask by text, voice, or image for faster study help.',
+                      ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        height: 1.35,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          _WelcomeFeatureRow(
+            icon: Icons.rule_folder_outlined,
+            label: context.t(
+              vi: 'Giải thích công thức và cách làm theo từng bước',
+              en: 'Break down formulas and solution steps',
+            ),
+          ),
+          const SizedBox(height: 8),
+          _WelcomeFeatureRow(
+            icon: Icons.image_search_rounded,
+            label: context.t(
+              vi: 'Phân tích nhanh ảnh bài tập hoặc đề thi',
+              en: 'Analyze exercise or exam images quickly',
+            ),
+          ),
+          const SizedBox(height: 8),
+          _WelcomeFeatureRow(
+            icon: Icons.timeline_rounded,
+            label: context.t(
+              vi: 'Gợi ý hướng học tiếp theo khi bạn đang bí',
+              en: 'Suggest the next learning step when you get stuck',
+            ),
+          ),
+          const SizedBox(height: 16),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: suggestions
+                .map(
+                  (suggestion) => ActionChip(
+                    onPressed: () => onSuggestionSelected(suggestion),
+                    backgroundColor: colors.surface,
+                    side: BorderSide(
+                      color: colors.outlineVariant.withValues(alpha: 0.6),
+                    ),
+                    label: Text(
+                      suggestion,
+                      style: theme.textTheme.labelMedium?.copyWith(
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _WelcomeFeatureRow extends StatelessWidget {
+  const _WelcomeFeatureRow({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Icon(icon, size: 18, color: colors.primary),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Text(
+            label,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurface,
+              height: 1.35,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ),
+      ],
     );
   }
 }

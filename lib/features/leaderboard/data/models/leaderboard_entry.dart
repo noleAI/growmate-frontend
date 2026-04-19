@@ -24,10 +24,60 @@ class LeaderboardEntry {
   final int badgeCount;
   final int longestStreak;
 
+  String get safeDisplayName {
+    final trimmed = displayName.trim();
+    if (trimmed.isNotEmpty) {
+      return trimmed;
+    }
+
+    final fallbackFromId = userId.trim();
+    if (fallbackFromId.isNotEmpty) {
+      return 'Người chơi ${fallbackFromId.length > 6 ? fallbackFromId.substring(0, 6) : fallbackFromId}';
+    }
+
+    return rank > 0 ? 'Người chơi #$rank' : 'Người chơi';
+  }
+
+  String get shortDisplayName {
+    final parts = safeDisplayName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.trim().isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) {
+      return safeDisplayName;
+    }
+    return parts.length == 1 ? parts.first : parts.last;
+  }
+
+  String get initials {
+    final parts = safeDisplayName
+        .split(RegExp(r'\s+'))
+        .where((part) => part.trim().isNotEmpty)
+        .toList(growable: false);
+    if (parts.isEmpty) {
+      return '?';
+    }
+
+    final first = parts.first.characters.first;
+    final second = parts.length > 1 ? parts.last.characters.first : '';
+    return '$first$second'.toUpperCase();
+  }
+
   factory LeaderboardEntry.fromJson(Map<String, dynamic> json) {
+    final parsedDisplayName =
+        [
+              json['display_name'],
+              json['full_name'],
+              json['name'],
+              json['username'],
+              json['email'],
+            ]
+            .map((value) => value?.toString().trim() ?? '')
+            .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+
     return LeaderboardEntry(
       userId: (json['user_id'] ?? '').toString(),
-      displayName: (json['display_name'] ?? '').toString(),
+      displayName: parsedDisplayName,
       avatarUrl: json['avatar_url']?.toString(),
       rank: _toInt(json['rank']) ?? 0,
       xp: _toInt(json['xp']),

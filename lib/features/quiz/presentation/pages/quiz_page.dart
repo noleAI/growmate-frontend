@@ -42,6 +42,51 @@ import '../widgets/quiz_math_text.dart';
 import '../widgets/afk_overlay.dart';
 import '../widgets/spam_warning_dialog.dart';
 
+bool _isAgenticSystemFallbackMessage(String? message) {
+  final normalized = message?.trim().toLowerCase();
+  if (normalized == null || normalized.isEmpty) {
+    return false;
+  }
+
+  return normalized.contains('hệ thống đang bận') ||
+      normalized.contains('he thong dang ban') ||
+      normalized.contains('nghỉ 5 phút') ||
+      normalized.contains('nghi 5 phut');
+}
+
+String _agenticContentPreviewLabel(
+  BuildContext context,
+  AgenticSessionState state,
+) {
+  final currentContent = state.currentContent?.trim();
+  if (_isAgenticSystemFallbackMessage(currentContent)) {
+    return context.t(vi: 'Thông báo hệ thống', en: 'System notice');
+  }
+
+  final action = state.currentAction?.trim().toLowerCase();
+  if (action == 'show_hint') {
+    return context.t(vi: 'Gợi ý từ AI', en: 'AI hint');
+  }
+  if (action == 'de_stress' ||
+      action == 'show_break' ||
+      action == 'suggest_break') {
+    return context.t(
+      vi: 'Khuyến nghị nghỉ ngắn',
+      en: 'Recovery suggestion',
+    );
+  }
+  if (action == 'hitl' ||
+      action == 'hitl_pending' ||
+      action == 'hitl_brief') {
+    return context.t(
+      vi: 'Cần bạn quyết định',
+      en: 'Decision needed',
+    );
+  }
+
+  return context.t(vi: 'Cập nhật từ AI', en: 'AI update');
+}
+
 class QuizPage extends StatefulWidget {
   const QuizPage({
     super.key,
@@ -1470,10 +1515,21 @@ class _QuizPageState extends State<QuizPage> {
     });
   }
 
+  String? _extractRenderableAgenticHint(AgenticSessionState? state) {
+    final action = state?.currentAction?.trim().toLowerCase();
+    final currentContent = state?.currentContent?.trim();
+    if (action != 'show_hint' ||
+        currentContent == null ||
+        currentContent.isEmpty ||
+        _isAgenticSystemFallbackMessage(currentContent)) {
+      return null;
+    }
+
+    return currentContent;
+  }
+
   bool get _hasAgenticHint {
-    final agenticState = _agenticCubit?.state;
-    return agenticState?.currentAction?.trim().toLowerCase() == 'show_hint' &&
-        (agenticState?.currentContent?.trim().isNotEmpty ?? false);
+    return _extractRenderableAgenticHint(_agenticCubit?.state) != null;
   }
 
   bool _hasInlineGeneralHint() {
@@ -1742,16 +1798,16 @@ class _QuizPageState extends State<QuizPage> {
   /// Handles agentic session state changes from the real-time stream.
   void _onAgenticStateChanged(AgenticSessionState state) {
     if (!mounted) return;
-    final action = state.currentAction?.trim().toLowerCase();
+    final renderableHint = _extractRenderableAgenticHint(state);
     final currentContent = state.currentContent?.trim();
 
-    if (action == 'show_hint' &&
-        currentContent != null &&
-        currentContent.isNotEmpty) {
-      setState(() {
+    setState(() {
+      if (renderableHint != null) {
         _showHint = true;
-      });
-    }
+      } else if (_studyMode != StudyMode.casual && !_hasInlineGeneralHint()) {
+        _showHint = false;
+      }
+    });
 
     if (state.isRecovery) {
       final message = currentContent?.isNotEmpty == true
@@ -2089,6 +2145,18 @@ class _QuizPageState extends State<QuizPage> {
         );
   }
 
+  bool _shouldLeftAlignQuestion(String content, {String? formulaText}) {
+    if ((formulaText?.trim().isNotEmpty ?? false) ||
+        content.runes.length >= 140) {
+      return true;
+    }
+
+    return RegExp(
+      r'\\[A-Za-z]+|(?:<=|>=|->)|[=^_/]|\b(?:lim|sin|cos|tan|ln|log|sqrt)\b',
+      caseSensitive: false,
+    ).hasMatch(content);
+  }
+
   bool _questionHasAnswer(QuizQuestionTemplate question) {
     return switch (question.questionType) {
       QuizQuestionType.multipleChoice =>
@@ -2363,7 +2431,9 @@ class _QuizPageState extends State<QuizPage> {
             }
           });
         },
-        child: GestureDetector(
+        child: Builder(
+          builder: (context) {
+            final pageContent = GestureDetector(
           behavior: HitTestBehavior.translucent,
           onTap: () {
             _signalService.registerInteraction();
@@ -2758,7 +2828,10 @@ class _QuizPageState extends State<QuizPage> {
                                   .clamp(1, _displayTotalQuestions)
                                   .toInt();
                         final questionText = _activeQuestion!.content.trim();
-                        final isLongQuestion = questionText.runes.length >= 140;
+                        final alignQuestionLeft = _shouldLeftAlignQuestion(
+                          questionText,
+                          formulaText: formulaText,
+                        );
                         final submissionTargetCount = _submissionTargetCount;
                         final answeredCount = _displayAnsweredCount;
                         final showSubmitAllButton =
@@ -3078,14 +3151,18 @@ class _QuizPageState extends State<QuizPage> {
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        QuizMathText(
-                                          text: _activeQuestion!.content,
-                                          textAlign: isLongQuestion
-                                              ? TextAlign.left
-                                              : TextAlign.center,
-                                          style: _questionContentStyle(
-                                            theme,
-                                            questionText,
+                                        SelectionArea(
+                                          child: QuizMathText(
+                                            text: _activeQuestion!.content,
+                                            preferPlainTextForMixedContent:
+                                                true,
+                                            textAlign: alignQuestionLeft
+                                                ? TextAlign.left
+                                                : TextAlign.center,
+                                            style: _questionContentStyle(
+                                              theme,
+                                              questionText,
+                                            ),
                                           ),
                                         ),
                                         if (formulaText != null &&
@@ -3522,7 +3599,24 @@ class _QuizPageState extends State<QuizPage> {
                   ),
                 ),
             ],
-          ),
+          );
+
+            final agenticCubit = _agenticCubit;
+            if (agenticCubit == null) {
+              return pageContent;
+            }
+
+            return BlocListener<AgenticSessionCubit, AgenticSessionState>(
+              bloc: agenticCubit,
+              listenWhen: (previous, current) {
+                return previous.currentAction != current.currentAction ||
+                    previous.currentContent != current.currentContent ||
+                    previous.phase != current.phase;
+              },
+              listener: (context, state) => _onAgenticStateChanged(state),
+              child: pageContent,
+            );
+          },
         ),
       ),
     );
@@ -3578,8 +3672,8 @@ class _QuizPageState extends State<QuizPage> {
   }
 
   String _hintText(BuildContext context) {
-    final agenticHint = _agenticCubit?.state.currentContent?.trim();
-    if (_hasAgenticHint && agenticHint != null && agenticHint.isNotEmpty) {
+    final agenticHint = _extractRenderableAgenticHint(_agenticCubit?.state);
+    if (agenticHint != null) {
       return agenticHint;
     }
 
@@ -4147,14 +4241,30 @@ class _AgenticProcessCardState extends State<_AgenticProcessCard>
                   ),
                 ),
               ),
-              child: Text(
-                state.currentContent!,
-                maxLines: 3,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: theme.colorScheme.onSurfaceVariant,
-                  height: 1.35,
-                ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _agenticContentPreviewLabel(context, state),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color:
+                          _isAgenticSystemFallbackMessage(state.currentContent)
+                          ? theme.colorScheme.error
+                          : theme.colorScheme.onSurfaceVariant,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+                  const SizedBox(height: 6),
+                  Text(
+                    state.currentContent!,
+                    maxLines: 3,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                      height: 1.35,
+                    ),
+                  ),
+                ],
               ),
             ),
           ],

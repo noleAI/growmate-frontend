@@ -1412,6 +1412,7 @@ class _AgentMissionCard extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final brightness = theme.brightness;
 
     AgenticSessionState? agenticState;
     try {
@@ -1425,7 +1426,6 @@ class _AgentMissionCard extends StatelessWidget {
     final diagnosisSnapshot = hydrationState.diagnosisSnapshot;
     final hasPendingSession = pending?.hasPending == true;
     final hasLiveDashboard = agenticState?.latestDashboard != null;
-    // Feature availability badge removed during UI cleanup.
 
     final reflection = agenticState?.latestReflection;
     final confidence =
@@ -1434,7 +1434,8 @@ class _AgentMissionCard extends StatelessWidget {
             : diagnosisSnapshot?.confidenceScore) ??
         latestSession?.confidenceScore ??
         hydrationState.confidence;
-    final confidenceLabel = '${(confidence.clamp(0.0, 1.0) * 100).round()}%';
+    final safeConfidence = confidence.clamp(0.0, 1.0);
+    final confidenceLabel = '${(safeConfidence * 100).round()}%';
     final stageLabel = _resolveStageLabel(
       context,
       agenticState: agenticState,
@@ -1446,92 +1447,346 @@ class _AgentMissionCard extends StatelessWidget {
       pending: pending,
       latestSession: latestSession,
     );
+    final resumePoint = _resolveResumePoint(context, pending: pending);
+    final accentColor = _resolveAccentColor(
+      context,
+      agenticState: agenticState,
+      hasPendingSession: hasPendingSession,
+      confidence: safeConfidence,
+    );
+    final stageIcon = _resolveStageIcon(
+      agenticState?.phase,
+      hasPendingSession: hasPendingSession,
+      isPaused: pending?.pauseState == true,
+    );
+    final confidenceToneLabel =
+        Localizations.localeOf(context).languageCode == 'en'
+        ? GrowMateColors.confidenceLabelEn(safeConfidence)
+        : GrowMateColors.confidenceLabelVi(safeConfidence);
+    final summaryLine = _resolveMissionSummary(
+      context,
+      agenticState: agenticState,
+      pending: pending,
+    );
 
     return ZenCard(
       radius: GrowMateLayout.cardRadiusLg,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            children: [
-              Container(
-                width: 36,
-                height: 36,
-                decoration: BoxDecoration(
-                  color: colors.primaryContainer.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Icon(
-                  Icons.psychology_alt_rounded,
-                  color: colors.primary,
-                  size: 20,
-                ),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(20),
+              border: Border.all(color: accentColor.withValues(alpha: 0.16)),
+              gradient: LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  accentColor.withValues(
+                    alpha: brightness == Brightness.dark ? 0.22 : 0.12,
+                  ),
+                  colors.surfaceContainerLow,
+                  colors.tertiaryContainer.withValues(alpha: 0.5),
+                ],
               ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Column(
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Text(
-                      context.t(vi: 'Nhiệm vụ của Agent', en: 'Agent Mission'),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w800,
+                    Container(
+                      width: 42,
+                      height: 42,
+                      decoration: BoxDecoration(
+                        color: colors.surface.withValues(alpha: 0.68),
+                        borderRadius: BorderRadius.circular(14),
+                        boxShadow: [
+                          BoxShadow(
+                            color: accentColor.withValues(alpha: 0.12),
+                            blurRadius: 18,
+                            offset: const Offset(0, 8),
+                          ),
+                        ],
+                      ),
+                      child: Icon(
+                        Icons.auto_awesome_rounded,
+                        color: accentColor,
+                        size: 20,
                       ),
                     ),
-                    // Đã xóa text nhỏ mô tả quy trình dưới 'Nhiệm vụ của Agent' theo yêu cầu
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            context.t(
+                              vi: 'Bảng điều phối AI',
+                              en: 'AI Mission Control',
+                            ),
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              color: colors.onSurface,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          const SizedBox(height: 6),
+                          Text(
+                            summaryLine,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.onSurfaceVariant,
+                              height: 1.42,
+                              fontWeight: FontWeight.w500,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              // FeatureAvailabilityBadge removed as per UI cleanup request
-            ],
-          ),
-          const SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              _MissionMetricChip(
-                label: context.t(vi: 'Pha', en: 'Phase'),
-                value: stageLabel,
-              ),
-              _MissionMetricChip(
-                label: context.t(vi: 'Độ tin cậy', en: 'Confidence'),
-                value: confidenceLabel,
-              ),
-              if (pending?.hasPending == true)
-                _MissionMetricChip(
-                  label: context.t(vi: 'Đang chờ', en: 'Pending'),
-                  value: context.t(vi: 'Có', en: 'Yes'),
+                const SizedBox(height: 14),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _MissionStatusBadge(
+                      icon: stageIcon,
+                      label: stageLabel,
+                      color: accentColor,
+                    ),
+                    _MissionStatusBadge(
+                      icon: Icons.insights_rounded,
+                      label: confidenceToneLabel,
+                      color: GrowMateColors.confidenceColor(
+                        safeConfidence,
+                        brightness,
+                      ),
+                    ),
+                    _MissionStatusBadge(
+                      icon: hasPendingSession
+                          ? Icons.play_circle_rounded
+                          : hasLiveDashboard
+                          ? Icons.wifi_tethering_rounded
+                          : Icons.fiber_manual_record_rounded,
+                      label: hasPendingSession
+                          ? context.t(
+                              vi: 'Đang giữ phiên dở',
+                              en: 'Holding your session',
+                            )
+                          : hasLiveDashboard
+                          ? context.t(
+                              vi: 'Dữ liệu phiên đang live',
+                              en: 'Live session feed',
+                            )
+                          : context.t(
+                              vi: 'Sẵn sàng cho phiên mới',
+                              en: 'Ready for a new session',
+                            ),
+                      color: hasPendingSession
+                          ? colors.tertiary
+                          : colors.primary,
+                    ),
+                  ],
                 ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 12),
-          _MissionLine(
-            title: context.t(vi: 'Mốc tiếp theo', en: 'Next checkpoint'),
+          IntrinsicHeight(
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Expanded(
+                  child: _MissionStatTile(
+                    icon: stageIcon,
+                    label: context.t(vi: 'Pha hiện tại', en: 'Current phase'),
+                    value: stageLabel,
+                    accent: accentColor,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MissionStatTile(
+                    icon: Icons.flag_rounded,
+                    label: context.t(vi: 'Điểm tiếp tục', en: 'Resume point'),
+                    value: resumePoint,
+                    accent: colors.tertiary,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: _MissionStatTile(
+                    icon: Icons.verified_rounded,
+                    label: context.t(vi: 'Độ tin cậy', en: 'Confidence'),
+                    value: confidenceLabel,
+                    accent: GrowMateColors.confidenceColor(
+                      safeConfidence,
+                      brightness,
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _MissionCallout(
+            icon: Icons.alt_route_rounded,
+            title: context.t(vi: 'Ưu tiên tiếp theo', en: 'Next AI priority'),
             body: nextCheckpoint,
+            accent: accentColor,
           ),
           if (reflection != null) ...[
             const SizedBox(height: 10),
-            _MissionLine(
-              title: context.t(vi: 'Phản tư gần nhất', en: 'Latest reflection'),
+            _MissionCallout(
+              icon: Icons.tips_and_updates_rounded,
+              title: context.t(
+                vi: 'Ghi chú gần nhất của AI',
+                en: 'Latest AI reflection',
+              ),
               body: reflection.recommendation.trim().isEmpty
                   ? reflection.reasoning
                   : reflection.recommendation,
+              accent: colors.secondary,
             ),
           ],
           if (hydrationState.errorMessage != null) ...[
             const SizedBox(height: 10),
-            Text(
-              hydrationState.errorMessage!,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+            _MissionCallout(
+              icon: Icons.error_outline_rounded,
+              title: context.t(
+                vi: 'Cần kiểm tra lại dữ liệu',
+                en: 'Data needs a recheck',
               ),
+              body: hydrationState.errorMessage!,
+              accent: colors.error,
             ),
           ],
         ],
       ),
     );
+  }
+
+  Color _resolveAccentColor(
+    BuildContext context, {
+    required AgenticSessionState? agenticState,
+    required bool hasPendingSession,
+    required double confidence,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+
+    if (hydrationState.pendingSession?.pauseState == true) {
+      return GrowMateColors.confused(theme.brightness);
+    }
+
+    return switch (agenticState?.phase) {
+      AgenticPhase.processing => GrowMateColors.aiCore(theme.brightness),
+      AgenticPhase.recovery => GrowMateColors.confused(theme.brightness),
+      AgenticPhase.hitlPending => colors.tertiary,
+      AgenticPhase.error => colors.error,
+      AgenticPhase.completed => colors.primary,
+      _ when hasPendingSession => colors.tertiary,
+      _ => GrowMateColors.confidenceColor(confidence, theme.brightness),
+    };
+  }
+
+  String _resolveMissionSummary(
+    BuildContext context, {
+    required AgenticSessionState? agenticState,
+    required PendingSession? pending,
+  }) {
+    if (pending?.hasPending == true) {
+      if (pending?.pauseState == true) {
+        return context.t(
+          vi: 'AI đang giữ nguyên mốc học hiện tại để bạn quay lại đúng nhịp sau khi tạm dừng.',
+          en: 'AI is preserving your current checkpoint so you can return smoothly after the pause.',
+        );
+      }
+
+      return context.t(
+        vi: 'AI đang giữ nhịp của phiên học dở và chờ bạn quay lại đúng câu đang làm.',
+        en: 'AI is holding your unfinished session so you can resume at the exact question you left.',
+      );
+    }
+
+    return switch (agenticState?.phase) {
+      AgenticPhase.processing => context.t(
+        vi: 'AI đang đọc tín hiệu học mới để chọn bước hỗ trợ phù hợp nhất.',
+        en: 'AI is reading your latest learning signals to choose the most useful next step.',
+      ),
+      AgenticPhase.recovery => context.t(
+        vi: 'AI đang hạ nhịp phiên học để bạn lấy lại tập trung trước khi đi tiếp.',
+        en: 'AI is softening the pace so you can recover focus before moving on.',
+      ),
+      AgenticPhase.hitlPending => context.t(
+        vi: 'AI đã phát hiện cần thêm xác nhận trước khi tiếp tục bước can thiệp tiếp theo.',
+        en: 'AI is waiting for an extra confirmation before continuing the next intervention.',
+      ),
+      _ when agenticState?.latestDashboard != null => context.t(
+        vi: 'AI đang theo dõi dữ liệu phiên học gần nhất và ưu tiên bước học tiếp theo cho bạn.',
+        en: 'AI is tracking your latest session data and prioritizing the next study step.',
+      ),
+      _
+          when hydrationState.hasReadyHistory ||
+              hydrationState.diagnosisSnapshot != null ||
+              hydrationState.hasRemoteHistoryConfirmation =>
+        context.t(
+          vi: 'AI đã gom dữ liệu gần đây và sẵn sàng gợi ý nhịp học tiếp theo.',
+          en: 'AI has gathered your recent data and is ready to suggest the next study rhythm.',
+        ),
+      _ => context.t(
+        vi: 'Bắt đầu một lượt quiz để AI dựng kế hoạch và gợi ý sát hơn cho bạn.',
+        en: 'Start a quiz so AI can build a sharper plan and guidance for you.',
+      ),
+    };
+  }
+
+  String _resolveResumePoint(
+    BuildContext context, {
+    required PendingSession? pending,
+  }) {
+    if (pending?.hasPending != true) {
+      return context.t(vi: 'Phiên mới', en: 'Fresh start');
+    }
+
+    final index = pending?.lastQuestionIndex ?? pending?.nextQuestionIndex;
+    if (index == null || index < 0) {
+      return context.t(vi: 'Chưa rõ', en: 'Unknown');
+    }
+
+    final question = index + 1;
+    final total = pending?.totalQuestions;
+    if (total != null && total > 0) {
+      return context.t(vi: 'Câu $question/$total', en: 'Q$question/$total');
+    }
+
+    return context.t(vi: 'Câu $question', en: 'Q$question');
+  }
+
+  IconData _resolveStageIcon(
+    AgenticPhase? phase, {
+    required bool hasPendingSession,
+    required bool isPaused,
+  }) {
+    if (isPaused) {
+      return Icons.pause_circle_filled_rounded;
+    }
+
+    if (hasPendingSession && (phase == null || phase == AgenticPhase.ready)) {
+      return Icons.play_circle_fill_rounded;
+    }
+
+    return switch (phase) {
+      AgenticPhase.processing => Icons.sync_rounded,
+      AgenticPhase.interacting => Icons.forum_rounded,
+      AgenticPhase.hitlPending => Icons.support_agent_rounded,
+      AgenticPhase.recovery => Icons.self_improvement_rounded,
+      AgenticPhase.completed => Icons.task_alt_rounded,
+      AgenticPhase.error => Icons.error_outline_rounded,
+      _ => Icons.psychology_alt_rounded,
+    };
   }
 
   String _resolveStageLabel(
@@ -1659,50 +1914,79 @@ class _AgentMissionLoadingCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: const [
+          ShimmerCard(height: 126, radius: 20),
+          SizedBox(height: 12),
           Row(
             children: [
-              ShimmerCard(height: 36, width: 36, radius: 12),
+              Expanded(child: ShimmerCard(height: 124, radius: 16)),
               SizedBox(width: 10),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ShimmerText(width: 150, height: 16),
-                    SizedBox(height: 6),
-                    ShimmerText(width: 220, height: 12),
-                  ],
-                ),
-              ),
-              SizedBox(width: 8),
-              ShimmerCard(height: 28, width: 92, radius: 16),
+              Expanded(child: ShimmerCard(height: 124, radius: 16)),
+              SizedBox(width: 10),
+              Expanded(child: ShimmerCard(height: 124, radius: 16)),
             ],
           ),
           SizedBox(height: 12),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
-            children: [
-              ShimmerCard(height: 36, width: 108, radius: 18),
-              ShimmerCard(height: 36, width: 116, radius: 18),
-            ],
-          ),
-          SizedBox(height: 12),
-          ShimmerText(width: 100, height: 12),
-          SizedBox(height: 8),
-          ShimmerText(width: double.infinity, height: 14),
-          SizedBox(height: 6),
-          ShimmerText(width: 180, height: 14),
+          ShimmerCard(height: 76, radius: 16),
+          SizedBox(height: 10),
+          ShimmerCard(height: 76, radius: 16),
         ],
       ),
     );
   }
 }
 
-class _MissionMetricChip extends StatelessWidget {
-  const _MissionMetricChip({required this.label, required this.value});
+class _MissionStatusBadge extends StatelessWidget {
+  const _MissionStatusBadge({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
 
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _MissionStatTile extends StatelessWidget {
+  const _MissionStatTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.accent,
+  });
+
+  final IconData icon;
   final String label;
   final String value;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
@@ -1710,28 +1994,41 @@ class _MissionMetricChip extends StatelessWidget {
     final colors = theme.colorScheme;
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.12)),
       ),
       child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.center,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            value,
-            style: theme.textTheme.titleMedium?.copyWith(
-              color: colors.onSurface,
-              fontWeight: FontWeight.w800,
+          Container(
+            width: 32,
+            height: 32,
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.72),
+              borderRadius: BorderRadius.circular(12),
             ),
+            child: Icon(icon, size: 18, color: accent),
           ),
-          const SizedBox(height: 4),
+          const SizedBox(height: 12),
           Text(
             label,
-            style: theme.textTheme.labelSmall?.copyWith(
+            style: theme.textTheme.labelMedium?.copyWith(
               color: colors.onSurfaceVariant,
               fontWeight: FontWeight.w700,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Text(
+            value,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w800,
+              height: 1.2,
             ),
           ),
         ],
@@ -1740,36 +2037,69 @@ class _MissionMetricChip extends StatelessWidget {
   }
 }
 
-class _MissionLine extends StatelessWidget {
-  const _MissionLine({required this.title, required this.body});
+class _MissionCallout extends StatelessWidget {
+  const _MissionCallout({
+    required this.icon,
+    required this.title,
+    required this.body,
+    required this.accent,
+  });
 
+  final IconData icon;
   final String title;
   final String body;
+  final Color accent;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          title,
-          style: theme.textTheme.labelMedium?.copyWith(
-            color: colors.onSurfaceVariant,
-            fontWeight: FontWeight.w800,
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: accent.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: accent.withValues(alpha: 0.12)),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: colors.surface.withValues(alpha: 0.7),
+              borderRadius: BorderRadius.circular(12),
+            ),
+            child: Icon(icon, size: 18, color: accent),
           ),
-        ),
-        const SizedBox(height: 4),
-        Text(
-          body,
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colors.onSurface,
-            height: 1.4,
-            fontWeight: FontWeight.w600,
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  title,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: accent,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  body,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurface,
+                    height: 1.4,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }

@@ -75,7 +75,7 @@ class MultiplayerCubit extends Cubit<MultiplayerState> {
   }
 
   void joinRoom(String code) {
-    // TODO: WebSocket join room
+    // Placeholder local join flow until realtime room sync is implemented.
     final room = BattleRoom(
       code: code,
       players: [

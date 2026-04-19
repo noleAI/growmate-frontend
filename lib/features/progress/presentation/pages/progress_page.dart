@@ -20,8 +20,6 @@ import '../../../../shared/widgets/zen_screen_header.dart';
 import '../../../../shared/widgets/shimmer/shimmer_text.dart';
 import '../../../../shared/widgets/ai_reflection_widget.dart';
 import '../../../../app/i18n/build_context_i18n.dart';
-import '../../../../shared/models/feature_availability.dart';
-import '../../../../shared/widgets/feature_availability_banner.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_cubit.dart';
 import '../../../agentic_session/presentation/cubit/agentic_session_state.dart';
 import '../../../quiz/data/repositories/quiz_api_repository.dart';
@@ -86,6 +84,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
   UniqueKey _streamKey = UniqueKey();
   late Stream<List<SessionHistoryEntry>> _historyStream;
   Future<List<TopicMastery>>? _realMasteryFuture;
+  bool _isRefreshingProgress = false;
 
   bool get _shouldWaitForRealMastery =>
       widget.realProgressRepository != null && _resolveSessionId() != null;
@@ -99,14 +98,40 @@ class _ProgressScreenState extends State<ProgressScreen> {
     _realMasteryFuture = _loadRealMastery();
   }
 
-  void refresh() {
+  Future<void> _refreshProgress() async {
+    if (_isRefreshingProgress) {
+      return;
+    }
+
     setState(() {
+      _isRefreshingProgress = true;
       _streamKey = UniqueKey();
       _historyStream = widget.sessionHistoryRepository
           .watchHistory()
           .asBroadcastStream();
       _realMasteryFuture = _loadRealMastery();
     });
+
+    try {
+      await Future.wait<Object?>([
+        _historyStream.first.timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => const <SessionHistoryEntry>[],
+        ),
+        (_realMasteryFuture ?? Future.value(const <TopicMastery>[])).timeout(
+          const Duration(seconds: 2),
+          onTimeout: () => const <TopicMastery>[],
+        ),
+      ]);
+    } catch (_) {
+      // Keep the refresh affordance resilient even when one source times out.
+    } finally {
+      if (mounted) {
+        setState(() {
+          _isRefreshingProgress = false;
+        });
+      }
+    }
   }
 
   Future<List<TopicMastery>> _loadRealMastery() async {
@@ -239,6 +264,8 @@ class _ProgressScreenState extends State<ProgressScreen> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final screenWidth = MediaQuery.sizeOf(context).width;
+    final isCompactPhone = screenWidth < 420;
 
     return DefaultTabController(
       length: 2,
@@ -288,73 +315,11 @@ class _ProgressScreenState extends State<ProgressScreen> {
                 ],
               ),
               const SizedBox(height: GrowMateLayout.space12),
-              FeatureAvailabilityBanner(
-                availability: widget.realProgressRepository != null
-                    ? FeatureAvailability.server
-                    : FeatureAvailability.localFallback,
-                message: widget.realProgressRepository != null
-                    ? context.t(
-                        vi: 'Mastery map uu tien belief-state va session history that tu backend.',
-                        en: 'Mastery map prioritizes backend belief-state and server session history.',
-                      )
-                    : context.t(
-                        vi: 'Progress dang dung local fallback cho narrative khi backend mastery chua san sang.',
-                        en: 'Progress is using a local fallback narrative while backend mastery is unavailable.',
-                      ),
-              ),
               const SizedBox(height: GrowMateLayout.sectionGap),
-              Container(
-                margin: const EdgeInsets.symmetric(horizontal: 4),
-                padding: const EdgeInsets.all(6),
-                decoration: BoxDecoration(
-                  color: theme.colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(18),
-                  boxShadow: [
-                    BoxShadow(
-                      color: theme.colorScheme.shadow.withValues(alpha: 0.04),
-                      blurRadius: 8,
-                      offset: const Offset(0, 2),
-                    ),
-                  ],
-                ),
-                child: TabBar(
-                  dividerColor: Colors.transparent,
-                  indicator: BoxDecoration(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(14),
-                  ),
-                  labelColor: theme.colorScheme.primary,
-                  unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
-                  labelStyle: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                  unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w600,
-                  ),
-                  overlayColor: WidgetStateProperty.all(Colors.transparent),
-                  tabs: [
-                    Tab(
-                      icon: const Icon(Icons.insights_rounded, size: 22),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          context.t(vi: 'Tiến trình', en: 'Progress'),
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                    ),
-                    Tab(
-                      icon: const Icon(Icons.auto_stories_rounded, size: 22),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(vertical: 2),
-                        child: Text(
-                          context.t(vi: 'Sổ tay', en: 'Handbook'),
-                          style: const TextStyle(fontSize: 16),
-                        ),
-                      ),
-                    ),
-                  ],
-                ),
+              _ProgressTabHeader(
+                isCompact: isCompactPhone,
+                isRefreshing: _isRefreshingProgress,
+                onRefresh: () => unawaited(_refreshProgress()),
               ),
               Expanded(
                 child: TabBarView(
@@ -372,13 +337,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                 vi: 'Không tải được dữ liệu. Bạn thử lại nhé.',
                                 en: 'Unable to load data. Please try again.',
                               ),
-                              onRetry: () {
-                                context
-                                    .findAncestorStateOfType<
-                                      _ProgressScreenState
-                                    >()
-                                    ?.refresh();
-                              },
+                              onRetry: () => unawaited(_refreshProgress()),
                             );
                           }
 
@@ -410,7 +369,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                     vi: 'Không tải được dữ liệu tiến trình từ server.',
                                     en: 'Unable to load progress data from server.',
                                   ),
-                                  onRetry: refresh,
+                                  onRetry: () => unawaited(_refreshProgress()),
                                 );
                               }
 
@@ -420,16 +379,24 @@ class _ProgressScreenState extends State<ProgressScreen> {
                               );
 
                               return RefreshIndicator(
-                                onRefresh: () async {
-                                  refresh();
-                                  await Future.delayed(
-                                    const Duration(milliseconds: 500),
-                                  );
-                                },
+                                onRefresh: _refreshProgress,
                                 child: ListView(
+                                  padding: EdgeInsets.fromLTRB(
+                                    0,
+                                    isCompactPhone
+                                        ? GrowMateLayout.space16
+                                        : GrowMateLayout.sectionGapLg,
+                                    0,
+                                    GrowMateLayout.sectionGap,
+                                  ),
                                   children: [
+                                    _ProgressSnapshotStrip(
+                                      progress: progress,
+                                      sessionCount: history.length,
+                                      history: history,
+                                    ),
                                     const SizedBox(
-                                      height: GrowMateLayout.sectionGapLg,
+                                      height: GrowMateLayout.sectionGap,
                                     ),
                                     AiProgressNarrative(
                                       progress: progress,
@@ -462,7 +429,7 @@ class _ProgressScreenState extends State<ProgressScreen> {
                                       },
                                     ),
                                     const SizedBox(
-                                      height: GrowMateLayout.sectionGapLg,
+                                      height: GrowMateLayout.sectionGap,
                                     ),
                                     // Đã loại bỏ các section: Ôn tập ngắt quãng, Huy hiệu thành tựu, Lịch học thông minh, Timeline phiên học
                                     _WeeklyMomentumSection(
@@ -515,6 +482,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final isCompact = MediaQuery.sizeOf(context).width < 420;
     final now = DateTime.now();
     final days = List<DateTime>.generate(
       7,
@@ -600,7 +568,7 @@ class _WeeklyMomentumSection extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 SizedBox(
-                  height: 170,
+                  height: isCompact ? 144 : 170,
                   child: BarChart(
                     BarChartData(
                       maxY: 4,
@@ -673,43 +641,379 @@ class _WeeklyMomentumSection extends StatelessWidget {
             ),
           ),
           const SizedBox(height: 8),
-          Text(
-            context.t(
-              vi: 'TB tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
-              en: '7-day focus avg: ${avgFocus.toStringAsFixed(1)}/4',
-            ),
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-              color: Theme.of(context).colorScheme.onSurfaceVariant,
-            ),
-          ),
-          const SizedBox(height: 12),
           Container(
             width: double.infinity,
-            padding: const EdgeInsets.all(12),
+            padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
             decoration: BoxDecoration(
               color: Theme.of(context).colorScheme.surfaceContainerHigh,
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(16),
             ),
-            child: Text(
-              context.t(
-                vi: 'Hành động ngày mai: $tomorrowAction',
-                en: 'Tomorrow action: $tomorrowAction',
-              ),
-              style: Theme.of(
-                context,
-              ).textTheme.bodyLarge?.copyWith(fontWeight: FontWeight.w600),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  context.t(
+                    vi: 'TB tập trung 7 ngày: ${avgFocus.toStringAsFixed(1)}/4',
+                    en: '7-day focus avg: ${avgFocus.toStringAsFixed(1)}/4',
+                  ),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      decoration: BoxDecoration(
+                        color: colors.primary.withValues(alpha: 0.14),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Icon(
+                        Icons.flag_rounded,
+                        size: 18,
+                        color: colors.primary,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        context.t(
+                          vi: 'Hành động ngày mai: $tomorrowAction',
+                          en: 'Tomorrow action: $tomorrowAction',
+                        ),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          fontWeight: FontWeight.w600,
+                          height: 1.4,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
             ),
           ),
         ],
       ),
     );
   }
+}
 
-  static String _resolveWeakestTopic(
-    BuildContext context,
-    UserProgressSnapshot progress,
-  ) {
-    final gaps =
+class _ProgressTabHeader extends StatelessWidget {
+  const _ProgressTabHeader({
+    required this.isCompact,
+    required this.isRefreshing,
+    required this.onRefresh,
+  });
+
+  final bool isCompact;
+  final bool isRefreshing;
+  final VoidCallback onRefresh;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+
+    Widget refreshButton() {
+      return Tooltip(
+        message: context.t(
+          vi: 'Tải lại dữ liệu tiến trình',
+          en: 'Refresh progress data',
+        ),
+        child: Material(
+          color: theme.colorScheme.surface,
+          shape: isCompact
+              ? RoundedRectangleBorder(borderRadius: BorderRadius.circular(14))
+              : const CircleBorder(),
+          child: isCompact
+              ? InkWell(
+                  borderRadius: BorderRadius.circular(14),
+                  onTap: isRefreshing ? null : onRefresh,
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 12,
+                      vertical: 10,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        if (isRefreshing)
+                          SizedBox(
+                            width: 18,
+                            height: 18,
+                            child: CircularProgressIndicator(
+                              strokeWidth: 2.1,
+                              color: theme.colorScheme.primary,
+                            ),
+                          )
+                        else
+                          Icon(
+                            Icons.refresh_rounded,
+                            size: 18,
+                            color: theme.colorScheme.primary,
+                          ),
+                        const SizedBox(width: 8),
+                        Text(
+                          context.t(vi: 'Làm mới', en: 'Refresh'),
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: theme.colorScheme.primary,
+                            fontWeight: FontWeight.w700,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                )
+              : IconButton(
+                  onPressed: isRefreshing ? null : onRefresh,
+                  style: IconButton.styleFrom(
+                    backgroundColor: theme.colorScheme.surface,
+                    foregroundColor: theme.colorScheme.primary,
+                    disabledBackgroundColor:
+                        theme.colorScheme.surfaceContainerHigh,
+                    disabledForegroundColor:
+                        theme.colorScheme.onSurfaceVariant,
+                  ),
+                  icon: isRefreshing
+                      ? SizedBox(
+                          width: 20,
+                          height: 20,
+                          child: CircularProgressIndicator(
+                            strokeWidth: 2.2,
+                            color: theme.colorScheme.primary,
+                          ),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+        ),
+      );
+    }
+
+    final tabs = Container(
+      margin: EdgeInsets.only(left: 4, right: isCompact ? 4 : 8),
+      padding: const EdgeInsets.all(6),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(18),
+        boxShadow: [
+          BoxShadow(
+            color: theme.colorScheme.shadow.withValues(alpha: 0.04),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+        ],
+      ),
+      child: TabBar(
+        dividerColor: Colors.transparent,
+        indicatorSize: TabBarIndicatorSize.tab,
+        labelPadding: EdgeInsets.zero,
+        indicator: BoxDecoration(
+          color: theme.colorScheme.primary.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(14),
+        ),
+        labelColor: theme.colorScheme.primary,
+        unselectedLabelColor: theme.colorScheme.onSurfaceVariant,
+        labelStyle: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w800,
+        ),
+        unselectedLabelStyle: theme.textTheme.titleMedium?.copyWith(
+          fontWeight: FontWeight.w600,
+        ),
+        overlayColor: WidgetStateProperty.all(Colors.transparent),
+        tabs: [
+          Tab(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.insights_rounded, size: 20),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    context.t(vi: 'Tiến trình', en: 'Progress'),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+          Tab(
+            height: 56,
+            child: Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                const Icon(Icons.auto_stories_rounded, size: 20),
+                const SizedBox(width: 8),
+                Flexible(
+                  child: Text(
+                    context.t(vi: 'Sổ tay', en: 'Handbook'),
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(fontSize: 16),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+
+    if (isCompact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          tabs,
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerRight, child: refreshButton()),
+        ],
+      );
+    }
+
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.center,
+      children: [Expanded(child: tabs), refreshButton()],
+    );
+  }
+}
+
+class _ProgressSnapshotStrip extends StatelessWidget {
+  const _ProgressSnapshotStrip({
+    required this.progress,
+    required this.sessionCount,
+    required this.history,
+  });
+
+  final UserProgressSnapshot progress;
+  final int sessionCount;
+  final List<SessionHistoryEntry> history;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isCompact = MediaQuery.sizeOf(context).width < 420;
+    final isCompact = MediaQuery.sizeOf(context).width < 420;
+    final primaryTopic = progress.masteryMap.isNotEmpty
+        ? _topicLabel(
+            context,
+            (List<TopicMastery>.from(progress.masteryMap)
+                  ..sort((a, b) => a.score.compareTo(b.score)))
+                .first
+                .topic,
+          )
+        : history.isNotEmpty
+        ? history.first.topic
+        : context.t(vi: 'Đợi cập nhật', en: 'Awaiting update');
+
+    final items = <({IconData icon, String label, String value, Color accent})>[
+      (
+        icon: Icons.calendar_view_week_rounded,
+        label: context.t(vi: 'Nhịp tuần', en: 'Weekly rhythm'),
+        value: progress.weeklyConsistency.isEmpty
+            ? context.t(vi: 'Chưa có dữ liệu', en: 'No data yet')
+            : progress.weeklyConsistency,
+        accent: colors.primary,
+      ),
+      (
+        icon: Icons.history_rounded,
+        label: context.t(vi: 'Phiên gần đây', en: 'Recent sessions'),
+        value: context.t(
+          vi: '$sessionCount phiên',
+          en: '$sessionCount sessions',
+        ),
+        accent: colors.tertiary,
+      ),
+      (
+        icon: Icons.flag_circle_rounded,
+        label: context.t(vi: 'Ưu tiên tiếp theo', en: 'Next priority'),
+        value: primaryTopic,
+        accent: colors.secondary,
+      ),
+    ];
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            colors.surface.withValues(alpha: 0.92),
+            colors.primaryContainer.withValues(alpha: 0.18),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(24),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.45)),
+      ),
+      child: Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: items
+            .map(
+              (item) => SizedBox(
+                width: isCompact
+                    ? double.infinity
+                    : ((MediaQuery.sizeOf(context).width - 64) / 3),
+                child: Container(
+                  padding: const EdgeInsets.fromLTRB(12, 12, 12, 12),
+                  decoration: BoxDecoration(
+                    color: colors.surface.withValues(alpha: 0.84),
+                    borderRadius: BorderRadius.circular(18),
+                  ),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 40,
+                        height: 40,
+                        decoration: BoxDecoration(
+                          color: item.accent.withValues(alpha: 0.14),
+                          borderRadius: BorderRadius.circular(14),
+                        ),
+                        child: Icon(item.icon, color: item.accent, size: 20),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              item.label,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: colors.onSurfaceVariant,
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              item.value,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodyMedium?.copyWith(
+                                color: colors.onSurface,
+                                fontWeight: FontWeight.w700,
+                                height: 1.3,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+}
         progress.masteryMap
             .where((topic) => topic.score < 3.0)
             .toList(growable: false)
@@ -844,50 +1148,99 @@ class _RecentSessionsSection extends StatelessWidget {
                     color: colors.primary.withValues(alpha: 0.08),
                   ),
                 ),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
+                child: isCompact
+                    ? Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
                             entry.topic,
-                            maxLines: 1,
+                            maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodyMedium?.copyWith(
                               fontWeight: FontWeight.w700,
+                              height: 1.3,
                             ),
                           ),
-                          const SizedBox(height: 2),
-                          Text(
-                            context.t(
-                              vi: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
-                              en: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
-                            ),
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
+                          const SizedBox(height: 6),
+                          Wrap(
+                            spacing: 8,
+                            runSpacing: 6,
+                            children: [
+                              _MiniMetricChip(label: statusLabel),
+                              _MiniMetricChip(
+                                label: context.t(
+                                  vi: 'Focus ${entry.focusScore.toStringAsFixed(1)}/4',
+                                  en: 'Focus ${entry.focusScore.toStringAsFixed(1)}/4',
+                                ),
+                              ),
+                              _MiniMetricChip(label: dateLabel),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Align(
+                            alignment: Alignment.centerRight,
+                            child: FilledButton.tonalIcon(
+                              onPressed: sessionId == null
+                                  ? null
+                                  : () {
+                                      final location = Uri(
+                                        path: AppRoutes.diagnosis,
+                                        queryParameters: <String, String>{
+                                          'submissionId': sessionId,
+                                        },
+                                      ).toString();
+                                      context.push(location);
+                                    },
+                              icon: const Icon(Icons.open_in_new_rounded, size: 16),
+                              label: Text(context.t(vi: 'Xem phiên', en: 'Open')),
                             ),
                           ),
                         ],
+                      )
+                    : Row(
+                        children: [
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  entry.topic,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  context.t(
+                                    vi: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
+                                    en: '$statusLabel • Focus ${entry.focusScore.toStringAsFixed(1)}/4 • $dateLabel',
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          FilledButton.tonal(
+                            onPressed: sessionId == null
+                                ? null
+                                : () {
+                                    final location = Uri(
+                                      path: AppRoutes.diagnosis,
+                                      queryParameters: <String, String>{
+                                        'submissionId': sessionId,
+                                      },
+                                    ).toString();
+                                    context.push(location);
+                                  },
+                            child: Text(context.t(vi: 'Xem', en: 'Open')),
+                          ),
+                        ],
                       ),
-                    ),
-                    const SizedBox(width: 8),
-                    FilledButton.tonal(
-                      onPressed: sessionId == null
-                          ? null
-                          : () {
-                              final location = Uri(
-                                path: AppRoutes.diagnosis,
-                                queryParameters: <String, String>{
-                                  'submissionId': sessionId,
-                                },
-                              ).toString();
-                              context.push(location);
-                            },
-                      child: Text(context.t(vi: 'Xem', en: 'Open')),
-                    ),
-                  ],
-                ),
               ),
             );
           }),
@@ -996,23 +1349,97 @@ class _LoadingStateWidget extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: double.infinity,
-      padding: const EdgeInsets.all(GrowMateLayout.contentGap),
-      decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
+    final colors = Theme.of(context).colorScheme;
+
+    Widget skeletonCard({
+      required double height,
+      EdgeInsetsGeometry padding = const EdgeInsets.all(
+        GrowMateLayout.contentGap,
       ),
-      child: const Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          ShimmerText(width: 180, height: 14),
-          SizedBox(height: 10),
-          ShimmerText(width: double.infinity, height: 10),
-          SizedBox(height: 8),
-          ShimmerText(width: 140, height: 10),
-        ],
-      ),
+      required List<Widget> children,
+    }) {
+      return Container(
+        width: double.infinity,
+        padding: padding,
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.86),
+          borderRadius: BorderRadius.circular(24),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.5),
+          ),
+          boxShadow: [
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.04),
+              blurRadius: 18,
+              offset: const Offset(0, 8),
+            ),
+          ],
+        ),
+        child: SizedBox(
+          height: height,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: children,
+          ),
+        ),
+      );
+    }
+
+    return ListView(
+      physics: const NeverScrollableScrollPhysics(),
+      padding: const EdgeInsets.only(top: GrowMateLayout.sectionGapLg),
+      children: [
+        skeletonCard(
+          height: 170,
+          children: const [
+            ShimmerText(width: 150, height: 14),
+            SizedBox(height: 18),
+            ShimmerText(width: 260, height: 30),
+            SizedBox(height: 14),
+            ShimmerText(width: double.infinity, height: 12),
+            SizedBox(height: 10),
+            ShimmerText(width: 210, height: 12),
+            Spacer(),
+            ShimmerText(width: 120, height: 12),
+          ],
+        ),
+        const SizedBox(height: GrowMateLayout.sectionGap),
+        skeletonCard(
+          height: 220,
+          children: const [
+            ShimmerText(width: 170, height: 14),
+            SizedBox(height: 18),
+            Row(
+              children: [
+                Expanded(
+                  child: ShimmerText(width: double.infinity, height: 84),
+                ),
+                SizedBox(width: 14),
+                Expanded(
+                  child: ShimmerText(width: double.infinity, height: 84),
+                ),
+              ],
+            ),
+            SizedBox(height: 18),
+            ShimmerText(width: double.infinity, height: 12),
+            SizedBox(height: 10),
+            ShimmerText(width: 220, height: 12),
+          ],
+        ),
+        const SizedBox(height: GrowMateLayout.sectionGap),
+        skeletonCard(
+          height: 200,
+          children: const [
+            ShimmerText(width: 190, height: 14),
+            SizedBox(height: 18),
+            ShimmerText(width: double.infinity, height: 48),
+            SizedBox(height: 12),
+            ShimmerText(width: double.infinity, height: 48),
+            SizedBox(height: 12),
+            ShimmerText(width: double.infinity, height: 48),
+          ],
+        ),
+      ],
     );
   }
 }

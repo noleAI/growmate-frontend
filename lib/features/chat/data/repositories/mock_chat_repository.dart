@@ -138,6 +138,9 @@ class MockChatRepository implements ChatRepository {
       role: ChatRole.assistant,
       content: response,
       timestamp: DateTime.now(),
+      processingSummary:
+          'Đây là phản hồi mô phỏng theo chủ đề bạn hỏi, chưa gọi backend thật.',
+      processingTags: const ['Mock mode', 'Không gọi backend'],
     );
 
     _history.add(aiMessage);
@@ -184,6 +187,9 @@ class MockChatRepository implements ChatRepository {
           'Hiện tại bạn đang ở mock mode nên mình chỉ mô phỏng phản hồi. '
           'Khi dùng backend thật, mình sẽ phân tích trực tiếp nội dung trong ảnh và trả lời chi tiết hơn.',
       timestamp: DateTime.now(),
+      processingSummary:
+          'Đây là bước phân tích ảnh mô phỏng để kiểm tra UI khi chưa nối backend.',
+      processingTags: const ['Mock mode', 'Phân tích ảnh mô phỏng'],
     );
 
     _history.add(aiMessage);
